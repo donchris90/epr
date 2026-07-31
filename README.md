@@ -51,7 +51,9 @@ SiteForge/
 cd backend
 cp .env.example .env
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt  # includes requirements.txt (runtime) plus test tooling
+# Running the app without ever running tests? `pip install -r requirements.txt` alone is enough --
+# it's what the production Docker image actually installs (backend/Dockerfile).
 
 # Migrations create every module's tables and their RLS policies:
 flask db upgrade
@@ -1414,6 +1416,82 @@ verified; the remaining steps (create the GitHub repo, push, connect
 it in the Render dashboard, fill in the `sync: false` secrets) are
 things only you can do.
 
+## Production readiness: session notes (real DSAR search tooling)
+
+The NDPA/DSAR gap was the one item genuinely flagged as a legal
+blocker, not a technical one -- but part of it *was* technical and
+buildable: `docs/DATA_PROTECTION.md` had explicitly called out "a way
+to search across all modules a given email/name appears in within one
+tenant -- not built" as a concrete missing piece. Built it.
+
+`GET /v1/dsar/search?email=...` (or `?phone=...`), gated behind a
+dedicated `dsar:search` permission, searches `users`, BDC clients and
+contacts, WFM casual workers, and both portal-user tables in one call
+-- what used to require a human to know to manually query up to six
+different tables by hand. Verified for real: seeded matching records
+across four tables under one tenant plus a same-email decoy under a
+different tenant, confirmed every real match is found, confirmed
+nothing leaks across the tenant boundary, confirmed the permission
+gate actually blocks an unauthorized token, confirmed case-insensitive
+matching. Caught a real bug building it -- assumed WFM's `Employee`
+model had a phone field to search on; it doesn't, only `CasualWorker`
+does, found by actually running the seed data through it rather than
+trusting the earlier grep. `Employee` genuinely has no contact field
+at all and is honestly documented as not discoverable by this tool,
+rather than papered over. 6 tests, `backend/tests/test_dsar.py`.
+
+This closes the "search" piece of DSAR specifically. What's still
+missing -- an intake channel, a response-time commitment, and the
+"correct or delete" half of a request once found -- is unchanged and
+still needed, alongside the parts of this that remain genuinely legal
+questions rather than engineering ones (see `docs/DATA_PROTECTION.md`).
+
+## Production readiness: session notes (real Render deploy debugging)
+
+Actually attempting the Render Blueprint deploy (not just validating
+`render.yaml` against Render's schema, which only catches structural
+errors) surfaced four real, separate problems in sequence, each fixed
+by attempting the deploy again rather than guessing ahead:
+
+1. Paid-tier services require billing info on file before Render lets
+   a Blueprint apply at all -- switched `siteforge-db`, `siteforge-redis`,
+   and `siteforge-api` to `plan: free`, with the real tradeoffs
+   documented inline in `render.yaml` (free Postgres is hard-deleted
+   after 30 days with no warning; free web services cold-start after
+   15 min idle).
+2. `preDeployCommand` (running `flask db upgrade` before each deploy)
+   is rejected outright on free-tier services -- a deploy-time business
+   rule, not something schema validation would catch, since the field
+   is individually valid. Folded the migration into `dockerCommand`
+   instead, chained before gunicorn.
+3. `startCommand` isn't valid for `runtime: docker` services --
+   `dockerCommand` is the correct override there; `startCommand` is
+   for Render's own buildpack runtimes. Same category of deploy-time
+   rule as #2.
+4. Background worker services aren't available on the free plan at
+   all, full stop -- no config fixes this. Removed `siteforge-worker`
+   from the Blueprint with the impact stated honestly (normal
+   request/response paths are unaffected; only the already-unscheduled
+   reorder-check task doesn't run), and preserved its full config for
+   re-addition once a paid plan is acceptable for that one service.
+
+Then the actual Docker build failed with a real, independent bug:
+**`schemathesis==3.31.2` was pinned in `requirements.txt` but was
+never published to PyPI** (it jumps 3.31.1 straight to 3.32.0) --
+which meant every deploy failed on a package the running app doesn't
+even import, since test tooling was bundled into the same
+`requirements.txt` the production Docker image installs. Split into
+`requirements.txt` (runtime-only, what `backend/Dockerfile` actually
+installs) and `requirements-dev.txt` (test tooling, includes
+`-r requirements.txt`). Fixing the version pin surfaced a second real
+conflict once actually resolving the full dev set: `locust==2.46.2`
+requires `pytest>=8.3.3`, which the existing `pytest==8.2.2` pin
+violated -- bumped to `pytest==8.3.5` (satisfies locust's floor and
+schemathesis's `<9` ceiling), verified with a real dependency
+resolution (not just eyeballing version ranges) and a full test run
+confirming zero regressions from the bump. CI updated to install
+`requirements-dev.txt` instead of `requirements.txt` accordingly.
+
 ## What's left
 
 An honest accounting of what stands between this codebase and a real
@@ -1466,10 +1544,13 @@ production deployment, roughly in the order it would actually bite:
 **Lower urgency, still real for a Nigeria-market product:**
 - NDPA/NDPR (Nigeria Data Protection Act/Regulation) compliance --
   `docs/DATA_PROTECTION.md` documents what data this platform actually
-  stores and what backup/recovery tooling is real, but explicitly does
-  NOT implement data-retention scheduling or DSAR (data subject access
-  request) tooling, and is engineering documentation, not a legal
-  compliance review -- qualified counsel should review this before the
-  platform processes real personal data at scale.
+  stores and what backup/recovery tooling is real. A real DSAR search
+  tool now exists (see above) -- but data-retention scheduling, a
+  DSAR intake channel and response-time commitment, and the
+  "correct or delete" half of a DSAR (acting on what the search
+  finds) are all still missing. This remains engineering
+  documentation, not a legal compliance review -- qualified counsel
+  should review this before the platform processes real personal
+  data at scale.
 - No terms of service / privacy policy pages.
 
