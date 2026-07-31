@@ -81,14 +81,38 @@ async function performRefresh(): Promise<string> {
   // A plain axios call, not apiClient -- going through apiClient here
   // would re-enter this same response interceptor if the refresh
   // itself ever 401s, which is exactly the recursive case this whole
-  // mechanism needs to avoid.
+  // mechanism needs to avoid. Must still use API_BASE_URL explicitly
+  // though -- a bare "/v1/auth/refresh" only resolves correctly when
+  // frontend and backend share an origin (true in local dev only, via
+  // vite.config.ts's proxy). Once they're separate Render services,
+  // a relative path here hits siteforge-web's own domain, which has
+  // no such route -- Render's SPA rewrite rule then serves back
+  // index.html instead of a 404, which gets destructured as
+  // {access_token, refresh_token} and silently yields two undefined
+  // values. Both get stored anyway (localStorage stringifies
+  // undefined to the literal text "undefined"), and every subsequent
+  // request sends that as a "Bearer undefined" Authorization header --
+  // a token with zero dot-separated segments, which is exactly what
+  // produced the real production symptom this fixes: every endpoint
+  // works right after login, then fails identically everywhere,
+  // silently, once the access token first expires and this refresh
+  // path fires for the first time.
   const response = await axios.post(
-    "/v1/auth/refresh",
+    `${API_BASE_URL}/auth/refresh`,
     {},
     { headers: { Authorization: `Bearer ${refreshToken}` } }
   );
 
   const { access_token, refresh_token } = response.data;
+
+  // Fail loudly rather than silently storing garbage -- this is
+  // exactly the check that would have caught the bug above at the
+  // source, and guards against any future cause of a malformed
+  // refresh response (not just this one).
+  if (typeof access_token !== "string" || typeof refresh_token !== "string") {
+    throw new Error("Refresh response did not contain valid tokens");
+  }
+
   localStorage.setItem("access_token", access_token);
   localStorage.setItem("refresh_token", refresh_token);
   return access_token;
