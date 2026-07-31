@@ -65,16 +65,19 @@ services:
     dockerContext: ./backend
     healthCheckPath: /v1/health
     # preDeployCommand isn't supported on free-tier services (Render
-    # rejected the Blueprint with exactly that error) -- folded the
-    # migration into startCommand instead, which overrides the
-    # Dockerfile's CMD and works on every plan tier. `flask db
-    # upgrade` is idempotent (a no-op if already at head), so running
-    # it on every container start -- not just once per deploy -- is
-    # safe, just slightly redundant on restarts that don't involve a
-    # new migration. Switch back to preDeployCommand (cleaner
-    # semantically -- runs once per deploy, not once per start) once
-    # this service is on a paid plan.
-    startCommand: flask db upgrade && gunicorn -w 4 -b 0.0.0.0:8000 wsgi:app
+    # rejected the Blueprint with exactly that error). Tried
+    # startCommand next -- also rejected: for runtime: docker
+    # specifically, Render requires dockerCommand instead (startCommand
+    # is for its own buildpack-based runtimes like python/node, where
+    # Render manages the start step itself; dockerCommand is the
+    # equivalent override for a service that supplies its own
+    # Dockerfile). `flask db upgrade` is idempotent (a no-op if
+    # already at head), so running it on every container start -- not
+    # just once per deploy -- is safe, just slightly redundant on
+    # restarts that don't involve a new migration. Switch back to
+    # preDeployCommand (cleaner semantically -- runs once per deploy,
+    # not once per start) once this service is on a paid plan.
+    dockerCommand: flask db upgrade && gunicorn -w 4 -b 0.0.0.0:8000 wsgi:app
     envVars:
       - key: FLASK_APP
         value: wsgi:app
