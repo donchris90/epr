@@ -134,66 +134,27 @@ services:
       - key: SENTRY_DSN
         sync: false
 
-  # --- Celery worker (executes tasks; nothing schedules them yet, see note above) ---
-  - type: worker
-    name: siteforge-worker
-    runtime: docker
-    region: oregon
-    # FREE TIER -- counts against Render's shared free instance-hours
-    # budget for the workspace (750 hrs/month at the time this was
-    # written; verify current limits on your billing page, this
-    # changes). Unlike a web service, a worker has no HTTP traffic to
-    # "wake up" on, so confirm in the dashboard how your workspace's
-    # free tier actually behaves for background workers specifically
-    # before assuming it matches siteforge-api's spin-down behavior.
-    plan: free
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
-    dockerCommand: celery -A app.celery_app.celery worker --loglevel=info
-    envVars:
-      - key: FLASK_APP
-        value: wsgi:app
-      - key: FLASK_ENV
-        value: production
-      - key: SECRET_KEY
-        fromService:
-          type: web
-          name: siteforge-api
-          envVarKey: SECRET_KEY
-      - key: JWT_SECRET_KEY
-        fromService:
-          type: web
-          name: siteforge-api
-          envVarKey: JWT_SECRET_KEY
-      - key: DATABASE_URL
-        fromDatabase:
-          name: siteforge-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: siteforge-redis
-          property: connectionString
-      - key: CELERY_BROKER_URL
-        fromService:
-          type: keyvalue
-          name: siteforge-redis
-          property: connectionString
-      - key: CELERY_RESULT_BACKEND
-        fromService:
-          type: keyvalue
-          name: siteforge-redis
-          property: connectionString
-      - key: S3_ENDPOINT_URL
-        sync: false
-      - key: S3_BUCKET
-        sync: false
-      - key: S3_BACKUP_BUCKET
-        sync: false
-      - key: S3_ACCESS_KEY
-        sync: false
-      - key: S3_SECRET_KEY
-        sync: false
+  # --- Celery worker: DELIBERATELY NOT in this Blueprint ---
+  # Render rejected it outright: "service type is not available for
+  # this plan" -- unlike siteforge-db/redis/api (which have real free
+  # tiers), background worker services require at least the Starter
+  # paid plan on Render, full stop. No YAML change fixes this.
+  #
+  # Impact of leaving it out: the app's request/response paths (every
+  # module's CRUD, auth, everything the frontend calls directly) work
+  # completely normally without it. What doesn't run is
+  # app/modules/inv/tasks.py's reorder-check task -- and per this
+  # file's own top-of-file note, nothing was scheduling that task
+  # automatically yet anyway (no Celery beat set up), so this doesn't
+  # regress anything that was actually working.
+  #
+  # To add it back once you're ready to put a paid plan on this one
+  # service specifically: the full service definition (type: worker,
+  # same Dockerfile, `celery -A app.celery_app.celery worker` as its
+  # dockerCommand, same env vars as siteforge-api) is preserved in
+  # this repo's git history at commit 6f7b89f, or ask whoever's
+  # maintaining this to regenerate it -- it's a small, mechanical
+  # addition once plan: starter is acceptable.
 
   # --- Frontend (static site, NOT the dev-mode Dockerfile) ---
   - type: web
