@@ -60,6 +60,22 @@ PUBLIC_PATHS = {
 def register_tenant_context(app, db):
     @app.before_request
     def set_tenant_context():
+        # CORS preflight (OPTIONS) requests never carry an Authorization
+        # header -- that's normal browser behavior, not a client bug --
+        # and never reach real view logic regardless. Found in
+        # production, not in this suite's own tests: calling get_jwt()
+        # after verify_jwt_in_request(optional=True) crashes
+        # specifically for OPTIONS (a plain unauthenticated GET to the
+        # same path correctly returns a clean 403; OPTIONS raised
+        # instead), which surfaced as a 500 on every CORS preflight to
+        # any protected route -- i.e. the entire frontend, cross-origin,
+        # for every request. Skipping OPTIONS here entirely is the
+        # correct fix regardless of that internal nuance: this
+        # middleware has no business running on a request that never
+        # reaches a route handler in the first place.
+        if request.method == "OPTIONS":
+            return
+
         if request.path in PUBLIC_PATHS or request.path.endswith("/health"):
             return
 
