@@ -5,6 +5,12 @@ from datetime import timedelta
 class BaseConfig:
     SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production")
 
+    # Gates the one-time production setup endpoint (app/setup_admin.py)
+    # -- unset by default, meaning that route refuses every request
+    # until explicitly configured. Not meant to persist: set it, use
+    # the endpoint once, then unset it and remove the env var.
+    SETUP_SECRET = os.environ.get("SETUP_SECRET", "")
+
     # Comma-separated list of allowed frontend origins, e.g.
     # "https://siteforge-web.onrender.com". Defaults to "*" for local
     # dev convenience only -- combined with supports_credentials=True
