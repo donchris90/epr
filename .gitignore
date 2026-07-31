@@ -1,0 +1,38 @@
+# --- Python / Flask backend ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+backend/.env
+instance/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- Node / React frontend ---
+node_modules/
+frontend/dist/
+frontend/.env
+*.log
+npm-debug.log*
+
+# --- Flutter mobile ---
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/build/
+mobile/lib/db/*.g.dart
+mobile/ios/Pods/
+mobile/android/.gradle/
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Docker ---
+*.pid
+*.tsbuildinfo

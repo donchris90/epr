@@ -1,0 +1,197 @@
+# Render Blueprint -- deploys this app as 5 services:
+#   1. siteforge-db       Postgres (managed)
+#   2. siteforge-redis    Key Value / Redis-compatible (managed)
+#   3. siteforge-api      Flask backend (Docker, gunicorn)
+#   4. siteforge-worker   Celery worker (same image, different command)
+#   5. siteforge-web      React frontend (static site)
+#
+# What this file does NOT set up, and why:
+#
+#   - Object storage (S3_ENDPOINT_URL / S3_BUCKET / S3_BACKUP_BUCKET /
+#     S3_ACCESS_KEY / S3_SECRET_KEY): Render has no managed
+#     S3-compatible service. Document storage (app/documents/) and
+#     the backup upload step (backend/scripts/upload_backup_to_s3.py)
+#     both need a real external provider -- AWS S3, Cloudflare R2,
+#     Backblaze B2, or DigitalOcean Spaces all work, since the app
+#     only needs an S3-compatible API. Fill in the four `sync: false`
+#     placeholders on siteforge-api once you have one.
+#
+#   - Celery beat (the scheduler that actually triggers
+#     app/modules/inv/tasks.py's daily reorder check): this Blueprint
+#     runs a worker, which executes tasks, but nothing currently
+#     enqueues them on a schedule. Add a `type: cron` service running
+#     `celery -A app.celery_app.celery beat` (or use Render's own Cron
+#     Jobs to call the task directly) if you need the scheduled check
+#     to actually fire.
+#
+#   - ANTHROPIC_API_KEY (Module 25, AI Assistant): left as sync:false;
+#     the module works without it, just without live LLM calls.
+#
+# Before applying: run `render blueprints validate` (Render CLI
+# v2.7.0+) from the repo root to catch anything that's drifted from
+# Render's current schema since this was written.
+
+databases:
+  - name: siteforge-db
+    plan: starter
+    region: oregon
+    postgresMajorVersion: "16"
+
+services:
+  # --- Redis-compatible cache/broker ---
+  - type: keyvalue
+    name: siteforge-redis
+    plan: starter
+    region: oregon
+    maxmemoryPolicy: noeviction
+    ipAllowList: []  # Render services in the same region/workspace reach it over the private network; no public access needed.
+
+  # --- Backend API ---
+  - type: web
+    name: siteforge-api
+    runtime: docker
+    region: oregon
+    plan: starter
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /v1/health
+    # Runs the migration chain before each deploy goes live -- this is
+    # the same `flask db upgrade` used throughout local dev and CI,
+    # just as a pre-deploy step instead of a manual command.
+    preDeployCommand: flask db upgrade
+    envVars:
+      - key: FLASK_APP
+        value: wsgi:app
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: siteforge-db
+          property: connectionString
+      # AUTH_DATABASE_URL intentionally left unset here -- it falls
+      # back to DATABASE_URL (app/config.py), which works but means
+      # the login-lookup path runs as the same role as everything
+      # else rather than the narrowly-scoped BYPASSRLS role described
+      # in backend/scripts/setup_auth_role.sql. Run that SQL script
+      # against siteforge-db and set this explicitly for the
+      # least-privilege setup the rest of this codebase assumes.
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: siteforge-redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: keyvalue
+          name: siteforge-redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          type: keyvalue
+          name: siteforge-redis
+          property: connectionString
+      # Set to the real siteforge-web URL once that service exists
+      # (Render assigns the .onrender.com URL on first deploy) --
+      # see app/config.py's CORS_ORIGINS comment for what happens if
+      # this is left as "*" in production.
+      - key: CORS_ORIGINS
+        sync: false
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_BACKUP_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+
+  # --- Celery worker (executes tasks; nothing schedules them yet, see note above) ---
+  - type: worker
+    name: siteforge-worker
+    runtime: docker
+    region: oregon
+    plan: starter
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    dockerCommand: celery -A app.celery_app.celery worker --loglevel=info
+    envVars:
+      - key: FLASK_APP
+        value: wsgi:app
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        fromService:
+          type: web
+          name: siteforge-api
+          envVarKey: SECRET_KEY
+      - key: JWT_SECRET_KEY
+        fromService:
+          type: web
+          name: siteforge-api
+          envVarKey: JWT_SECRET_KEY
+      - key: DATABASE_URL
+        fromDatabase:
+          name: siteforge-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: siteforge-redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: keyvalue
+          name: siteforge-redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          type: keyvalue
+          name: siteforge-redis
+          property: connectionString
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_BACKUP_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+
+  # --- Frontend (static site, NOT the dev-mode Dockerfile) ---
+  - type: web
+    name: siteforge-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      # Baked into the compiled JS bundle AT BUILD TIME (see
+      # src/api/client.ts and src/vite-env.d.ts) -- frontend and
+      # backend are separate Render services with separate domains by
+      # default, so this must be the real siteforge-api URL, not a
+      # relative path. Set to
+      # https://siteforge-api.onrender.com/v1 (or your actual backend
+      # URL + /v1) once siteforge-api's URL is known -- Render assigns
+      # it on first deploy, so this needs to be set (or corrected)
+      # AFTER siteforge-api exists, then siteforge-web redeployed.
+      - key: VITE_API_BASE_URL
+        sync: false
+    routes:
+      # SPA routing -- every path that isn't a real static file falls
+      # through to index.html, so client-side routing (react-router)
+      # handles it instead of Render returning a 404.
+      - type: rewrite
+        source: /*
+        destination: /index.html

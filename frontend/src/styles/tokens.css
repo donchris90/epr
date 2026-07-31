@@ -1,0 +1,97 @@
+/* SiteForge design tokens.
+   Direction: a technical-drawing / blueprint vocabulary -- the actual
+   working material of this industry -- rather than a generic SaaS look.
+   Deep blueprint navy for structure, a caution-amber accent (not the
+   terracotta AI-default), brick red for danger, steel blue for info.
+   Monospace for anything that is a reference number, code, or currency
+   figure, echoing drawing schedules and BOQ sheets. */
+
+:root {
+  /* Color */
+  --sf-navy-950: #0b121b;
+  --sf-navy-900: #101a26;
+  --sf-navy-800: #172333;
+  --sf-navy-700: #223247;
+  --sf-navy-600: #34495f;
+  --sf-navy-400: #7690a6;
+  --sf-navy-200: #c3d2de;
+
+  --sf-paper: #f7f8f6;
+  --sf-paper-dim: #eceeea;
+  --sf-line: #dde1de;
+
+  --sf-amber: #d99a2b;
+  --sf-amber-dim: #f2e2bd;
+  --sf-steel: #3b6e8f;
+  --sf-steel-dim: #dbe8ef;
+  --sf-green: #3f8f5f;
+  --sf-green-dim: #dcefe2;
+  --sf-brick: #b8452e;
+  --sf-brick-dim: #f5ddd6;
+
+  /* Type */
+  --sf-font-display: "IBM Plex Sans", "Space Grotesk", sans-serif;
+  --sf-font-body: "Inter", "IBM Plex Sans", sans-serif;
+  --sf-font-mono: "IBM Plex Mono", "Roboto Mono", monospace;
+
+  /* Layout */
+  --sf-sidebar-w: 248px;
+  --sf-radius: 3px;
+  --sf-shadow: 0 1px 2px rgba(11, 18, 27, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--sf-font-body);
+  color: var(--sf-navy-900);
+  background: var(--sf-paper);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--sf-font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.sf-mono {
+  font-family: var(--sf-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+a {
+  color: var(--sf-steel);
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Focus visibility -- kept even though the rest of the UI is dense */
+:focus-visible {
+  outline: 2px solid var(--sf-amber);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
