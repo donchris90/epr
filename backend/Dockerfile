@@ -12,8 +12,14 @@ FROM python:3.12-slim
 
 WORKDIR /srv/app
 
+# postgresql-client (psql) is here for one real, practical reason:
+# it lets `render shell` / the dashboard Shell tab run one-time
+# administrative SQL (e.g. backend/scripts/setup_auth_role.sql)
+# directly against DATABASE_URL, which is already a real env var on
+# this service -- no separate GUI client to install, no pasting
+# production credentials into a third-party website.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential libpq-dev curl \
+    build-essential libpq-dev curl postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
