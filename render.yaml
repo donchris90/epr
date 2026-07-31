@@ -33,7 +33,13 @@
 
 databases:
   - name: siteforge-db
-    plan: starter
+    # FREE TIER, deliberately, so this can deploy without payment
+    # info on file -- but Render hard-deletes free Postgres after 30
+    # days with NO warning. Fine for testing the deploy actually
+    # works end-to-end; do not leave real data here past that window.
+    # Switch to `starter` (~$7/mo) before this holds anything you
+    # care about keeping.
+    plan: free
     region: oregon
     postgresMajorVersion: "16"
 
@@ -41,7 +47,7 @@ services:
   # --- Redis-compatible cache/broker ---
   - type: keyvalue
     name: siteforge-redis
-    plan: starter
+    plan: free  # see the siteforge-db note above -- same "fine for testing, upgrade before real use" logic applies
     region: oregon
     maxmemoryPolicy: noeviction
     ipAllowList: []  # Render services in the same region/workspace reach it over the private network; no public access needed.
@@ -51,7 +57,10 @@ services:
     name: siteforge-api
     runtime: docker
     region: oregon
-    plan: starter
+    # FREE TIER -- spins down after 15 min idle, ~30-60s cold start on
+    # the next request. Fine for testing; switch to `starter` (~$7/mo)
+    # once you don't want visitors seeing that delay.
+    plan: free
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     healthCheckPath: /v1/health
@@ -120,7 +129,14 @@ services:
     name: siteforge-worker
     runtime: docker
     region: oregon
-    plan: starter
+    # FREE TIER -- counts against Render's shared free instance-hours
+    # budget for the workspace (750 hrs/month at the time this was
+    # written; verify current limits on your billing page, this
+    # changes). Unlike a web service, a worker has no HTTP traffic to
+    # "wake up" on, so confirm in the dashboard how your workspace's
+    # free tier actually behaves for background workers specifically
+    # before assuming it matches siteforge-api's spin-down behavior.
+    plan: free
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     dockerCommand: celery -A app.celery_app.celery worker --loglevel=info
