@@ -41,26 +41,36 @@ def _enable_rls_for_all_tenant_scoped_tables(db):
     test_tenant_isolation.py would pass for the wrong reason (or not at
     all) — they'd be testing nothing.
 
-    This walks the metadata for any table with a `tenant_id` column and
-    applies the same policy the migrations apply in production, so
-    `db.create_all()`-based tests exercise the real guarantee.
+    Walks the actual mapped model classes and applies RLS only to ones
+    that mix in TenantMixin -- deliberately NOT "any table with a
+    tenant_id-named column," which is a real distinction: a table can
+    have a tenant_id column for other reasons (e.g.
+    app.models.core.EmailTenantIndex records which tenant a matched
+    email belongs to) without being tenant-*scoped* in the RLS sense.
+    Applying RLS by column-name alone silently broke EmailTenantIndex
+    in this suite the first time it existed -- its entire design point
+    is being queryable with zero tenant context, which is exactly what
+    FORCE ROW LEVEL SECURITY prevents.
     """
     from sqlalchemy import text
+    from app.models.base import TenantMixin
 
-    for table in db.metadata.sorted_tables:
-        if "tenant_id" in table.columns:
-            db.session.execute(text(f"ALTER TABLE {table.name} ENABLE ROW LEVEL SECURITY"))
+    for mapper in db.Model.registry.mappers:
+        model = mapper.class_
+        if issubclass(model, TenantMixin):
+            table_name = model.__tablename__
+            db.session.execute(text(f"ALTER TABLE {table_name} ENABLE ROW LEVEL SECURITY"))
             # FORCE makes the policy apply even to the table's OWNER.
             # Without it, RLS is silently bypassed whenever the app
             # connects as the same role that ran the migrations (an easy
             # setup to end up in by accident) -- which would make this
             # whole suite pass without testing anything. The same FORCE
             # is applied in production; see migrations/versions/*.py.
-            db.session.execute(text(f"ALTER TABLE {table.name} FORCE ROW LEVEL SECURITY"))
+            db.session.execute(text(f"ALTER TABLE {table_name} FORCE ROW LEVEL SECURITY"))
             db.session.execute(
                 text(
                     f"""
-                    CREATE POLICY tenant_isolation ON {table.name}
+                    CREATE POLICY tenant_isolation ON {table_name}
                     USING (tenant_id = current_setting('app.tenant_id')::uuid)
                     """
                 )
@@ -72,29 +82,9 @@ def _enable_rls_for_all_tenant_scoped_tables(db):
 def db(app):
     _db.create_all()
     _enable_rls_for_all_tenant_scoped_tables(_db)
-    _grant_auth_role_access(_db)
     yield _db
     _db.session.remove()
     _db.drop_all()
-
-
-def _grant_auth_role_access(db):
-    """
-    The real login flow (app/auth/jwt_utils.py:authenticate_user) reads
-    `users` through a separate, narrowly-privileged `siteforge_auth`
-    role (BYPASSRLS, SELECT-only) -- see scripts/setup_auth_role.sql
-    for why. That role already exists cluster-wide (roles are
-    cluster-level in Postgres), but each test run creates a fresh
-    `users` table via db.create_all(), so the grant has to be reapplied
-    here every time, the same way RLS policies are reapplied above.
-    Tests that don't exercise the real HTTP login endpoint (i.e. almost
-    all of them, which use the auth_headers fixture's direct
-    create_access_token instead) never touch this at all.
-    """
-    from sqlalchemy import text
-
-    db.session.execute(text("GRANT SELECT ON users TO siteforge_auth"))
-    db.session.commit()
 
 
 @pytest.fixture()
@@ -132,7 +122,7 @@ def real_user(db, seed_tenants):
     has a real FK constraint to tenants.id.
     """
     from app.auth.jwt_utils import hash_password
-    from app.models.core import User
+    from app.models.core import User, EmailTenantIndex
     from sqlalchemy import text
 
     db.session.execute(text("SET LOCAL app.tenant_id = :tid"), {"tid": str(seed_tenants["a"])})
@@ -143,6 +133,11 @@ def real_user(db, seed_tenants):
         status="active",
     )
     db.session.add(user)
+    db.session.flush()
+    # Login (app/auth/jwt_utils.py:authenticate_user) resolves the
+    # tenant via this index, not the users table directly -- a real
+    # User row alone isn't enough to log in with anymore.
+    db.session.add(EmailTenantIndex(email=user.email, user_id=user.id, tenant_id=seed_tenants["a"]))
     db.session.commit()
     return user
 

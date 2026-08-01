@@ -10,7 +10,6 @@ from flask_caching import Cache
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from celery import Celery
-from sqlalchemy import create_engine
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -60,33 +59,20 @@ limiter = Limiter(key_func=_rate_limit_key, default_limits=["200 per minute"])
 # see app/celery_app.py for the bound instance used by worker processes.
 celery = Celery(__name__)
 
-# --- Auth lookup engine ---
+# --- Auth lookup ---
 #
-# The login endpoint has a genuine chicken-and-egg problem under RLS:
-# `users` is FORCE ROW LEVEL SECURITY protected (correctly -- it's
-# tenant-scoped, just like everything else), but finding a user by email
-# during login must search *across* tenants, since the tenant isn't known
-# until after the user is found. The normal `db.session` cannot do this
-# query at all once app.tenant_id is unset -- FORCE means even the
-# connection's own role can't see past it.
-#
-# The fix is a second, narrowly-scoped Postgres role
-# (see scripts/setup_auth_role.sql) with BYPASSRLS, granted SELECT only
-# on `users`, used ONLY for this one pre-authentication lookup in app/auth/jwt_utils.py. Every other query in the app,
-# including the rest of the login flow after the tenant is known, goes
-# through the normal tenant-scoped `db.session`. This engine is created
-# lazily so importing this module doesn't require AUTH_DATABASE_URL to
-# be set in contexts (migrations, tests) that never call it.
-_auth_engine = None
-
-
-def get_auth_engine():
-    global _auth_engine
-    if _auth_engine is None:
-        from flask import current_app
-
-        _auth_engine = create_engine(current_app.config["AUTH_DATABASE_URL"], pool_pre_ping=True)
-    return _auth_engine
+# The login endpoint's chicken-and-egg problem under RLS (finding a
+# user by email requires searching *across* tenants, before the
+# tenant is known) used to be solved with a second, BYPASSRLS-attribute
+# Postgres role and a separate connection engine here. That approach
+# turned out to be impossible to provision on a real managed Postgres
+# deployment: Postgres requires the granting role to itself have
+# BYPASSRLS to hand that attribute to anyone else, which blocked every
+# login in production with no self-service fix available. Replaced by
+# app/models/core.py:EmailTenantIndex -- a small table deliberately
+# outside RLS entirely, queried through the normal db.session like
+# everything else. No special role, no separate engine, nothing here
+# anymore.
 
 
 # --- Redis client (refresh-token revocation, SRS Section 6.2) ---

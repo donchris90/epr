@@ -21,7 +21,7 @@ from sqlalchemy import text
 from app.extensions import db
 from app.utils.errors import APIError
 from app.auth.jwt_utils import hash_password
-from app.models.core import Tenant, Role, User
+from app.models.core import Tenant, Role, User, EmailTenantIndex
 
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -78,6 +78,14 @@ def signup_tenant(*, company_name, admin_email, admin_password):
         status="active",
     )
     db.session.add(user)
+    db.session.flush()
+
+    # Not RLS-protected (see app/models/core.py:EmailTenantIndex), so
+    # this insert doesn't depend on the SET LOCAL above at all -- but
+    # it's still part of the same atomic transaction, so a failure
+    # here rolls back the whole signup rather than leaving a user who
+    # exists but can never be found at login.
+    db.session.add(EmailTenantIndex(email=user.email, user_id=user.id, tenant_id=tenant.id))
     db.session.flush()
 
     # Captured as plain values BEFORE commit, deliberately -- Flask-

@@ -5,12 +5,6 @@ from datetime import timedelta
 class BaseConfig:
     SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production")
 
-    # Gates the one-time production setup endpoint (app/setup_admin.py)
-    # -- unset by default, meaning that route refuses every request
-    # until explicitly configured. Not meant to persist: set it, use
-    # the endpoint once, then unset it and remove the env var.
-    SETUP_SECRET = os.environ.get("SETUP_SECRET", "")
-
     # Comma-separated list of allowed frontend origins, e.g.
     # "https://siteforge-web.onrender.com". Defaults to "*" for local
     # dev convenience only -- combined with supports_credentials=True
@@ -34,13 +28,6 @@ class BaseConfig:
         "DATABASE_URL",
         "postgresql+psycopg2://siteforge:siteforge@localhost:5432/siteforge",
     )
-    # A separate, narrowly-privileged role (BYPASSRLS, SELECT-only on
-    # `users`) used solely for the pre-authentication email lookup in
-    # login -- see app/extensions.py:get_auth_engine for why this can't
-    # just be the normal DATABASE_URL role. Defaults to DATABASE_URL so
-    # single-role local setups still work; production should point this
-    # at the dedicated siteforge_auth role from scripts/setup_auth_role.sql.
-    AUTH_DATABASE_URL = os.environ.get("AUTH_DATABASE_URL", SQLALCHEMY_DATABASE_URI)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     # pool_size/max_overflow are QueuePool (Postgres) only; SQLite (used for
     # fast unit tests) uses StaticPool and rejects these kwargs, so they're

@@ -54,7 +54,6 @@ PUBLIC_PATHS = {
     "/v1/auth/refresh",
     "/v1/auth/logout",
     "/v1/onboarding/signup",
-    "/v1/_setup/auth-role",
 }
 
 

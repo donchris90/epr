@@ -116,10 +116,6 @@ def create_app(config_name: str = None) -> Flask:
     from app.dsar.routes import bp as dsar_bp
     app.register_blueprint(dsar_bp)
 
-    # --- one-time production setup endpoint (see app/setup_admin.py) ---
-    from app.setup_admin import bp as setup_admin_bp
-    app.register_blueprint(setup_admin_bp)
-
     # --- module blueprints ---
     import importlib
 

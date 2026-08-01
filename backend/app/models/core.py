@@ -48,6 +48,54 @@ class User(db.Model, UUIDPrimaryKeyMixin, AuditMixin):
     __table_args__ = (db.UniqueConstraint("tenant_id", "email", name="uq_users_tenant_email"),)
 
 
+class EmailTenantIndex(db.Model, UUIDPrimaryKeyMixin, AuditMixin):
+    """
+    Deliberately NOT tenant-scoped, deliberately NOT RLS-protected --
+    exists for exactly one reason: resolving which tenant an email
+    belongs to BEFORE a session has any tenant context to set. Every
+    other table in this platform is protected by RLS specifically so
+    that no query can ever run without tenant context; this table is
+    the one narrow, intentional exception, because the problem it
+    solves (login) is structurally impossible to solve any other way
+    -- you cannot filter by a tenant you don't know yet.
+
+    Contains only what that lookup needs: email, which tenant, which
+    user. No password hash, no role, no permissions, nothing else --
+    finding this table doesn't get anyone anything beyond "this email
+    exists and belongs to this tenant," which login has to reveal
+    regardless of how it's implemented (the alternative, previously
+    shipped: a separate BYPASSRLS database role for the same lookup --
+    functionally equivalent exposure, but one that required elevated
+    database privileges that turned out not to be grantable from
+    application code, and blocked login in production until this
+    replaced it entirely).
+
+    Kept in sync at the one place `User` rows are created
+    (app/onboarding/services.py:signup_tenant) -- there's no ORM-level
+    or trigger-level enforcement, but there's also only one call site,
+    which is why it's practical to keep both writes in the same
+    transaction rather than adding kept-in-sync infrastructure for
+    something written from a single place.
+    Known edge case, not a regression: `users.email` is only unique
+    per tenant (uq_users_tenant_email), not globally, so two different
+    tenants both having a user with the same email address would
+    collide on this table's global unique constraint -- whichever
+    signed up first keeps the index row, the second can't log in via
+    this lookup. The previous BYPASSRLS approach had the same
+    underlying ambiguity, just expressed differently (a raw multi-row
+    SELECT with .first() picking one arbitrarily) rather than a
+    constraint violation. Neither approach disambiguates the case;
+    solving it for real would mean requiring a tenant identifier at
+    login (a company slug, e.g.), not attempted here.
+    """
+
+    __tablename__ = "email_tenant_index"
+
+    email = db.Column(db.String(255), nullable=False, unique=True, index=True)
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
+    tenant_id = db.Column(UUID(as_uuid=True), db.ForeignKey("tenants.id"), nullable=False, index=True)
+
+
 class Project(db.Model, UUIDPrimaryKeyMixin, AuditMixin):
     __tablename__ = "projects"
 

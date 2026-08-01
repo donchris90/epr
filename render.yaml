@@ -94,13 +94,6 @@ services:
         fromDatabase:
           name: siteforge-db
           property: connectionString
-      # AUTH_DATABASE_URL intentionally left unset here -- it falls
-      # back to DATABASE_URL (app/config.py), which works but means
-      # the login-lookup path runs as the same role as everything
-      # else rather than the narrowly-scoped BYPASSRLS role described
-      # in backend/scripts/setup_auth_role.sql. Run that SQL script
-      # against siteforge-db and set this explicitly for the
-      # least-privilege setup the rest of this codebase assumes.
       - key: REDIS_URL
         fromService:
           type: keyvalue
