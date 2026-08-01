@@ -18,6 +18,7 @@ from decimal import Decimal
 
 from app.extensions import db
 from app.utils.errors import APIError
+from app.workflow import services as workflow_services
 from app.modules.prc.models import (
     Vendor,
     VendorComplianceDocument,
@@ -82,6 +83,24 @@ def submit_purchase_request(pr: PurchaseRequest, *, remaining_budget, override=F
         pr.budget_override_reason = override_reason
         pr.budget_override_by = override_by
 
+    db.session.flush()
+
+    # Real Workflow Engine integration (Module 26) -- if this tenant
+    # has configured and activated an approval chain for
+    # ("prc", "purchase_request"), start a real instance so the
+    # request routes through it instead of the single-approver default
+    # in approve_purchase_request below. Purely additive: a tenant that
+    # has never configured a workflow sees identical behavior to
+    # before this integration existed -- get_active_workflow simply
+    # returns None and nothing changes.
+    workflow = workflow_services.get_active_workflow(pr.tenant_id, module_name="prc", entity_type="purchase_request")
+    if workflow:
+        workflow_services.start_workflow_instance(
+            pr.tenant_id, workflow,
+            module_name="prc", entity_type="purchase_request", entity_id=pr.id,
+            initiated_by=override_by or pr.requested_by, amount=estimated_total,
+        )
+
     db.session.commit()
     return pr
 
@@ -89,6 +108,37 @@ def submit_purchase_request(pr: PurchaseRequest, *, remaining_budget, override=F
 def approve_purchase_request(pr: PurchaseRequest, *, actor_id=None):
     if pr.status != "submitted":
         raise APIError("Purchase request is not submitted", status=409)
+
+    # If a workflow instance governs this PR, this endpoint defers to
+    # it rather than silently bypassing the configured approval chain
+    # -- a real integration, not two competing, unconnected approval
+    # paths that happen to both exist. Once the engine reports the
+    # instance approved, this same endpoint finalizes the PR's own
+    # status, so the calling UI doesn't need two different "approve"
+    # actions depending on whether a workflow happens to be configured.
+    from app.workflow.models import WorkflowInstance
+
+    instance = (
+        WorkflowInstance.query.filter_by(
+            tenant_id=pr.tenant_id, module_name="prc", entity_type="purchase_request", entity_id=pr.id
+        )
+        .order_by(WorkflowInstance.created_at.desc())
+        .first()
+    )
+    if instance:
+        if instance.status == "pending":
+            raise APIError(
+                "This purchase request is governed by an approval workflow",
+                status=409,
+                detail=(
+                    f"Use POST /v1/workflow/instances/{instance.id}/approve "
+                    f"(currently at step {instance.current_step_number}), not this endpoint directly."
+                ),
+            )
+        if instance.status in ("rejected", "cancelled"):
+            raise APIError(f"The governing approval workflow was {instance.status} for this request", status=409)
+        # instance.status == "approved" -- fall through and finalize.
+
     pr.status = "approved"
     pr.updated_by = actor_id
     db.session.commit()

@@ -116,6 +116,10 @@ def create_app(config_name: str = None) -> Flask:
     from app.dsar.routes import bp as dsar_bp
     app.register_blueprint(dsar_bp)
 
+    # --- Workflow Engine (Module 26, generic cross-module approval engine) ---
+    from app.workflow.routes import bp as workflow_bp
+    app.register_blueprint(workflow_bp)
+
     # --- module blueprints ---
     import importlib
 

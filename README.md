@@ -1492,6 +1492,64 @@ resolution (not just eyeballing version ranges) and a full test run
 confirming zero regressions from the bump. CI updated to install
 `requirements-dev.txt` instead of `requirements.txt` accordingly.
 
+## Module 26: Workflow Engine (generic, cross-module approval engine)
+
+The first genuinely shared, configurable approval infrastructure in
+this platform. Every module before this had its own bespoke,
+hardcoded status-transition logic -- 16 of 25 modules, 66 separate
+`STATUSES` tuples total, none sharing anything. This is different:
+define an approval chain once for a `(module_name, entity_type)` pair,
+and any module can start, query, and act on instances of it through
+the same API. Full design scope, honest limitations, data model, API
+reference, and the adoption pattern another module would follow are
+all in `docs/WORKFLOW_ENGINE.md` -- not duplicated here.
+
+Real, tested capabilities: sequential and parallel approval steps,
+amount-based automatic step skipping, specific-user and specific-role
+approver resolution, reject-to-step (send back for rework) vs.
+terminal rejection, delegation, cancellation, and a fully immutable
+audit trail (old/new status, actor, IP, user agent, comment,
+timestamp) -- every field a real audit trail needs.
+
+Deliberately NOT built, stated plainly rather than faked: no visual
+drag-and-drop builder, no notifications of any kind (this codebase has
+no notification system at all yet), no automatic timeout/escalation
+enforcement (the fields are recorded, nothing acts on them -- would
+need a scheduler, following the pattern in
+`app/modules/inv/tasks.py`), no "Manager"/"Department"/"CEO" dynamic
+approver types (this platform has no organizational hierarchy
+anywhere to resolve them against), and no mobile integration (no real
+Flutter client exists in this project).
+
+**Real cross-module integration, not standalone infrastructure sitting
+unused**: PRC's Purchase Request submit/approve flow now genuinely
+routes through this engine when a tenant configures one. Verified
+end-to-end against real Postgres: submitting a PR starts a real
+instance; the pre-existing single-approver `/approve` endpoint
+correctly defers to the engine while an instance is pending (409, with
+the real workflow endpoint to use instead in the error detail); and
+that same endpoint finalizes the PR's own status once the engine
+reports the instance approved. A tenant that never configures a
+workflow sees identical behavior to before this integration existed --
+purely additive.
+
+Three real bugs found and fixed the same way as everything else in
+this build -- by actually running it, not by inspection: JWT claims
+carry `role_id`/`user_id` as strings, but the DB's UUID columns are
+Python `UUID` objects, so direct `==` comparison silently failed for
+every role/user match until fixed; SQLAlchemy's relationship-collection
+caching meant `instance.actions` didn't reflect a just-added action
+even after `flush()` (fixed by querying `WorkflowAction` directly
+instead of trusting the cached relationship); and delegation was
+wrongly scoped to only `specific_user`-type steps, so it silently did
+nothing for the more common `specific_role` case until fixed.
+
+12 workflow-specific tests, plus the full 76-test tenant-isolation
+suite re-run afterward to confirm the new tables' RLS (applied via
+`TenantMixin`, the same mechanism as every other tenant-scoped table)
+didn't weaken anything elsewhere -- 110 tests passing in total across
+everything touched this session.
+
 ## What's left
 
 An honest accounting of what stands between this codebase and a real
@@ -1519,6 +1577,16 @@ production deployment, roughly in the order it would actually bite:
   coverage.
 
 **Structural:**
+- The new Workflow Engine (Module 26) has no visual builder UI, no
+  notification integration (this codebase has no notification system
+  of any kind yet -- email, in-app, or push -- for anything to
+  integrate with), no automatic timeout/escalation enforcement (fields
+  are recorded, nothing acts on them), and no org-hierarchy-based
+  approver types, since no organizational hierarchy exists anywhere in
+  this platform. Full detail in `docs/WORKFLOW_ENGINE.md`. Only one
+  real module integration exists so far (PRC Purchase Requests) --
+  extending this to other modules follows the same documented pattern
+  but hasn't been done for any of them yet.
 - Module 24 (Mobile Field App) is server-side-sync-only; no actual
   mobile client exists.
 - Module 25 (AI Construction Assistant) has real tools and audit

@@ -149,7 +149,7 @@ def auth_headers(app, tenant_ids):
     for a JWT scoped to tenant_ids["a"], with full permissions by default.
     """
 
-    def _make(tenant_key: str, *, permissions=None, user_id=None):
+    def _make(tenant_key: str, *, permissions=None, user_id=None, role_id=None):
         with app.app_context():
             uid = user_id or uuid.uuid4()
             token = create_access_token(
@@ -157,7 +157,7 @@ def auth_headers(app, tenant_ids):
                 additional_claims={
                     "tenant_id": str(tenant_ids[tenant_key]),
                     "user_id": str(uid),
-                    "role_id": None,
+                    "role_id": str(role_id) if role_id else None,
                     "permissions": permissions if permissions is not None else ["*"],
                 },
             )
