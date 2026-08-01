@@ -53,14 +53,38 @@ def upgrade():
 
     # Backfill: every user that already exists needs an index row too,
     # or they'd be unable to log in despite a real account existing.
-    op.execute(
-        """
-        INSERT INTO email_tenant_index (id, email, user_id, tenant_id, created_at, updated_at)
-        SELECT gen_random_uuid(), email, id, tenant_id, now(), now()
-        FROM users
-        ON CONFLICT (email) DO NOTHING
-        """
-    )
+    #
+    # Loops per-tenant rather than one INSERT...SELECT scanning `users`
+    # across every tenant at once -- a real bug caught only by an
+    # actual production run: `users` has FORCE ROW LEVEL SECURITY, and
+    # migrations run through this same connection as everything else
+    # in production (the single non-superuser role Render provisions,
+    # the entire reason this migration exists in the first place). A
+    # bare cross-tenant SELECT with no app.tenant_id ever set hits the
+    # exact same "unrecognized configuration parameter" wall this
+    # whole migration was built to get around -- missed locally because
+    # local testing ran migrations as the Postgres superuser, which
+    # bypasses RLS regardless of FORCE. `tenants` itself has no RLS at
+    # all (it's the root of the tenant hierarchy), so it's safe to
+    # enumerate directly; `SET LOCAL` is reissued once per tenant,
+    # valid for the remainder of this migration's single transaction
+    # until superseded by the next iteration's call.
+    connection = op.get_bind()
+    tenant_ids = [row[0] for row in connection.execute(sa.text("SELECT id FROM tenants")).fetchall()]
+    for tenant_id in tenant_ids:
+        connection.execute(sa.text("SET LOCAL app.tenant_id = :tid"), {"tid": str(tenant_id)})
+        connection.execute(
+            sa.text(
+                """
+                INSERT INTO email_tenant_index (id, email, user_id, tenant_id, created_at, updated_at)
+                SELECT gen_random_uuid(), email, id, tenant_id, now(), now()
+                FROM users
+                WHERE tenant_id = :tid
+                ON CONFLICT (email) DO NOTHING
+                """
+            ),
+            {"tid": str(tenant_id)},
+        )
 
 
 def downgrade():
