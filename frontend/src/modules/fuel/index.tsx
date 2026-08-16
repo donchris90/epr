@@ -3,8 +3,8 @@ import TanksPage from "./TanksPage";
 import IssuesPage from "./IssuesPage";
 
 const TABS = [
-  { to: "tanks", label: "Tanks" },
-  { to: "issues", label: "Issues" },
+  { to: "/fuel/tanks", label: "Tanks" },
+  { to: "/fuel/issues", label: "Issues" },
 ];
 
 export default function FUELModule() {
@@ -29,7 +29,7 @@ export default function FUELModule() {
         ))}
       </div>
       <Routes>
-        <Route index element={<Navigate to="tanks" replace />} />
+        <Route index element={<Navigate to="/fuel/tanks" replace />} />
         <Route path="tanks" element={<TanksPage />} />
         <Route path="issues" element={<IssuesPage />} />
       </Routes>

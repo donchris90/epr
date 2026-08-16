@@ -5,9 +5,9 @@ import ProgressPage from "./ProgressPage";
 import SiteIssuesPage from "./SiteIssuesPage";
 
 const TABS = [
-  { to: "diaries", label: "Site Diaries" },
-  { to: "progress", label: "Progress" },
-  { to: "issues", label: "Site Issues" },
+  { to: "/execution/diaries", label: "Site Diaries" },
+  { to: "/execution/progress", label: "Progress" },
+  { to: "/execution/issues", label: "Site Issues" },
 ];
 
 export default function EXEModule() {
@@ -32,7 +32,7 @@ export default function EXEModule() {
         ))}
       </div>
       <Routes>
-        <Route index element={<Navigate to="diaries" replace />} />
+        <Route index element={<Navigate to="/execution/diaries" replace />} />
         <Route path="diaries" element={<DiariesPage />} />
         <Route path="diaries/:diaryId" element={<DiaryDetailPage />} />
         <Route path="progress" element={<ProgressPage />} />

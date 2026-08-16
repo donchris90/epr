@@ -3,8 +3,8 @@ import ITPsPage from "./ITPsPage";
 import NCRsPage from "./NCRsPage";
 
 const TABS = [
-  { to: "itps", label: "ITPs & Hold Points" },
-  { to: "ncrs", label: "NCRs" },
+  { to: "/quality/itps", label: "ITPs & Hold Points" },
+  { to: "/quality/ncrs", label: "NCRs" },
 ];
 
 export default function QMSModule() {
@@ -29,7 +29,7 @@ export default function QMSModule() {
         ))}
       </div>
       <Routes>
-        <Route index element={<Navigate to="itps" replace />} />
+        <Route index element={<Navigate to="/quality/itps" replace />} />
         <Route path="itps" element={<ITPsPage />} />
         <Route path="ncrs" element={<NCRsPage />} />
       </Routes>

@@ -3,8 +3,8 @@ import PermitsPage from "./PermitsPage";
 import IncidentsPage from "./IncidentsPage";
 
 const TABS = [
-  { to: "permits", label: "Permits to Work" },
-  { to: "incidents", label: "Incidents" },
+  { to: "/hse/permits", label: "Permits to Work" },
+  { to: "/hse/incidents", label: "Incidents" },
 ];
 
 export default function HSEModule() {
@@ -29,7 +29,7 @@ export default function HSEModule() {
         ))}
       </div>
       <Routes>
-        <Route index element={<Navigate to="permits" replace />} />
+        <Route index element={<Navigate to="/hse/permits" replace />} />
         <Route path="permits" element={<PermitsPage />} />
         <Route path="incidents" element={<IncidentsPage />} />
       </Routes>

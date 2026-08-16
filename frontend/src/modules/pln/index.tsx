@@ -3,8 +3,8 @@ import SchedulePage from "./SchedulePage";
 import DelayEventsPage from "./DelayEventsPage";
 
 const TABS = [
-  { to: "schedule", label: "Schedule" },
-  { to: "delays", label: "Delay Events" },
+  { to: "/planning/schedule", label: "Schedule" },
+  { to: "/planning/delays", label: "Delay Events" },
 ];
 
 export default function PLNModule() {
@@ -29,7 +29,7 @@ export default function PLNModule() {
         ))}
       </div>
       <Routes>
-        <Route index element={<Navigate to="schedule" replace />} />
+        <Route index element={<Navigate to="/planning/schedule" replace />} />
         <Route path="schedule" element={<SchedulePage />} />
         <Route path="delays" element={<DelayEventsPage />} />
       </Routes>

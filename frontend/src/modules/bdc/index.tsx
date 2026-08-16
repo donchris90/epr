@@ -4,9 +4,9 @@ import LeadsPage from "./LeadsPage";
 import OpportunitiesPage from "./OpportunitiesPage";
 
 const TABS = [
-  { to: "pipeline", label: "Pipeline" },
-  { to: "leads", label: "Leads" },
-  { to: "clients", label: "Clients" },
+  { to: "/business-development/pipeline", label: "Pipeline" },
+  { to: "/business-development/leads", label: "Leads" },
+  { to: "/business-development/clients", label: "Clients" },
 ];
 
 export default function BDCModule() {
@@ -31,7 +31,7 @@ export default function BDCModule() {
         ))}
       </div>
       <Routes>
-        <Route index element={<Navigate to="pipeline" replace />} />
+        <Route index element={<Navigate to="/business-development/pipeline" replace />} />
         <Route path="pipeline" element={<OpportunitiesPage />} />
         <Route path="leads" element={<LeadsPage />} />
         <Route path="clients" element={<ClientsPage />} />

@@ -121,7 +121,11 @@ def create_app(config_name: str = None) -> Flask:
     from app.workflow.routes import bp as workflow_bp
     app.register_blueprint(workflow_bp)
 
-    # --- Notifications (in-app; email/SMS dispatch stubbed) ---
+    # --- Cross-cutting Project listing (replaces raw UUID-paste fields) ---
+    from app.projects.routes import bp as projects_bp
+    app.register_blueprint(projects_bp)
+
+    # --- Notifications (in-app + real email dispatch via Gmail SMTP; SMS not implemented by choice) ---
     from app.notifications.routes import bp as notifications_bp
     app.register_blueprint(notifications_bp)
 

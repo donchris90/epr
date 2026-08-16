@@ -5,9 +5,9 @@ import VariationOrdersPage from "./VariationOrdersPage";
 import OutstandingInvoicesPage from "./OutstandingInvoicesPage";
 
 const TABS = [
-  { to: "certificates", label: "Certificates" },
-  { to: "variation-orders", label: "Variation Orders" },
-  { to: "outstanding", label: "Outstanding Invoices" },
+  { to: "/billing/certificates", label: "Certificates" },
+  { to: "/billing/variation-orders", label: "Variation Orders" },
+  { to: "/billing/outstanding", label: "Outstanding Invoices" },
 ];
 
 export default function BILModule() {
@@ -32,7 +32,7 @@ export default function BILModule() {
         ))}
       </div>
       <Routes>
-        <Route index element={<Navigate to="certificates" replace />} />
+        <Route index element={<Navigate to="/billing/certificates" replace />} />
         <Route path="certificates" element={<CertificatesPage />} />
         <Route path="certificates/:certificateId" element={<CertificateDetailPage />} />
         <Route path="variation-orders" element={<VariationOrdersPage />} />

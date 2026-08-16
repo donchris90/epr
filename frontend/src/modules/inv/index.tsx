@@ -3,8 +3,8 @@ import WarehousesPage from "./WarehousesPage";
 import StockMovementsPage from "./StockMovementsPage";
 
 const TABS = [
-  { to: "warehouses", label: "Warehouses" },
-  { to: "movements", label: "Stock Movements" },
+  { to: "/inventory/warehouses", label: "Warehouses" },
+  { to: "/inventory/movements", label: "Stock Movements" },
 ];
 
 export default function INVModule() {
@@ -29,7 +29,7 @@ export default function INVModule() {
         ))}
       </div>
       <Routes>
-        <Route index element={<Navigate to="warehouses" replace />} />
+        <Route index element={<Navigate to="/inventory/warehouses" replace />} />
         <Route path="warehouses" element={<WarehousesPage />} />
         <Route path="movements" element={<StockMovementsPage />} />
       </Routes>

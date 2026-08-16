@@ -4,9 +4,9 @@ import TimesheetsPage from "./TimesheetsPage";
 import PayrollPage from "./PayrollPage";
 
 const TABS = [
-  { to: "employees", label: "Employees" },
-  { to: "timesheets", label: "Timesheets & Leave" },
-  { to: "payroll", label: "Payroll" },
+  { to: "/workforce/employees", label: "Employees" },
+  { to: "/workforce/timesheets", label: "Timesheets & Leave" },
+  { to: "/workforce/payroll", label: "Payroll" },
 ];
 
 export default function WFMModule() {
@@ -31,7 +31,7 @@ export default function WFMModule() {
         ))}
       </div>
       <Routes>
-        <Route index element={<Navigate to="employees" replace />} />
+        <Route index element={<Navigate to="/workforce/employees" replace />} />
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="timesheets" element={<TimesheetsPage />} />
         <Route path="payroll" element={<PayrollPage />} />

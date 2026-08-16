@@ -5,9 +5,9 @@ import PurchaseOrdersPage from "./PurchaseOrdersPage";
 import PurchaseOrderDetailPage from "./PurchaseOrderDetailPage";
 
 const TABS = [
-  { to: "vendors", label: "Vendors" },
-  { to: "requests", label: "Purchase Requests" },
-  { to: "orders", label: "Purchase Orders" },
+  { to: "/procurement/vendors", label: "Vendors" },
+  { to: "/procurement/requests", label: "Purchase Requests" },
+  { to: "/procurement/orders", label: "Purchase Orders" },
 ];
 
 export default function PRCModule() {
@@ -32,7 +32,7 @@ export default function PRCModule() {
         ))}
       </div>
       <Routes>
-        <Route index element={<Navigate to="vendors" replace />} />
+        <Route index element={<Navigate to="/procurement/vendors" replace />} />
         <Route path="vendors" element={<VendorsPage />} />
         <Route path="requests" element={<PurchaseRequestsPage />} />
         <Route path="orders" element={<PurchaseOrdersPage />} />

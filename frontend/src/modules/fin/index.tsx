@@ -4,9 +4,9 @@ import LedgerPage from "./LedgerPage";
 import ReportsPage from "./ReportsPage";
 
 const TABS = [
-  { to: "setup", label: "Setup" },
-  { to: "ledger", label: "Ledger" },
-  { to: "reports", label: "Reports" },
+  { to: "/finance/setup", label: "Setup" },
+  { to: "/finance/ledger", label: "Ledger" },
+  { to: "/finance/reports", label: "Reports" },
 ];
 
 export default function FINModule() {
@@ -31,7 +31,7 @@ export default function FINModule() {
         ))}
       </div>
       <Routes>
-        <Route index element={<Navigate to="setup" replace />} />
+        <Route index element={<Navigate to="/finance/setup" replace />} />
         <Route path="setup" element={<SetupPage />} />
         <Route path="ledger" element={<LedgerPage />} />
         <Route path="reports" element={<ReportsPage />} />

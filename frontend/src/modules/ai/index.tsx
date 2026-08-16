@@ -3,8 +3,8 @@ import ToolsPage from "./ToolsPage";
 import ExtractionPage from "./ExtractionPage";
 
 const TABS = [
-  { to: "tools", label: "Tools & Audit Log" },
-  { to: "extraction", label: "Document Extraction" },
+  { to: "/ai-assistant/tools", label: "Tools & Audit Log" },
+  { to: "/ai-assistant/extraction", label: "Document Extraction" },
 ];
 
 export default function AIModule() {
@@ -29,7 +29,7 @@ export default function AIModule() {
         ))}
       </div>
       <Routes>
-        <Route index element={<Navigate to="tools" replace />} />
+        <Route index element={<Navigate to="/ai-assistant/tools" replace />} />
         <Route path="tools" element={<ToolsPage />} />
         <Route path="extraction" element={<ExtractionPage />} />
       </Routes>
