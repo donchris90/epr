@@ -1,0 +1,62 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: siteforge
+      POSTGRES_PASSWORD: siteforge
+      POSTGRES_DB: siteforge
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: siteforge
+      MINIO_ROOT_PASSWORD: siteforge123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+  api:
+    build: ./backend
+    env_file: ./backend/.env
+    depends_on:
+      - postgres
+      - redis
+      - minio
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/srv/app
+
+  worker:
+    build: ./backend
+    command: celery -A app.celery_app.celery worker --loglevel=info
+    env_file: ./backend/.env
+    depends_on:
+      - postgres
+      - redis
+
+  web:
+    build: ./frontend
+    env_file: ./frontend/.env
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/srv/app
+
+volumes:
+  pgdata:
+  minio_data:

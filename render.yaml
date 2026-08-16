@@ -1,0 +1,180 @@
+# Render Blueprint -- deploys this app as 5 services:
+#   1. siteforge-db       Postgres (managed)
+#   2. siteforge-redis    Key Value / Redis-compatible (managed)
+#   3. siteforge-api      Flask backend (Docker, gunicorn)
+#   4. siteforge-worker   Celery worker (same image, different command)
+#   5. siteforge-web      React frontend (static site)
+#
+# What this file does NOT set up, and why:
+#
+#   - Object storage (S3_ENDPOINT_URL / S3_BUCKET / S3_BACKUP_BUCKET /
+#     S3_ACCESS_KEY / S3_SECRET_KEY): Render has no managed
+#     S3-compatible service. Document storage (app/documents/) and
+#     the backup upload step (backend/scripts/upload_backup_to_s3.py)
+#     both need a real external provider -- AWS S3, Cloudflare R2,
+#     Backblaze B2, or DigitalOcean Spaces all work, since the app
+#     only needs an S3-compatible API. Fill in the four `sync: false`
+#     placeholders on siteforge-api once you have one.
+#
+#   - Celery beat (the scheduler that actually triggers
+#     app/modules/inv/tasks.py's daily reorder check): this Blueprint
+#     runs a worker, which executes tasks, but nothing currently
+#     enqueues them on a schedule. Add a `type: cron` service running
+#     `celery -A app.celery_app.celery beat` (or use Render's own Cron
+#     Jobs to call the task directly) if you need the scheduled check
+#     to actually fire.
+#
+#   - ANTHROPIC_API_KEY (Module 25, AI Assistant): left as sync:false;
+#     the module works without it, just without live LLM calls.
+#
+# Before applying: run `render blueprints validate` (Render CLI
+# v2.7.0+) from the repo root to catch anything that's drifted from
+# Render's current schema since this was written.
+
+databases:
+  - name: siteforge-db
+    # FREE TIER, deliberately, so this can deploy without payment
+    # info on file -- but Render hard-deletes free Postgres after 30
+    # days with NO warning. Fine for testing the deploy actually
+    # works end-to-end; do not leave real data here past that window.
+    # Switch to `starter` (~$7/mo) before this holds anything you
+    # care about keeping.
+    plan: free
+    region: oregon
+    postgresMajorVersion: "16"
+
+services:
+  # --- Redis-compatible cache/broker ---
+  - type: keyvalue
+    name: siteforge-redis
+    plan: free  # see the siteforge-db note above -- same "fine for testing, upgrade before real use" logic applies
+    region: oregon
+    maxmemoryPolicy: noeviction
+    ipAllowList: []  # Render services in the same region/workspace reach it over the private network; no public access needed.
+
+  # --- Backend API ---
+  - type: web
+    name: siteforge-api
+    runtime: docker
+    region: oregon
+    # FREE TIER -- spins down after 15 min idle, ~30-60s cold start on
+    # the next request. Fine for testing; switch to `starter` (~$7/mo)
+    # once you don't want visitors seeing that delay.
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /v1/health
+    # No dockerCommand override here on purpose -- three real problems
+    # in sequence made that field too unreliable to build on:
+    # (1) preDeployCommand isn't supported on free-tier services;
+    # (2) startCommand isn't valid for runtime: docker (that field is
+    # for Render's own buildpack runtimes; dockerCommand is the
+    # equivalent for a service with its own Dockerfile);
+    # (3) even dockerCommand doesn't reliably get shell-interpreted --
+    # a real deploy showed `&&` being handed to `flask` as a literal
+    # argument rather than chaining commands ("Error: No such option
+    # '-w'"), and it was genuinely unclear whether wrapping in
+    # `sh -c "..."` would survive Render's own string-splitting intact
+    # rather than being mis-split itself.
+    # Migration + gunicorn now run via backend/docker-entrypoint.sh,
+    # baked into the image as the Dockerfile's own CMD -- a single
+    # script path has no internal whitespace for anything upstream of
+    # Docker to mis-split, which sidesteps the whole class of problem
+    # rather than fighting it further.
+    envVars:
+      - key: FLASK_APP
+        value: wsgi:app
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: siteforge-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: siteforge-redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: keyvalue
+          name: siteforge-redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          type: keyvalue
+          name: siteforge-redis
+          property: connectionString
+      # Set to the real siteforge-web URL once that service exists
+      # (Render assigns the .onrender.com URL on first deploy) --
+      # see app/config.py's CORS_ORIGINS comment for what happens if
+      # this is left as "*" in production.
+      - key: CORS_ORIGINS
+        sync: false
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_BACKUP_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+
+  # --- Celery worker: DELIBERATELY NOT in this Blueprint ---
+  # Render rejected it outright: "service type is not available for
+  # this plan" -- unlike siteforge-db/redis/api (which have real free
+  # tiers), background worker services require at least the Starter
+  # paid plan on Render, full stop. No YAML change fixes this.
+  #
+  # Impact of leaving it out: the app's request/response paths (every
+  # module's CRUD, auth, everything the frontend calls directly) work
+  # completely normally without it. What doesn't run is
+  # app/modules/inv/tasks.py's reorder-check task -- and per this
+  # file's own top-of-file note, nothing was scheduling that task
+  # automatically yet anyway (no Celery beat set up), so this doesn't
+  # regress anything that was actually working.
+  #
+  # To add it back once you're ready to put a paid plan on this one
+  # service specifically: the full service definition (type: worker,
+  # same Dockerfile, `celery -A app.celery_app.celery worker` as its
+  # dockerCommand, same env vars as siteforge-api) is preserved in
+  # this repo's git history at commit 6f7b89f, or ask whoever's
+  # maintaining this to regenerate it -- it's a small, mechanical
+  # addition once plan: starter is acceptable.
+
+  # --- Frontend (static site, NOT the dev-mode Dockerfile) ---
+  - type: web
+    name: siteforge-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      # Baked into the compiled JS bundle AT BUILD TIME (see
+      # src/api/client.ts and src/vite-env.d.ts) -- frontend and
+      # backend are separate Render services with separate domains by
+      # default, so this must be the real siteforge-api URL, not a
+      # relative path. Set to
+      # https://siteforge-api.onrender.com/v1 (or your actual backend
+      # URL + /v1) once siteforge-api's URL is known -- Render assigns
+      # it on first deploy, so this needs to be set (or corrected)
+      # AFTER siteforge-api exists, then siteforge-web redeployed.
+      - key: VITE_API_BASE_URL
+        sync: false
+    routes:
+      # SPA routing -- every path that isn't a real static file falls
+      # through to index.html, so client-side routing (react-router)
+      # handles it instead of Render returning a 404.
+      - type: rewrite
+        source: /*
+        destination: /index.html
