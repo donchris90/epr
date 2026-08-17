@@ -173,9 +173,11 @@ export function EmptyState({ title, hint }: { title: string; hint?: string }) {
 
 export function Table({ children }: { children: ReactNode }) {
   return (
-    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-      {children}
-    </table>
+    <div className="sf-table-scroll">
+      <table style={{ width: "100%", minWidth: 640, borderCollapse: "collapse", fontSize: 13 }}>
+        {children}
+      </table>
+    </div>
   );
 }
 

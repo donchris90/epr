@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { clearTokens, getRefreshToken, getTenantLabel } from "../lib/auth";
 import { apiClient } from "../api/client";
@@ -63,10 +64,26 @@ const NAV = [
 
 export default function AppShell() {
   const navigate = useNavigate();
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
+    <div className={`sf-shell${drawerOpen ? " sf-sidebar-open" : ""}`} style={{ display: "flex", minHeight: "100vh" }}>
+      {/* Only rendered visually on narrow viewports (see tokens.css) --
+          the desktop layout below never shows this at all. */}
+      <div className="sf-mobile-header">
+        <button className="sf-hamburger" onClick={() => setDrawerOpen(true)} aria-label="Open menu">
+          ☰
+        </button>
+        <span className="sf-mono" style={{ fontSize: 13, color: "var(--sf-amber)" }}>
+          SiteForge
+        </span>
+        <span style={{ width: 36 }} />
+      </div>
+
+      {drawerOpen && <div className="sf-sidebar-backdrop" onClick={() => setDrawerOpen(false)} />}
+
       <aside
+        className="sf-sidebar"
         style={{
           width: "var(--sf-sidebar-w)",
           flexShrink: 0,
@@ -124,6 +141,7 @@ export default function AppShell() {
                 <NavLink
                   key={item.to}
                   to={item.to}
+                  onClick={() => setDrawerOpen(false)}
                   style={({ isActive }) => ({
                     display: "block",
                     padding: "8px 10px",
@@ -182,7 +200,7 @@ export default function AppShell() {
         </div>
       </aside>
 
-      <main style={{ flex: 1, padding: "32px 40px", maxWidth: 1100 }}>
+      <main className="sf-main" style={{ flex: 1, padding: "32px 40px", maxWidth: 1100 }}>
         <Outlet />
       </main>
     </div>

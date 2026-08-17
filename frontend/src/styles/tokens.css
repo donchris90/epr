@@ -95,3 +95,89 @@ button {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* --- Responsive app shell -------------------------------------------------
+   Desktop behavior (above 900px) is completely unchanged from before --
+   .sf-sidebar keeps the same fixed width, always visible, no transform.
+   Below 900px, the sidebar becomes a real off-canvas drawer: hidden by
+   a CSS transform by default, slides in when AppShell.tsx toggles
+   .sf-sidebar-open, with a tap-to-close backdrop. This one shared
+   layout file is the single highest-leverage mobile fix in the whole
+   app -- every one of the 25+ modules renders through AppShell, so
+   this alone makes all of them reachable and navigable on a phone
+   without touching each module's own page code. */
+
+.sf-mobile-header {
+  display: none;
+}
+
+.sf-sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .sf-mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--sf-navy-950);
+    color: var(--sf-navy-200);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
+  .sf-hamburger {
+    background: none;
+    border: 1px solid var(--sf-navy-700);
+    border-radius: 3px;
+    color: var(--sf-navy-200);
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+    cursor: pointer;
+  }
+
+  .sf-shell {
+    display: block !important;
+  }
+
+  .sf-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(280px, 82vw) !important;
+    z-index: 40;
+    transform: translateX(-100%);
+    transition: transform 180ms ease;
+    box-shadow: 2px 0 12px rgba(11, 18, 27, 0.35);
+  }
+
+  .sf-sidebar-open .sf-sidebar {
+    transform: translateX(0);
+  }
+
+  .sf-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(11, 18, 27, 0.5);
+    z-index: 30;
+  }
+
+  .sf-main {
+    padding: 20px 16px !important;
+    max-width: 100% !important;
+  }
+
+  /* Any table wider than the viewport scrolls horizontally within
+     itself, rather than forcing the whole page wider than the
+     screen -- applies automatically to every module's real data
+     tables (components/ui.tsx:Table), no per-module change needed. */
+  .sf-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
