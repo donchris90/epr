@@ -55,6 +55,10 @@ const NAV = [
       { to: "/ai-assistant", label: "AI Assistant" },
     ],
   },
+  {
+    section: "Account",
+    items: [{ to: "/account/subscription", label: "Billing & Subscription" }],
+  },
 ];
 
 export default function AppShell() {

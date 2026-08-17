@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
+import SubscriptionExpiredPage from "./pages/SubscriptionExpiredPage";
+import BillingPage from "./pages/BillingPage";
 import PlatformAdminLoginPage from "./pages/PlatformAdminLoginPage";
 import PlatformAdminTenantsPage from "./pages/PlatformAdminTenantsPage";
 import AppShell from "./layout/AppShell";
@@ -56,9 +58,21 @@ export default function App() {
           <Route path="/platform-admin/tenants" element={<PlatformAdminTenantsPage />} />
         </Route>
 
+        {/* Deliberately outside AppShell -- a blocked tenant doesn't
+            need the full nav sidebar linking to modules that would
+            immediately 402 again; just this focused page and a real
+            way out of it. Still requires login (ProtectedRoute):
+            the redirect that lands here (api/client.ts) always
+            follows a real authenticated request that got a 402, so
+            there's always a valid token by the time this renders. */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/subscription-expired" element={<SubscriptionExpiredPage />} />
+        </Route>
+
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
             <Route index element={<Navigate to="/business-development" replace />} />
+            <Route path="account/subscription" element={<BillingPage />} />
             <Route path="business-development/*" element={<BDCModule />} />
             <Route path="tenders/*" element={<TBMModule />} />
             <Route path="contracts" element={<ContractsPage />} />

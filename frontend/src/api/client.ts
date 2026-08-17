@@ -72,6 +72,20 @@ function redirectToLogin() {
   }
 }
 
+// A 402 means the real backend enforcement
+// (backend/app/middleware/tenant_context.py) found this tenant's
+// trial/subscription has lapsed -- deliberately does NOT clear the
+// stored tokens the way redirectToLogin does: the login itself is
+// still perfectly valid, only this tenant's access is paused, and
+// the subscription-expired page needs that same token to load
+// /v1/billing/subscription (an exempt route) and let the user
+// actually subscribe.
+function redirectToSubscriptionExpired() {
+  if (window.location.pathname !== "/subscription-expired") {
+    window.location.href = "/subscription-expired";
+  }
+}
+
 async function performRefresh(): Promise<string> {
   const refreshToken = localStorage.getItem("refresh_token");
   if (!refreshToken) {
@@ -122,6 +136,11 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as RetryableConfig | undefined;
+
+    if (error.response?.status === 402) {
+      redirectToSubscriptionExpired();
+      return Promise.reject(error);
+    }
 
     const isUnauthorized = error.response?.status === 401;
     const alreadyRetried = originalRequest?._retried;

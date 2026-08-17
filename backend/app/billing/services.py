@@ -181,7 +181,15 @@ def initiate_paystack_checkout(tenant_id, *, plan_code, billing_cycle, email):
                 "amount": amount_kobo,
                 "currency": "NGN",
                 "reference": reference,
-                "callback_url": f"{current_app.config['FRONTEND_URL']}/billing",
+                # Deliberately NOT /billing -- that path already
+                # belongs to this app's construction-billing module
+                # (progress certificates, retention; app/modules/bil/,
+                # a completely different, unrelated concern from
+                # subscriptions). Found and fixed while wiring up the
+                # frontend, not by inspection: reusing it would have
+                # silently redirected a paying tenant into the wrong
+                # part of the app after checkout.
+                "callback_url": f"{current_app.config['FRONTEND_URL']}/account/subscription",
                 "metadata": {"tenant_id": str(tenant_id), "plan_code": plan_code, "billing_cycle": billing_cycle},
             },
             timeout=15,
