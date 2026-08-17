@@ -8,13 +8,25 @@ from argon2.exceptions import VerifyMismatchError
 from sqlalchemy import text
 
 from app.extensions import db
-from app.models.core import User, EmailTenantIndex
+from app.models.core import User, EmailTenantIndex, Tenant
 
 _hasher = PasswordHasher()
 
 
 def hash_password(plain_password: str) -> str:
     return _hasher.hash(plain_password)
+
+
+def verify_password(password_hash: str, plain_password: str) -> bool:
+    """Public counterpart to hash_password -- lets other real account
+    types outside app.models.core.User (e.g. app/platform_admin/) verify
+    a password without reaching into this module's own PasswordHasher
+    instance directly."""
+    try:
+        _hasher.verify(password_hash, plain_password)
+        return True
+    except VerifyMismatchError:
+        return False
 
 
 def authenticate_user(email: str, password: str):
@@ -49,6 +61,13 @@ def authenticate_user(email: str, password: str):
         user = db.session.get(User, index_row.user_id)
 
     if not user or user.status != "active":
+        return None
+
+    # Real enforcement, not cosmetic -- set only by a real platform
+    # admin (app/platform_admin/services.py:suspend_tenant). `tenants`
+    # has no RLS at all, so this read needs no tenant context.
+    tenant = Tenant.query.filter_by(id=index_row.tenant_id).first()
+    if tenant and tenant.is_suspended:
         return None
 
     try:

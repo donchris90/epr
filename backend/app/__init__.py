@@ -5,6 +5,7 @@ Modular monolith: a single deployable Flask app internally organized into
 25 bounded-context modules (see app/modules/*), each owning its own tables
 and exposing a Python service interface (SRS Section 3.3).
 """
+import click
 from flask import Flask
 
 from app.config import get_config
@@ -129,6 +130,10 @@ def create_app(config_name: str = None) -> Flask:
     from app.billing.routes import bp as billing_bp
     app.register_blueprint(billing_bp)
 
+    # --- Platform administration (cross-tenant, separate credential type) ---
+    from app.platform_admin.routes import bp as platform_admin_bp
+    app.register_blueprint(platform_admin_bp)
+
     # --- Notifications (in-app + real email dispatch via Gmail SMTP; SMS not implemented by choice) ---
     from app.notifications.routes import bp as notifications_bp
     app.register_blueprint(notifications_bp)
@@ -172,5 +177,28 @@ def create_app(config_name: str = None) -> Flask:
     @limiter.exempt
     def platform_health():
         return {"status": "ok", "service": "siteforge-api"}
+
+    @app.cli.command("create-platform-admin")
+    @click.option("--email", required=True, help="Platform admin email")
+    def create_platform_admin_command(email):
+        """Bootstrap a real platform admin account -- prompts for the
+        password interactively (never a plain-text CLI argument or a
+        migration-embedded value; see migrations/versions/0039_platform_admin.py's
+        own note on exactly why)."""
+        import getpass
+
+        from app.platform_admin.services import create_platform_admin
+
+        password = getpass.getpass("Password: ")
+        confirm = getpass.getpass("Confirm password: ")
+        if password != confirm:
+            click.echo("Passwords do not match.")
+            return
+        if len(password) < 8:
+            click.echo("Password must be at least 8 characters.")
+            return
+
+        admin = create_platform_admin(email, password)
+        click.echo(f"Created platform admin: {admin.email} ({admin.id})")
 
     return app

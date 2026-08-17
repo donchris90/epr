@@ -17,6 +17,11 @@ class Tenant(db.Model, UUIDPrimaryKeyMixin, AuditMixin):
     name = db.Column(db.String(255), nullable=False)
     subscription_plan = db.Column(db.String(64), nullable=False, default="standard")
     region = db.Column(db.String(64), nullable=True)
+    # Real enforcement, not cosmetic -- checked at login
+    # (app/auth/jwt_utils.py:authenticate_user); a suspended tenant's
+    # users genuinely cannot log in. Set/cleared only through
+    # app/platform_admin/services.py, by a real platform admin.
+    is_suspended = db.Column(db.Boolean, nullable=False, default=False)
 
 
 class Company(db.Model, UUIDPrimaryKeyMixin, AuditMixin):
