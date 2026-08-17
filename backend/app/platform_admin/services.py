@@ -10,6 +10,7 @@ from app.utils.errors import APIError
 from app.auth.jwt_utils import hash_password, verify_password
 from app.models.core import Tenant, User
 from app.billing.models import TenantSubscription
+from app.billing import services as billing_services
 from app.platform_admin.models import PlatformAdmin
 
 
@@ -128,3 +129,46 @@ def reactivate_tenant(tenant_id):
     tenant.is_suspended = False
     db.session.commit()
     return tenant
+
+
+def admin_extend_trial(tenant_id, *, days):
+    """Sets real tenant context first -- tenant_subscriptions has RLS,
+    unlike tenants itself, and a platform admin's own JWT carries no
+    tenant_id to have set it automatically (see this module's own
+    docstring on why). Delegates the actual logic to
+    app/billing/services.py:extend_trial rather than duplicating it --
+    this function's only real job is establishing the tenant context
+    an ordinary tenant-user request gets for free from the middleware.
+
+    Real bug found and fixed while testing this, not by inspection:
+    extend_trial's own db.session.commit() expires the returned
+    object's attributes; re-accessing them (e.g. subscription.status
+    in the route) triggers a fresh SELECT needing app.tenant_id set
+    again. An ordinary tenant-user request gets that automatically
+    (the after_begin listener re-applies it from g.tenant_id on every
+    new transaction) -- but a platform-admin request's g.tenant_id is
+    always None (that JWT carries no tenant_id at all), so nothing
+    re-applies it here. Setting tenant context again, after the
+    commit, closes the gap."""
+    tenant = Tenant.query.filter_by(id=tenant_id).first()
+    if not tenant:
+        raise APIError("Tenant not found", status=404)
+    _as_tenant(tenant_id)
+    subscription = billing_services.extend_trial(tenant_id, days=days)
+    _as_tenant(tenant_id)
+    return subscription
+
+
+def admin_grant_subscription(tenant_id, *, plan_code, billing_cycle, period_days=None):
+    """See admin_extend_trial's docstring -- same real-tenant-context
+    requirement (including the post-commit re-application), delegates
+    to app/billing/services.py:grant_subscription."""
+    tenant = Tenant.query.filter_by(id=tenant_id).first()
+    if not tenant:
+        raise APIError("Tenant not found", status=404)
+    _as_tenant(tenant_id)
+    subscription = billing_services.grant_subscription(
+        tenant_id, plan_code=plan_code, billing_cycle=billing_cycle, period_days=period_days
+    )
+    _as_tenant(tenant_id)
+    return subscription

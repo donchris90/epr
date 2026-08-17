@@ -13,8 +13,29 @@ regression back to returning ORM objects directly.
 from app.models.core import Tenant, User
 
 
+def _seed_a_plan(db):
+    """Real production always has a seeded plan catalog (migration
+    0038) -- start_trial correctly creates no subscription at all if
+    none exists (see app/billing/services.py's own docstring on why
+    that's the right fail-safe, not a crash), but a tenant with no
+    subscription is then genuinely inactive (real 402 enforcement,
+    app/middleware/tenant_context.py) -- exactly what a real
+    deployment's migration prevents from ever happening. Seeding one
+    plan here matches that real guarantee for tests that check a
+    freshly-signed-up token can actually use the app, which is what
+    these tests are actually about -- not the separate, deliberately-
+    tested "what if the catalog really is empty" edge case
+    (tests/test_billing.py::test_signup_still_succeeds_with_no_plan_catalog_at_all)."""
+    from app.billing.models import SubscriptionPlan
+
+    if not SubscriptionPlan.query.filter_by(is_active=True).first():
+        db.session.add(SubscriptionPlan(code="growth", name="Growth", monthly_price_ngn=75000, annual_price_ngn=750000))
+        db.session.commit()
+
+
 class TestSignup:
     def test_signup_creates_a_real_tenant_and_returns_working_tokens(self, client, db):
+        _seed_a_plan(db)
         r = client.post(
             "/v1/onboarding/signup",
             json={"company_name": "Test Signup Co", "admin_email": "founder@testsignup.com", "admin_password": "correct horse battery staple"},
@@ -53,6 +74,7 @@ class TestSignup:
         assert r.status_code == 400
 
     def test_two_signups_are_fully_isolated_tenants(self, client, db):
+        _seed_a_plan(db)
         r1 = client.post(
             "/v1/onboarding/signup",
             json={"company_name": "Tenant One Co", "admin_email": "one@example.com", "admin_password": "correct horse battery staple"},

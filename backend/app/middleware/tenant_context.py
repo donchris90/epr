@@ -55,7 +55,15 @@ PUBLIC_PATHS = {
     "/v1/auth/logout",
     "/v1/onboarding/signup",
     "/v1/platform-admin/auth/login",
+    "/v1/billing/paystack/webhook",
 }
+
+# Paths a tenant must still be able to reach even when its
+# subscription isn't active -- otherwise a tenant that just went
+# inactive could never see its own billing page or plans to actually
+# fix that. Checked as a prefix, not exact match, since this covers
+# every route under the billing blueprint.
+SUBSCRIPTION_EXEMPT_PREFIXES = ("/v1/billing",)
 
 
 def register_tenant_context(app, db):
@@ -98,6 +106,32 @@ def register_tenant_context(app, db):
                 text("SET LOCAL app.tenant_id = :tenant_id"),
                 {"tenant_id": str(tenant_id)},
             )
+
+            # Real enforcement, not cosmetic: a tenant whose trial has
+            # lapsed with no active subscription gets a real 402 on
+            # every route except billing itself (SUBSCRIPTION_EXEMPT_PREFIXES)
+            # -- otherwise they could never reach the page that lets
+            # them fix it. The frontend turns a 402 into a redirect to
+            # a real subscription-expired page
+            # (frontend/src/pages/SubscriptionExpiredPage.tsx), not
+            # just a banner. Platform-admin requests carry no tenant_id
+            # at all (see app/platform_admin/routes.py), so this
+            # entire block is naturally skipped for them without a
+            # separate exemption.
+            if not request.path.startswith(SUBSCRIPTION_EXEMPT_PREFIXES):
+                from app.billing.services import is_tenant_active
+
+                if not is_tenant_active(tenant_id):
+                    from flask import jsonify
+
+                    response = jsonify({
+                        "type": "about:blank",
+                        "title": "Subscription required",
+                        "status": 402,
+                        "detail": "This tenant's trial or subscription has ended.",
+                    })
+                    response.status_code = 402
+                    return response
 
     @event.listens_for(Session, "after_begin")
     def _set_tenant_on_new_transaction(session, transaction, connection):

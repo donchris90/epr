@@ -12,6 +12,22 @@ def _as_tenant(db, tenant_id):
     db.session.execute(text("SET LOCAL app.tenant_id = :tid"), {"tid": str(tenant_id)})
 
 
+def _set_subscription(db, tenant_id, plan, **fields):
+    """seed_tenants (conftest.py) now grants every test tenant a real
+    active subscription by default -- one row per tenant is a real DB
+    constraint, so a test needing a different state updates that
+    existing row instead of inserting a second, conflicting one."""
+    from app.billing.models import TenantSubscription
+
+    _as_tenant(db, tenant_id)
+    subscription = TenantSubscription.query.filter_by(tenant_id=tenant_id).first()
+    subscription.plan_id = plan.id
+    for key, value in fields.items():
+        setattr(subscription, key, value)
+    db.session.commit()
+    return subscription
+
+
 def _seed_plans(db):
     """Tests use db.create_all() (schema from SQLAlchemy metadata
     alone -- see conftest.py), not the real Alembic migrations, so
@@ -76,12 +92,7 @@ class TestIsTenantActive:
 
         _as_tenant(db, seed_tenants["a"])
         plan = SubscriptionPlan.query.filter_by(code="starter").first()
-        sub = TenantSubscription(
-            tenant_id=seed_tenants["a"], plan_id=plan.id, status="trialing",
-            trial_ends_at=datetime.now(timezone.utc) + timedelta(days=5),
-        )
-        db.session.add(sub)
-        db.session.commit()
+        _set_subscription(db, seed_tenants["a"], plan, status="trialing", trial_ends_at=datetime.now(timezone.utc) + timedelta(days=5))
 
         _as_tenant(db, seed_tenants["a"])
         assert is_tenant_active(seed_tenants["a"]) is True
@@ -93,12 +104,7 @@ class TestIsTenantActive:
 
         _as_tenant(db, seed_tenants["a"])
         plan = SubscriptionPlan.query.filter_by(code="starter").first()
-        sub = TenantSubscription(
-            tenant_id=seed_tenants["a"], plan_id=plan.id, status="trialing",
-            trial_ends_at=datetime.now(timezone.utc) - timedelta(days=1),
-        )
-        db.session.add(sub)
-        db.session.commit()
+        _set_subscription(db, seed_tenants["a"], plan, status="trialing", trial_ends_at=datetime.now(timezone.utc) - timedelta(days=1))
 
         _as_tenant(db, seed_tenants["a"])
         assert is_tenant_active(seed_tenants["a"]) is False
@@ -110,9 +116,7 @@ class TestIsTenantActive:
 
         _as_tenant(db, seed_tenants["a"])
         plan = SubscriptionPlan.query.filter_by(code="starter").first()
-        sub = TenantSubscription(tenant_id=seed_tenants["a"], plan_id=plan.id, status="active", trial_ends_at=None)
-        db.session.add(sub)
-        db.session.commit()
+        _set_subscription(db, seed_tenants["a"], plan, status="active", trial_ends_at=None)
 
         _as_tenant(db, seed_tenants["a"])
         assert is_tenant_active(seed_tenants["a"]) is True
@@ -124,15 +128,23 @@ class TestIsTenantActive:
 
         _as_tenant(db, seed_tenants["a"])
         plan = SubscriptionPlan.query.filter_by(code="starter").first()
-        sub = TenantSubscription(tenant_id=seed_tenants["a"], plan_id=plan.id, status="canceled")
-        db.session.add(sub)
-        db.session.commit()
+        _set_subscription(db, seed_tenants["a"], plan, status="canceled")
 
         _as_tenant(db, seed_tenants["a"])
         assert is_tenant_active(seed_tenants["a"]) is False
 
     def test_no_subscription_row_at_all_fails_closed(self, app, db, seed_tenants):
+        """seed_tenants (conftest.py) now grants every test tenant a
+        real subscription by default (matching what real signup does)
+        -- deleting it here to genuinely exercise the "no row exists
+        at all" edge case is_tenant_active still needs to fail closed
+        on, rather than assuming the fixture leaves that state alone."""
         from app.billing.services import is_tenant_active
+        from app.billing.models import TenantSubscription
+
+        _as_tenant(db, seed_tenants["a"])
+        TenantSubscription.query.filter_by(tenant_id=seed_tenants["a"]).delete()
+        db.session.commit()
 
         _as_tenant(db, seed_tenants["a"])
         assert is_tenant_active(seed_tenants["a"]) is False
@@ -151,10 +163,8 @@ class TestBillingRoutes:
         _seed_plans(db)
         from app.billing.models import SubscriptionPlan, TenantSubscription
 
-        _as_tenant(db, seed_tenants["a"])
         plan = SubscriptionPlan.query.filter_by(code="starter").first()
-        db.session.add(TenantSubscription(tenant_id=seed_tenants["a"], plan_id=plan.id, status="active"))
-        db.session.commit()
+        _set_subscription(db, seed_tenants["a"], plan, status="active")
 
         headers = auth_headers("a", permissions=["billing:read"])
         r = client.get("/v1/billing/subscription", headers=headers)
@@ -166,10 +176,8 @@ class TestBillingRoutes:
         _seed_plans(db)
         from app.billing.models import SubscriptionPlan, TenantSubscription
 
-        _as_tenant(db, seed_tenants["a"])
         plan = SubscriptionPlan.query.filter_by(code="growth").first()
-        db.session.add(TenantSubscription(tenant_id=seed_tenants["a"], plan_id=plan.id, status="trialing"))
-        db.session.commit()
+        _set_subscription(db, seed_tenants["a"], plan, status="trialing")
 
         headers = auth_headers("a", permissions=["billing:manage"])
         r = client.post("/v1/billing/subscription/change-plan", headers=headers, json={"plan_code": "enterprise", "billing_cycle": "annual"})
@@ -178,20 +186,29 @@ class TestBillingRoutes:
         assert r.get_json()["billing_cycle"] == "annual"
         assert r.get_json()["status"] == "trialing"  # unchanged -- a plan pick alone never activates
 
-    def test_checkout_honestly_fails_rather_than_faking_success(self, app, db, client, seed_tenants, auth_headers):
-        headers = auth_headers("a", permissions=["billing:manage"])
+    def test_checkout_honestly_fails_rather_than_faking_success(self, app, db, client, seed_tenants, auth_headers, real_user):
+        """Needs a real User row matching the JWT's user_id -- the
+        checkout route looks up the caller's real email to pass to
+        Paystack (app/billing/routes.py:initiate_checkout), so a
+        fixture-generated random user_id with no matching row would
+        hit that lookup's own 400 before ever reaching the
+        Paystack-specific 501 this test actually wants to verify."""
+        headers = auth_headers("a", permissions=["billing:manage"], user_id=real_user.id)
         r = client.post("/v1/billing/subscription/checkout", headers=headers, json={"plan_code": "starter", "billing_cycle": "monthly"})
         assert r.status_code == 501
 
     def test_cross_tenant_isolation(self, app, db, client, seed_tenants, auth_headers):
+        """seed_tenants (conftest.py) now grants every test tenant a
+        real subscription by default -- tenant B genuinely has its
+        own now too, so real isolation here means each tenant sees
+        only its own plan/status, not that B has none at all."""
         _seed_plans(db)
-        from app.billing.models import SubscriptionPlan, TenantSubscription
+        from app.billing.models import SubscriptionPlan
 
-        _as_tenant(db, seed_tenants["a"])
         plan = SubscriptionPlan.query.filter_by(code="starter").first()
-        db.session.add(TenantSubscription(tenant_id=seed_tenants["a"], plan_id=plan.id, status="active"))
-        db.session.commit()
+        _set_subscription(db, seed_tenants["a"], plan, status="active")
 
         headers_b = auth_headers("b", permissions=["billing:read"])
         r = client.get("/v1/billing/subscription", headers=headers_b)
-        assert r.status_code == 404  # tenant B genuinely has no subscription of its own here
+        assert r.status_code == 200
+        assert r.get_json()["plan"]["code"] != "starter"  # B's own (fixture-default) plan, not A's

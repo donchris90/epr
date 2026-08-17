@@ -19,6 +19,7 @@ import uuid
 
 import pytest
 from flask_jwt_extended import create_access_token
+from sqlalchemy import text
 
 from app import create_app
 from app.extensions import db as _db
@@ -101,12 +102,41 @@ def tenant_ids():
 @pytest.fixture()
 def seed_tenants(db, tenant_ids):
     """Inserts minimal Tenant rows for both test tenants (tenants table
-    itself is not RLS-scoped, so this can run as the app's normal session)."""
+    itself is not RLS-scoped, so this can run as the app's normal session).
+
+    Also grants each one a real, active subscription -- matching what
+    a real production tenant gets automatically via signup
+    (app/onboarding/services.py calls billing_services.start_trial).
+    Without this, every test tenant would be "inactive" by
+    app/billing/services.py:is_tenant_active's own fail-closed
+    definition, and the real 402 enforcement middleware
+    (app/middleware/tenant_context.py) would block every protected
+    route for every test that doesn't specifically care about billing
+    -- exactly the real regression this fix closes, found by running
+    the full suite after adding that enforcement, not by inspection."""
     from app.models.core import Tenant
+    from app.billing.models import SubscriptionPlan, TenantSubscription
 
     for key, tid in tenant_ids.items():
         db.session.add(Tenant(id=tid, name=f"Test Tenant {key.upper()}"))
     db.session.commit()
+
+    plan = SubscriptionPlan.query.filter_by(code="_test_plan").first()
+    if not plan:
+        # is_active=False deliberately -- this plan exists only to
+        # satisfy TenantSubscription.plan_id's real FK/NOT NULL
+        # requirement, never meant to be user-selectable. An active
+        # one here would silently show up in any test asserting the
+        # exact set of plans list_active_plans() returns.
+        plan = SubscriptionPlan(code="_test_plan", name="Test Plan", monthly_price_ngn=0, annual_price_ngn=0, is_active=False)
+        db.session.add(plan)
+        db.session.commit()
+
+    for tid in tenant_ids.values():
+        db.session.execute(text("SET LOCAL app.tenant_id = :tid"), {"tid": str(tid)})
+        db.session.add(TenantSubscription(tenant_id=tid, plan_id=plan.id, status="active"))
+        db.session.commit()
+
     return tenant_ids
 
 

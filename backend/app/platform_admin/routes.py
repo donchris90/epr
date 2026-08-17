@@ -64,3 +64,47 @@ def suspend_tenant(tenant_id):
 def reactivate_tenant(tenant_id):
     tenant = services.reactivate_tenant(tenant_id)
     return jsonify({"id": str(tenant.id), "is_suspended": tenant.is_suspended})
+
+
+@bp.post("/tenants/<uuid:tenant_id>/extend-trial")
+@require_platform_admin
+def extend_trial(tenant_id):
+    data = request.get_json(force=True) or {}
+    days = data.get("days")
+    if not isinstance(days, int) or days <= 0:
+        raise APIError("days must be a positive integer", status=400)
+
+    subscription = services.admin_extend_trial(tenant_id, days=days)
+    return jsonify({
+        "tenant_id": str(tenant_id),
+        "status": subscription.status,
+        "trial_ends_at": subscription.trial_ends_at.isoformat() if subscription.trial_ends_at else None,
+    })
+
+
+@bp.post("/tenants/<uuid:tenant_id>/grant-subscription")
+@require_platform_admin
+def grant_subscription(tenant_id):
+    """Manually activates a tenant's subscription with no Paystack
+    charge involved -- an offline payment, a comp account, or covering
+    a provider outage. See app/billing/services.py:grant_subscription
+    for the real reasoning behind period_days=None meaning "no expiry
+    at all" versus a real fixed period."""
+    data = request.get_json(force=True) or {}
+    plan_code = data.get("plan_code")
+    billing_cycle = data.get("billing_cycle", "monthly")
+    period_days = data.get("period_days")
+
+    if not plan_code:
+        raise APIError("plan_code is required", status=400)
+    if period_days is not None and (not isinstance(period_days, int) or period_days <= 0):
+        raise APIError("period_days must be a positive integer or omitted", status=400)
+
+    subscription = services.admin_grant_subscription(
+        tenant_id, plan_code=plan_code, billing_cycle=billing_cycle, period_days=period_days
+    )
+    return jsonify({
+        "tenant_id": str(tenant_id),
+        "status": subscription.status,
+        "current_period_end": subscription.current_period_end.isoformat() if subscription.current_period_end else None,
+    })

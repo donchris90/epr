@@ -44,6 +44,15 @@ class BaseConfig:
     # (or isn't a verified alias of) the authenticated account.
     SMTP_FROM_ADDRESS = os.environ.get("SMTP_FROM_ADDRESS", "") or SMTP_USERNAME
 
+    # Paystack (app/billing/services.py) -- same empty-by-default,
+    # clean-documented-no-op pattern as SMTP above, not a crash when
+    # unset. FRONTEND_URL is where a tenant lands after completing (or
+    # abandoning) checkout -- Paystack's callback_url, not a webhook
+    # target; the webhook itself is a separate, fixed backend URL
+    # configured directly in the Paystack dashboard, not derived here.
+    PAYSTACK_SECRET_KEY = os.environ.get("PAYSTACK_SECRET_KEY", "")
+    FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
+
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "DATABASE_URL",
         "postgresql+psycopg2://siteforge:siteforge@localhost:5432/siteforge",
