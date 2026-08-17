@@ -14,5 +14,8 @@ set -e
 echo "Running database migrations..."
 flask db upgrade
 
+echo "Checking platform admin bootstrap..."
+python scripts/bootstrap_platform_admin.py
+
 echo "Starting gunicorn..."
 exec gunicorn -w 4 -b 0.0.0.0:8000 wsgi:app
