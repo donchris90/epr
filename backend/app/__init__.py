@@ -125,6 +125,10 @@ def create_app(config_name: str = None) -> Flask:
     from app.projects.routes import bp as projects_bp
     app.register_blueprint(projects_bp)
 
+    # --- Subscription billing (monthly/annual plans, 14-day trial) ---
+    from app.billing.routes import bp as billing_bp
+    app.register_blueprint(billing_bp)
+
     # --- Notifications (in-app + real email dispatch via Gmail SMTP; SMS not implemented by choice) ---
     from app.notifications.routes import bp as notifications_bp
     app.register_blueprint(notifications_bp)

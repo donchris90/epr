@@ -22,6 +22,7 @@ from app.extensions import db
 from app.utils.errors import APIError
 from app.auth.jwt_utils import hash_password
 from app.models.core import Tenant, Role, User, EmailTenantIndex
+from app.billing import services as billing_services
 
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -86,6 +87,16 @@ def signup_tenant(*, company_name, admin_email, admin_password):
     # here rolls back the whole signup rather than leaving a user who
     # exists but can never be found at login.
     db.session.add(EmailTenantIndex(email=user.email, user_id=user.id, tenant_id=tenant.id))
+    db.session.flush()
+
+    # Same transaction, same atomicity guarantee as everything else
+    # here -- a new tenant gets a real 14-day trial the moment they
+    # exist. Deliberately tolerant if the plan catalog is missing or
+    # misconfigured (see billing_services.start_trial's own docstring):
+    # signup creating a real, login-capable tenant is the actual core
+    # transaction, not billing -- a billing hiccup must never be the
+    # reason a new company can't sign up at all.
+    billing_services.start_trial(tenant.id)
     db.session.flush()
 
     # Captured as plain values BEFORE commit, deliberately -- Flask-
