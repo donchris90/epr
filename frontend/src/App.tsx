@@ -1,8 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
+import PlatformAdminLoginPage from "./pages/PlatformAdminLoginPage";
+import PlatformAdminTenantsPage from "./pages/PlatformAdminTenantsPage";
 import AppShell from "./layout/AppShell";
 import ProtectedRoute from "./lib/ProtectedRoute";
+import PlatformAdminProtectedRoute from "./lib/PlatformAdminProtectedRoute";
 import BDCModule from "./modules/bdc";
 import TBMModule from "./modules/tbm";
 import ContractsPage from "./modules/ctm/ContractsPage";
@@ -43,6 +46,15 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+
+        {/* Platform admin: deliberately outside the tenant
+            ProtectedRoute/AppShell tree above -- it's a completely
+            separate credential type (see lib/platformAdminAuth.ts)
+            with no tenant nav, tenant context, or tenant token. */}
+        <Route path="/platform-admin/login" element={<PlatformAdminLoginPage />} />
+        <Route element={<PlatformAdminProtectedRoute />}>
+          <Route path="/platform-admin/tenants" element={<PlatformAdminTenantsPage />} />
+        </Route>
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
