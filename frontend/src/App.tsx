@@ -6,6 +6,7 @@ import BillingPage from "./pages/BillingPage";
 import UsersManagementPage from "./pages/UsersManagementPage";
 import RolesPage from "./pages/RolesPage";
 import ApprovalCenterPage from "./pages/ApprovalCenterPage";
+import DocumentLibraryPage from "./pages/DocumentLibraryPage";
 import AcceptInvitationPage from "./pages/AcceptInvitationPage";
 import PlatformAdminLoginPage from "./pages/PlatformAdminLoginPage";
 import PlatformAdminTenantsPage from "./pages/PlatformAdminTenantsPage";
@@ -83,6 +84,7 @@ export default function App() {
             <Route path="settings/users" element={<UsersManagementPage />} />
             <Route path="settings/roles" element={<RolesPage />} />
             <Route path="approvals" element={<ApprovalCenterPage />} />
+            <Route path="documents" element={<DocumentLibraryPage />} />
             <Route path="projects/*" element={<ProjectsModule />} />
             <Route path="business-development/*" element={<BDCModule />} />
             <Route path="tenders/*" element={<TBMModule />} />

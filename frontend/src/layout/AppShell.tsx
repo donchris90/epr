@@ -6,7 +6,7 @@ import { NotificationBell } from "../components/NotificationBell";
 
 const NAV = [
   { section: "Projects", items: [{ to: "/projects", label: "All Projects" }] },
-  { section: "Approvals", items: [{ to: "/approvals", label: "Approval Center" }] },
+  { section: "Approvals & Documents", items: [{ to: "/approvals", label: "Approval Center" }, { to: "/documents", label: "Document Library" }] },
   { section: "Pipeline", items: [{ to: "/business-development", label: "Business Development" }] },
   {
     section: "Tender-to-Contract",
