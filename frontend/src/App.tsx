@@ -11,6 +11,7 @@ import AppShell from "./layout/AppShell";
 import ProtectedRoute from "./lib/ProtectedRoute";
 import PlatformAdminProtectedRoute from "./lib/PlatformAdminProtectedRoute";
 import BDCModule from "./modules/bdc";
+import ProjectsModule from "./modules/proj";
 import TBMModule from "./modules/tbm";
 import ContractsPage from "./modules/ctm/ContractsPage";
 import ContractDetailPage from "./modules/ctm/ContractDetailPage";
@@ -78,6 +79,7 @@ export default function App() {
             <Route index element={<Navigate to="/business-development" replace />} />
             <Route path="account/subscription" element={<BillingPage />} />
             <Route path="settings/users" element={<UsersManagementPage />} />
+            <Route path="projects/*" element={<ProjectsModule />} />
             <Route path="business-development/*" element={<BDCModule />} />
             <Route path="tenders/*" element={<TBMModule />} />
             <Route path="contracts" element={<ContractsPage />} />
