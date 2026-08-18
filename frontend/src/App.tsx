@@ -4,6 +4,7 @@ import SignupPage from "./pages/SignupPage";
 import SubscriptionExpiredPage from "./pages/SubscriptionExpiredPage";
 import BillingPage from "./pages/BillingPage";
 import UsersManagementPage from "./pages/UsersManagementPage";
+import RolesPage from "./pages/RolesPage";
 import AcceptInvitationPage from "./pages/AcceptInvitationPage";
 import PlatformAdminLoginPage from "./pages/PlatformAdminLoginPage";
 import PlatformAdminTenantsPage from "./pages/PlatformAdminTenantsPage";
@@ -79,6 +80,7 @@ export default function App() {
             <Route index element={<Navigate to="/business-development" replace />} />
             <Route path="account/subscription" element={<BillingPage />} />
             <Route path="settings/users" element={<UsersManagementPage />} />
+            <Route path="settings/roles" element={<RolesPage />} />
             <Route path="projects/*" element={<ProjectsModule />} />
             <Route path="business-development/*" element={<BDCModule />} />
             <Route path="tenders/*" element={<TBMModule />} />
