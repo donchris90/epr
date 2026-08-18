@@ -44,6 +44,15 @@ def list_members():
     })
 
 
+@bp.get("/roles")
+@require_permission("org:read")
+def list_roles():
+    from app.org.schemas import RoleSchema
+
+    roles = services.list_roles(g.tenant_id)
+    return jsonify({"data": RoleSchema(many=True).dump(roles)})
+
+
 @bp.get("/seats")
 @require_permission("org:read")
 def get_seats():

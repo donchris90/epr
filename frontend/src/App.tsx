@@ -3,6 +3,8 @@ import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import SubscriptionExpiredPage from "./pages/SubscriptionExpiredPage";
 import BillingPage from "./pages/BillingPage";
+import UsersManagementPage from "./pages/UsersManagementPage";
+import AcceptInvitationPage from "./pages/AcceptInvitationPage";
 import PlatformAdminLoginPage from "./pages/PlatformAdminLoginPage";
 import PlatformAdminTenantsPage from "./pages/PlatformAdminTenantsPage";
 import AppShell from "./layout/AppShell";
@@ -48,6 +50,8 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        {/* Public -- an invitee isn't logged in yet, matching /login and /signup above. */}
+        <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
 
         {/* Platform admin: deliberately outside the tenant
             ProtectedRoute/AppShell tree above -- it's a completely
@@ -73,6 +77,7 @@ export default function App() {
           <Route element={<AppShell />}>
             <Route index element={<Navigate to="/business-development" replace />} />
             <Route path="account/subscription" element={<BillingPage />} />
+            <Route path="settings/users" element={<UsersManagementPage />} />
             <Route path="business-development/*" element={<BDCModule />} />
             <Route path="tenders/*" element={<TBMModule />} />
             <Route path="contracts" element={<ContractsPage />} />

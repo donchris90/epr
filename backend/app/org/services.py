@@ -60,6 +60,14 @@ def list_org_members(tenant_id):
     return {"users": users, "pending_invitations": invitations}
 
 
+def list_roles(tenant_id):
+    """The tenant's real, dynamic roles -- this codebase's RBAC
+    already supports arbitrary tenant-defined roles (app/models/core.py:Role),
+    so the invite form picks from these directly rather than a
+    hardcoded list."""
+    return Role.query.filter_by(tenant_id=tenant_id).order_by(Role.name).all()
+
+
 def create_invitation(tenant_id, *, email, role_id, invited_by_user_id, department=None, job_title=None, message=None):
     email = email.strip().lower()
 

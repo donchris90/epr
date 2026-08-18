@@ -227,6 +227,25 @@ class TestAcceptInvitationFlow:
         assert r.status_code == 400
 
 
+class TestListRoles:
+    def test_lists_the_tenants_real_dynamic_roles(self, app, db, client, seed_tenants, auth_headers):
+        _make_role(db, seed_tenants["a"])
+        headers = auth_headers("a", permissions=["org:read"])
+
+        r = client.get("/v1/org/roles", headers=headers)
+        assert r.status_code == 200
+        names = {role["name"] for role in r.get_json()["data"]}
+        assert "Member" in names
+
+    def test_cross_tenant_isolation(self, app, db, client, seed_tenants, auth_headers):
+        _make_role(db, seed_tenants["a"])
+        headers_b = auth_headers("b", permissions=["org:read"])
+
+        r = client.get("/v1/org/roles", headers=headers_b)
+        assert r.status_code == 200
+        assert r.get_json()["data"] == []
+
+
 class TestUserManagementActions:
     def test_suspend_blocks_login_and_reactivate_restores_it(self, app, db, client, seed_tenants, auth_headers):
         from app.models.core import User
