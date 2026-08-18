@@ -1,43 +1,70 @@
-/* SiteForge design tokens.
-   Direction: a technical-drawing / blueprint vocabulary -- the actual
-   working material of this industry -- rather than a generic SaaS look.
-   Deep blueprint navy for structure, a caution-amber accent (not the
-   terracotta AI-default), brick red for danger, steel blue for info.
-   Monospace for anything that is a reference number, code, or currency
-   figure, echoing drawing schedules and BOQ sheets. */
+/* SiteForge design tokens -- v2.
+   Direction: warm, grounded, approachable -- the physical materials
+   of a Nigerian construction site (sun-baked laterite earth, burnt
+   clay brick, timber, open sky, safety green) rather than the cold
+   technical-drawing vocabulary this app used before. Deliberately
+   moved away from navy/blueprint toward warmth: friendlier to read,
+   easier to navigate, less intimidating for the site staff and
+   business owners who actually use this daily, not just the
+   engineers who might have liked the old look.
+
+   Variable NAMES are kept from the previous system on purpose
+   (--sf-navy-*, --sf-amber, --sf-steel, --sf-green, --sf-brick) even
+   though most no longer match their literal names -- these are
+   referenced 332 times across 69 files throughout this app.
+   Remapping the VALUES behind the same names lets one file change
+   cascade a genuinely new visual identity everywhere at once, rather
+   than a much larger, riskier find-and-replace across the whole
+   codebase. Read --sf-navy-* as "the ink/structure scale" and
+   --sf-amber as "the primary accent," not literally. */
 
 :root {
-  /* Color */
-  --sf-navy-950: #0b121b;
-  --sf-navy-900: #101a26;
-  --sf-navy-800: #172333;
-  --sf-navy-700: #223247;
-  --sf-navy-600: #34495f;
-  --sf-navy-400: #7690a6;
-  --sf-navy-200: #c3d2de;
+  /* Color -- warm charcoal/umber scale (was navy) */
+  --sf-navy-950: #211a14;
+  --sf-navy-900: #2b2219;
+  --sf-navy-800: #3c2f22;
+  --sf-navy-700: #55432f;
+  --sf-navy-600: #6f5940;
+  --sf-navy-400: #a08d75;
+  --sf-navy-200: #ddd2c0;
 
-  --sf-paper: #f7f8f6;
-  --sf-paper-dim: #eceeea;
-  --sf-line: #dde1de;
+  --sf-paper: #faf5ec;
+  --sf-paper-dim: #f0e7d6;
+  --sf-line: #e6dbc8;
 
-  --sf-amber: #d99a2b;
-  --sf-amber-dim: #f2e2bd;
-  --sf-steel: #3b6e8f;
-  --sf-steel-dim: #dbe8ef;
-  --sf-green: #3f8f5f;
-  --sf-green-dim: #dcefe2;
-  --sf-brick: #b8452e;
-  --sf-brick-dim: #f5ddd6;
+  /* Primary accent -- burnt clay/terracotta, grounded in laterite
+     soil and fired brick, deliberately distinct from the generic
+     AI-default salmon-terracotta (#D97757): more saturated, more
+     red-orange, closer to an actual fired-clay color. */
+  --sf-amber: #c1562a;
+  --sf-amber-dim: #f3ddc9;
 
-  /* Type */
-  --sf-font-display: "IBM Plex Sans", "Space Grotesk", sans-serif;
-  --sf-font-body: "Inter", "IBM Plex Sans", sans-serif;
-  --sf-font-mono: "IBM Plex Mono", "Roboto Mono", monospace;
+  /* Info -- soft open-sky blue */
+  --sf-steel: #4a7a94;
+  --sf-steel-dim: #dbe9ee;
 
-  /* Layout */
+  /* Success -- warm olive, safety-vest adjacent without being neon */
+  --sf-green: #5b7a42;
+  --sf-green-dim: #e1e8d2;
+
+  /* Danger -- deep warm red */
+  --sf-brick: #a8402a;
+  --sf-brick-dim: #f2dbd1;
+
+  /* Type -- a rounded, warm display face; a legible, slightly warmer
+     body face than the old Inter; monospace reserved for real
+     tabular/numeric data only, not labels or badges (badges moved to
+     the body face -- see components/ui.tsx's Badge). */
+  --sf-font-display: "Manrope", "Public Sans", sans-serif;
+  --sf-font-body: "Public Sans", "Manrope", sans-serif;
+  --sf-font-mono: "JetBrains Mono", "Roboto Mono", monospace;
+
+  /* Layout -- meaningfully rounder than the old 3px: roundness reads
+     as approachable, one of the concrete, low-risk ways "friendlier"
+     shows up everywhere at once. */
   --sf-sidebar-w: 248px;
-  --sf-radius: 3px;
-  --sf-shadow: 0 1px 2px rgba(11, 18, 27, 0.08);
+  --sf-radius: 10px;
+  --sf-shadow: 0 2px 8px rgba(33, 26, 20, 0.10);
 }
 
 * {
@@ -56,7 +83,7 @@ body {
   color: var(--sf-navy-900);
   background: var(--sf-paper);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -65,7 +92,7 @@ h2,
 h3,
 h4 {
   font-family: var(--sf-font-display);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.01em;
   margin: 0;
 }
@@ -131,7 +158,7 @@ button {
   .sf-hamburger {
     background: none;
     border: 1px solid var(--sf-navy-700);
-    border-radius: 3px;
+    border-radius: var(--sf-radius);
     color: var(--sf-navy-200);
     width: 36px;
     height: 36px;
@@ -152,7 +179,7 @@ button {
     z-index: 40;
     transform: translateX(-100%);
     transition: transform 180ms ease;
-    box-shadow: 2px 0 12px rgba(11, 18, 27, 0.35);
+    box-shadow: 2px 0 12px rgba(33, 26, 20, 0.35);
   }
 
   .sf-sidebar-open .sf-sidebar {
@@ -163,7 +190,7 @@ button {
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(11, 18, 27, 0.5);
+    background: rgba(33, 26, 20, 0.5);
     z-index: 30;
   }
 

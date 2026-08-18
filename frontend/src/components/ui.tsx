@@ -23,19 +23,22 @@ export function PageHeader({
       <div>
         {eyebrow && (
           <div
-            className="sf-mono"
             style={{
-              fontSize: 11,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              color: "var(--sf-navy-400)",
-              marginBottom: 4,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: "0.02em",
+              color: "var(--sf-amber)",
+              marginBottom: 6,
             }}
           >
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--sf-amber)", display: "inline-block" }} />
             {eyebrow}
           </div>
         )}
-        <h1 style={{ fontSize: 22 }}>{title}</h1>
+        <h1 style={{ fontSize: 24 }}>{title}</h1>
       </div>
       {action}
     </div>
@@ -60,7 +63,7 @@ export function Button({
     <button
       {...rest}
       style={{
-        padding: "8px 14px",
+        padding: "9px 16px",
         borderRadius: "var(--sf-radius)",
         fontSize: 13,
         fontWeight: 600,
@@ -104,14 +107,12 @@ export function Badge({ children, tone = "neutral" }: { children: ReactNode; ton
   const t = badgeTones[tone];
   return (
     <span
-      className="sf-mono"
       style={{
         display: "inline-block",
-        padding: "2px 8px",
-        borderRadius: 2,
-        fontSize: 11,
-        letterSpacing: "0.03em",
-        textTransform: "uppercase",
+        padding: "3px 10px",
+        borderRadius: 999,
+        fontSize: 12,
+        fontWeight: 600,
         background: t.bg,
         color: t.fg,
       }}
@@ -184,15 +185,13 @@ export function Table({ children }: { children: ReactNode }) {
 export function Th({ children }: { children?: ReactNode }) {
   return (
     <th
-      className="sf-mono"
       style={{
         textAlign: "left",
-        padding: "8px 12px",
-        fontSize: 11,
-        letterSpacing: "0.05em",
-        textTransform: "uppercase",
-        color: "var(--sf-navy-400)",
-        borderBottom: "1px solid var(--sf-line)",
+        padding: "10px 12px",
+        fontSize: 12,
+        fontWeight: 700,
+        color: "var(--sf-navy-600)",
+        borderBottom: "2px solid var(--sf-line)",
       }}
     >
       {children}
@@ -216,7 +215,7 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
     <input
       {...props}
       style={{
-        padding: "8px 10px",
+        padding: "9px 12px",
         border: "1px solid var(--sf-line)",
         borderRadius: "var(--sf-radius)",
         fontSize: 13,
@@ -233,7 +232,7 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
     <select
       {...props}
       style={{
-        padding: "8px 10px",
+        padding: "9px 12px",
         border: "1px solid var(--sf-line)",
         borderRadius: "var(--sf-radius)",
         fontSize: 13,

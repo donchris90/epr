@@ -132,12 +132,12 @@ export default function AppShell() {
           {NAV.map((group) => (
             <div key={group.section} style={{ marginBottom: 20 }}>
               <div
-                className="sf-mono"
                 style={{
-                  fontSize: 10,
-                  letterSpacing: "0.08em",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.03em",
                   textTransform: "uppercase",
-                  color: "var(--sf-navy-600)",
+                  color: "var(--sf-navy-400)",
                   padding: "0 8px",
                   marginBottom: 6,
                 }}
@@ -151,14 +151,14 @@ export default function AppShell() {
                   onClick={() => setDrawerOpen(false)}
                   style={({ isActive }) => ({
                     display: "block",
-                    padding: "8px 10px",
-                    borderRadius: 3,
+                    padding: "9px 10px",
+                    borderRadius: "var(--sf-radius)",
                     fontSize: 13,
                     fontWeight: 500,
                     textDecoration: "none",
                     color: isActive ? "#fff" : "var(--sf-navy-200)",
                     background: isActive ? "var(--sf-navy-800)" : "transparent",
-                    borderLeft: isActive ? "2px solid var(--sf-amber)" : "2px solid transparent",
+                    borderLeft: isActive ? "3px solid var(--sf-amber)" : "3px solid transparent",
                     marginBottom: 2,
                   })}
                 >
