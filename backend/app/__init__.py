@@ -134,6 +134,10 @@ def create_app(config_name: str = None) -> Flask:
     from app.projects.routes import bp as projects_bp
     app.register_blueprint(projects_bp)
 
+    # --- Global search ---
+    from app.search.routes import bp as search_bp
+    app.register_blueprint(search_bp)
+
     # --- Subscription billing (monthly/annual plans, 14-day trial) ---
     from app.billing.routes import bp as billing_bp
     app.register_blueprint(billing_bp)
