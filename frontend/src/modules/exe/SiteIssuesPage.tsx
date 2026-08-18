@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, EmptyState, Input, Field, Select } from "../../components/ui";
+import { ProjectSelect } from "../../components/ProjectSelect";
 import { useSiteIssues, useCreateSiteIssue, useEscalateOverdueIssues } from "./hooks";
 
 const SEVERITY_TONE: Record<string, "neutral" | "amber" | "steel" | "green" | "brick"> = {
@@ -55,8 +56,8 @@ export default function SiteIssuesPage() {
       />
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20, maxWidth: 500 }}>
-        <Field label="Filter by project ID">
-          <Input placeholder="Project UUID" value={projectId} onChange={(e) => setProjectId(e.target.value)} />
+        <Field label="Filter by project">
+          <ProjectSelect value={projectId} onChange={setProjectId} />
         </Field>
         <Field label="Filter by status">
           <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
@@ -73,12 +74,12 @@ export default function SiteIssuesPage() {
         <Card style={{ marginBottom: 20 }}>
           <form onSubmit={handleCreate}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16 }}>
-              <Field label="Project ID">
-                <Input
+              <Field label="Project">
+                <ProjectSelect
                   required
-                  placeholder="Project UUID"
                   value={form.project_id}
-                  onChange={(e) => setForm({ ...form, project_id: e.target.value })}
+                  onChange={(projectId) => setForm({ ...form, project_id: projectId })}
+                  includeEmptyOption={!form.project_id}
                 />
               </Field>
               <Field label="Category (optional)">

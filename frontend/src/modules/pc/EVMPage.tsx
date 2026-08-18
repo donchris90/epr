@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, EmptyState, Input, Field } from "../../components/ui";
+import { ProjectSelect } from "../../components/ProjectSelect";
 import { useEVMSnapshots, useCreateEVMSnapshot, useAtRiskProjects, useGenerateForecast, useRiskRegister, useCreateRiskEntry } from "./hooks";
 
 export default function EVMPage() {
@@ -56,7 +57,7 @@ export default function EVMPage() {
 
       <div style={{ marginBottom: 20, maxWidth: 320 }}>
         <Field label="Project ID">
-          <Input value={projectId} onChange={(e) => setProjectId(e.target.value)} placeholder="Paste a project UUID" />
+          <ProjectSelect value={projectId} onChange={setProjectId} />
         </Field>
       </div>
 

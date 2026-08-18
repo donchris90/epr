@@ -46,21 +46,25 @@ describe("IncidentsPage near-miss form", () => {
 
     await user.click(screen.getByRole("button", { name: /log near miss/i }));
 
-    // Two <select> elements now exist on the page (incident form +
-    // near-miss form) -- the bug was that the near-miss one didn't
-    // exist at all.
-    const selects = screen.getAllByRole("combobox");
-    expect(selects.length).toBeGreaterThanOrEqual(1);
+    // The bug this guards: the near-miss classification select didn't
+    // exist at all. Targeted by its real aria-label, not a blind
+    // count of every combobox on the page -- the page also legitimately
+    // has an unrelated project-picker select (components/ProjectSelect.tsx).
+    expect(screen.getByLabelText("Near miss classification")).toBeInTheDocument();
   });
 
   it("only offers real backend-valid classification values, never 'near_miss' itself", async () => {
     const user = userEvent.setup();
     renderWithClient(<IncidentsPage />);
 
+    await user.click(screen.getByRole("button", { name: /log incident/i }));
     await user.click(screen.getByRole("button", { name: /log near miss/i }));
 
-    const selects = screen.getAllByRole("combobox");
-    for (const select of selects) {
+    const classificationSelects = [
+      screen.getByLabelText("Incident classification"),
+      screen.getByLabelText("Near miss classification"),
+    ];
+    for (const select of classificationSelects) {
       const options = within(select).getAllByRole("option").map((o) => (o as HTMLOptionElement).value);
       expect(options).toEqual(VALID_CLASSIFICATIONS);
       expect(options).not.toContain("near_miss");
@@ -73,8 +77,7 @@ describe("IncidentsPage near-miss form", () => {
 
     await user.click(screen.getByRole("button", { name: /log near miss/i }));
 
-    const selects = screen.getAllByRole("combobox");
-    const nearMissSelect = selects[selects.length - 1];
+    const nearMissSelect = screen.getByLabelText("Near miss classification");
     await user.selectOptions(nearMissSelect, "lost_time");
 
     const description = screen.getByPlaceholderText(/description/i);

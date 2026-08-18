@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PageHeader, Card, Button, Table, Th, Td, Input, Field, ErrorBanner } from "../../components/ui";
+import { ProjectSelect } from "../../components/ProjectSelect";
 import { getErrorMessage } from "../../api/client";
 import { useGenerateIncomeStatement, useProjectCostSummary, useCheckBudgetControl } from "./hooks";
 
@@ -127,7 +128,7 @@ function ProjectCostSummaryCard() {
       <h3 style={{ fontSize: 14, marginBottom: 12 }}>Project cost summary</h3>
       <div style={{ maxWidth: 320, marginBottom: 16 }}>
         <Field label="Project ID">
-          <Input placeholder="Paste a project UUID" value={projectId} onChange={(e) => setProjectId(e.target.value)} />
+          <ProjectSelect value={projectId} onChange={setProjectId} />
         </Field>
       </div>
       {isLoading ? (

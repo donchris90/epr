@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, EmptyState, Input, Field } from "../../components/ui";
+import { ProjectSelect } from "../../components/ProjectSelect";
 import {
   useWBSNodes,
   useCreateWBSNode,
@@ -72,7 +73,7 @@ export default function SchedulePage() {
 
       <div style={{ marginBottom: 20, maxWidth: 320 }}>
         <Field label="Project ID">
-          <Input placeholder="Paste a project UUID" value={projectId} onChange={(e) => setProjectId(e.target.value)} />
+          <ProjectSelect value={projectId} onChange={setProjectId} />
         </Field>
       </div>
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, EmptyState, Input, Field } from "../../components/ui";
+import { ProjectSelect } from "../../components/ProjectSelect";
 import { useIncidents, useCreateIncident, useCloseIncident, useCreateNearMiss, useSafetyIndicators } from "./hooks";
 
 const CLASSIFICATIONS = ["first_aid", "medical_treatment", "lost_time", "fatality"];
@@ -49,8 +50,8 @@ export default function IncidentsPage() {
       />
 
       <div style={{ marginBottom: 20, maxWidth: 320 }}>
-        <Field label="Project ID (for safety indicators)">
-          <Input value={projectId} onChange={(e) => setProjectId(e.target.value)} placeholder="Paste a project UUID" />
+        <Field label="Project (for safety indicators)">
+          <ProjectSelect value={projectId} onChange={setProjectId} />
         </Field>
       </div>
 
@@ -73,6 +74,7 @@ export default function IncidentsPage() {
         <Card style={{ marginBottom: 20 }}>
           <form onSubmit={handleCreateIncident} style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: 12 }}>
             <select
+              aria-label="Incident classification"
               value={incidentForm.classification}
               onChange={(e) => setIncidentForm({ ...incidentForm, classification: e.target.value })}
               style={{ padding: "8px 10px", border: "1px solid var(--sf-line)", borderRadius: "var(--sf-radius)", fontSize: 13, background: "#fff" }}
@@ -91,6 +93,7 @@ export default function IncidentsPage() {
         <Card style={{ marginBottom: 20 }}>
           <form onSubmit={handleCreateNearMiss} style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: 12 }}>
             <select
+              aria-label="Near miss classification"
               value={nearMissForm.classification}
               onChange={(e) => setNearMissForm({ ...nearMissForm, classification: e.target.value })}
               style={{ padding: "8px 10px", border: "1px solid var(--sf-line)", borderRadius: "var(--sf-radius)", fontSize: 13, background: "#fff" }}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, EmptyState, Input, Field } from "../../components/ui";
+import { ProjectSelect } from "../../components/ProjectSelect";
 import { useDiaries, useCreateDiary } from "./hooks";
 
 const STATUS_TONE: Record<string, "neutral" | "amber" | "steel" | "green"> = {
@@ -37,12 +38,8 @@ export default function DiariesPage() {
       />
 
       <div style={{ marginBottom: 20, maxWidth: 320 }}>
-        <Field label="Filter by project ID">
-          <Input
-            placeholder="Paste a project UUID to filter"
-            value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-          />
+        <Field label="Filter by project">
+          <ProjectSelect value={projectId} onChange={setProjectId} />
         </Field>
       </div>
 
@@ -50,12 +47,12 @@ export default function DiariesPage() {
         <Card style={{ marginBottom: 20 }}>
           <form onSubmit={handleCreate}>
             <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 16 }}>
-              <Field label="Project ID">
-                <Input
+              <Field label="Project">
+                <ProjectSelect
                   required
-                  placeholder="Project UUID"
                   value={form.project_id}
-                  onChange={(e) => setForm({ ...form, project_id: e.target.value })}
+                  onChange={(projectId) => setForm({ ...form, project_id: projectId })}
+                  includeEmptyOption={!form.project_id}
                 />
               </Field>
               <Field label="Diary date">
