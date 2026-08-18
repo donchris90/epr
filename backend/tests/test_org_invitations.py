@@ -111,6 +111,25 @@ class TestSeatLimitEnforcement:
 
 @patch("app.org.services.send_email_notification")
 class TestInvitationManagement:
+    def test_invitation_email_link_matches_the_real_frontend_route(self, mock_email, app, db, client, seed_tenants, auth_headers):
+        """Real regression test: the email previously linked to
+        /accept-invitation/{token} (token as a path segment), but the
+        actual frontend route (frontend/src/App.tsx) has no path
+        parameter there at all -- AcceptInvitationPage.tsx reads the
+        token from a query string. A real invitee clicking that email
+        link would have hit a dead route. Confirms the fix: the
+        generated link uses ?token=, matching what the frontend page
+        actually reads."""
+        _seed_plan_and_subscription(db, seed_tenants["a"], seat_limit=10)
+        role = _make_role(db, seed_tenants["a"])
+        headers = auth_headers("a", permissions=["org:manage", "org:read"])
+
+        client.post("/v1/org/invitations", headers=headers, json={"email": "linktest@example.com", "role_id": str(role.id)})
+
+        body_kwargs = mock_email.delay.call_args.kwargs
+        assert "/accept-invitation?token=" in body_kwargs["body"]
+        assert "/accept-invitation/" not in body_kwargs["body"]
+
     def test_duplicate_pending_invitation_is_rejected(self, mock_email, app, db, client, seed_tenants, auth_headers):
         _seed_plan_and_subscription(db, seed_tenants["a"], seat_limit=10)
         role = _make_role(db, seed_tenants["a"])

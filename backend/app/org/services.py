@@ -159,7 +159,7 @@ def _send_invitation_email(tenant_id, invitation, raw_token):
     from app.models.core import Tenant
 
     tenant = Tenant.query.filter_by(id=tenant_id).first()
-    accept_url = f"{current_app.config['FRONTEND_URL']}/accept-invitation/{raw_token}"
+    accept_url = f"{current_app.config['FRONTEND_URL']}/accept-invitation?token={raw_token}"
     body = (
         f"You've been invited to join {tenant.name if tenant else 'a SiteForge organization'} on SiteForge.\n\n"
         f"Accept your invitation: {accept_url}\n\n"
