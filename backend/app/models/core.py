@@ -130,6 +130,12 @@ class Project(db.Model, UUIDPrimaryKeyMixin, AuditMixin):
     contract_id = db.Column(UUID(as_uuid=True), nullable=True)  # FK to ctm.Contract once defined
     name = db.Column(db.String(255), nullable=False)
     status = db.Column(db.String(32), nullable=False, default="active")
+    client_id = db.Column(UUID(as_uuid=True), nullable=True)  # FK to bdc.Client (cross-module, no relationship() to avoid a circular import)
+    project_manager_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=True)
+    start_date = db.Column(db.Date, nullable=True)
+    end_date = db.Column(db.Date, nullable=True)
+
+    project_manager = db.relationship("User")
 
 
 class Document(db.Model, UUIDPrimaryKeyMixin, AuditMixin):

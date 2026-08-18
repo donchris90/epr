@@ -19,6 +19,8 @@ codebase -- the same real, honest scope that CLP/VNP's OWN external
 portal user-to-project assignment already models correctly for external
 users, just not yet built for internal staff.
 """
+from app.extensions import db
+from app.utils.errors import APIError
 from app.models.core import Project
 
 
@@ -29,3 +31,94 @@ def list_projects(tenant_id, *, search=None, status=None):
     if search:
         query = query.filter(Project.name.ilike(f"%{search}%"))
     return query.order_by(Project.name).all()
+
+
+def _validate_client(tenant_id, client_id):
+    if not client_id:
+        return
+    from app.modules.bdc.models import Client
+
+    if not Client.query.filter_by(id=client_id, tenant_id=tenant_id).first():
+        raise APIError("Client not found", status=404)
+
+
+def _validate_project_manager(tenant_id, project_manager_id):
+    if not project_manager_id:
+        return
+    from app.models.core import User
+
+    if not User.query.filter_by(id=project_manager_id, tenant_id=tenant_id).first():
+        raise APIError("Project manager not found", status=404)
+
+
+def create_project(tenant_id, *, company_id, name, client_id=None, project_manager_id=None, start_date=None, end_date=None):
+    _validate_client(tenant_id, client_id)
+    _validate_project_manager(tenant_id, project_manager_id)
+
+    project = Project(
+        tenant_id=tenant_id, company_id=company_id, name=name, status="active",
+        client_id=client_id, project_manager_id=project_manager_id, start_date=start_date, end_date=end_date,
+    )
+    db.session.add(project)
+    db.session.commit()
+    return project
+
+
+def get_project_detail(tenant_id, project_id):
+    project = Project.query.filter_by(id=project_id, tenant_id=tenant_id).first()
+    if not project:
+        raise APIError("Project not found", status=404)
+
+    client_name = None
+    if project.client_id:
+        from app.modules.bdc.models import Client
+
+        client = Client.query.filter_by(id=project.client_id).first()
+        client_name = client.name if client else None
+
+    # Real, not fabricated -- a project's contract value only shows
+    # up here if a real Contract row actually links to it
+    # (ctm_contracts.project_id). Budget/actual cost/progress are
+    # deliberately NOT included: those are real, computed rollups
+    # owned by other modules (EST, PC/finance, EXE) that aren't
+    # aggregated here yet -- a separate, larger piece of work, not
+    # faked with placeholder numbers.
+    contract_value = None
+    currency = None
+    from app.modules.ctm.models import Contract
+
+    contract = Contract.query.filter_by(project_id=project_id).first()
+    if contract:
+        contract_value = contract.contract_value
+        currency = contract.currency
+
+    return {
+        "project": project,
+        "client_name": client_name,
+        "contract_value": contract_value,
+        "currency": currency,
+    }
+
+
+def update_project(tenant_id, project_id, *, name=None, client_id=None, project_manager_id=None, start_date=None, end_date=None, status=None):
+    project = Project.query.filter_by(id=project_id, tenant_id=tenant_id).first()
+    if not project:
+        raise APIError("Project not found", status=404)
+
+    if client_id is not None:
+        _validate_client(tenant_id, client_id)
+        project.client_id = client_id or None
+    if project_manager_id is not None:
+        _validate_project_manager(tenant_id, project_manager_id)
+        project.project_manager_id = project_manager_id or None
+    if name is not None:
+        project.name = name
+    if start_date is not None:
+        project.start_date = start_date
+    if end_date is not None:
+        project.end_date = end_date
+    if status is not None:
+        project.status = status
+
+    db.session.commit()
+    return project
