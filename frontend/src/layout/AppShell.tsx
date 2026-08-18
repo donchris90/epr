@@ -2,6 +2,7 @@ import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { clearTokens, getRefreshToken, getTenantLabel } from "../lib/auth";
 import { apiClient } from "../api/client";
+import { NotificationBell } from "../components/NotificationBell";
 
 const NAV = [
   { section: "Pipeline", items: [{ to: "/business-development", label: "Business Development" }] },
@@ -80,7 +81,7 @@ export default function AppShell() {
         <span className="sf-mono" style={{ fontSize: 13, color: "var(--sf-amber)" }}>
           SiteForge
         </span>
-        <span style={{ width: 36 }} />
+        <NotificationBell />
       </div>
 
       {drawerOpen && <div className="sf-sidebar-backdrop" onClick={() => setDrawerOpen(false)} />}
@@ -102,22 +103,25 @@ export default function AppShell() {
             borderBottom: "1px solid var(--sf-navy-800)",
           }}
         >
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span
-              className="sf-mono"
-              style={{
-                color: "var(--sf-amber)",
-                fontSize: 13,
-                border: "1px solid var(--sf-amber)",
-                borderRadius: 2,
-                padding: "1px 5px",
-              }}
-            >
-              SF
-            </span>
-            <span style={{ fontFamily: "var(--sf-font-display)", fontWeight: 600, fontSize: 16, color: "#fff" }}>
-              SiteForge
-            </span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+              <span
+                className="sf-mono"
+                style={{
+                  color: "var(--sf-amber)",
+                  fontSize: 13,
+                  border: "1px solid var(--sf-amber)",
+                  borderRadius: 2,
+                  padding: "1px 5px",
+                }}
+              >
+                SF
+              </span>
+              <span style={{ fontFamily: "var(--sf-font-display)", fontWeight: 600, fontSize: 16, color: "#fff" }}>
+                SiteForge
+              </span>
+            </div>
+            <NotificationBell />
           </div>
           <div className="sf-mono" style={{ fontSize: 11, color: "var(--sf-navy-400)", marginTop: 6 }}>
             {getTenantLabel()}
