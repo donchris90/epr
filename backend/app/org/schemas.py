@@ -4,6 +4,17 @@ from marshmallow import Schema, fields, validate
 class RoleSchema(Schema):
     id = fields.UUID(dump_only=True)
     name = fields.Str(dump_only=True)
+    permission_set = fields.List(fields.Str(), dump_only=True)
+
+
+class CreateRoleSchema(Schema):
+    name = fields.Str(required=True, validate=validate.Length(min=1, max=128))
+    permission_set = fields.List(fields.Str(), required=True)
+
+
+class UpdateRoleSchema(Schema):
+    name = fields.Str(required=False, validate=validate.Length(min=1, max=128))
+    permission_set = fields.List(fields.Str(), required=False)
 
 
 class UserSchema(Schema):

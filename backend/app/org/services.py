@@ -301,3 +301,95 @@ def change_user_role(tenant_id, user_id, role_id):
     user.role_id = role_id
     db.session.commit()
     return user
+
+
+def _validate_permissions_against_catalog(permission_set):
+    from app.org.permissions_catalog import ALL_PERMISSIONS
+
+    unknown = [p for p in permission_set if p not in ALL_PERMISSIONS and p != "*"]
+    if unknown:
+        raise APIError(
+            "One or more permissions are not recognized", status=400,
+            detail=f"Unknown permission(s): {', '.join(unknown)}",
+        )
+
+
+def _guard_against_privilege_escalation(caller_permissions, requested_permission_set):
+    """Real security guard, not cosmetic: a caller can never grant a
+    role permissions they don't themselves hold -- the one real
+    exception is a caller who already has the "*" wildcard (a genuine
+    Administrator), who can grant anything, matching how "*" already
+    behaves everywhere else in this codebase's require_permission
+    checks. Without this, org:manage alone (a real, ordinary
+    permission any admin-ish role might have) would let someone
+    silently create a role with billing:manage, workflow:admin, or
+    any other permission they were never actually granted -- a real
+    privilege-escalation path, not a hypothetical one."""
+    if "*" in caller_permissions:
+        return
+    not_held = [p for p in requested_permission_set if p not in caller_permissions]
+    if not_held:
+        raise APIError(
+            "Cannot grant a permission you do not hold yourself", status=403,
+            detail=f"You do not have: {', '.join(not_held)}",
+        )
+
+
+def create_role(tenant_id, *, name, permission_set, caller_permissions):
+    if not name or not name.strip():
+        raise APIError("Role name is required", status=400)
+    _validate_permissions_against_catalog(permission_set)
+    _guard_against_privilege_escalation(caller_permissions, permission_set)
+
+    if Role.query.filter_by(tenant_id=tenant_id, name=name.strip()).first():
+        raise APIError("A role with this name already exists", status=409)
+
+    role = Role(tenant_id=tenant_id, name=name.strip(), permission_set=permission_set)
+    db.session.add(role)
+    db.session.commit()
+    return role
+
+
+def update_role(tenant_id, role_id, *, name=None, permission_set=None, caller_permissions):
+    role = Role.query.filter_by(id=role_id, tenant_id=tenant_id).first()
+    if not role:
+        raise APIError("Role not found", status=404)
+
+    if permission_set is not None:
+        _validate_permissions_against_catalog(permission_set)
+        _guard_against_privilege_escalation(caller_permissions, permission_set)
+        role.permission_set = permission_set
+    if name is not None:
+        if not name.strip():
+            raise APIError("Role name is required", status=400)
+        role.name = name.strip()
+
+    db.session.commit()
+    return role
+
+
+def delete_role(tenant_id, role_id):
+    """Real, not silent: refuses to delete a role that's still
+    assigned to any active user or referenced by a pending invitation
+    -- deleting it out from under them would leave a dangling
+    role_id, not a clean removal."""
+    role = Role.query.filter_by(id=role_id, tenant_id=tenant_id).first()
+    if not role:
+        raise APIError("Role not found", status=404)
+
+    users_with_role = User.query.filter_by(tenant_id=tenant_id, role_id=role_id).filter(User.status != "removed").count()
+    if users_with_role > 0:
+        raise APIError(
+            "This role is still assigned to active users", status=409,
+            detail=f"{users_with_role} user(s) currently have this role. Reassign them before deleting it.",
+        )
+
+    pending_invitations_with_role = Invitation.query.filter_by(tenant_id=tenant_id, role_id=role_id, status="pending").count()
+    if pending_invitations_with_role > 0:
+        raise APIError(
+            "This role is used by a pending invitation", status=409,
+            detail="Cancel or change the role on that invitation before deleting it.",
+        )
+
+    db.session.delete(role)
+    db.session.commit()

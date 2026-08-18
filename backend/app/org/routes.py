@@ -16,7 +16,9 @@ from flask_jwt_extended import create_access_token, create_refresh_token
 from app.org import services
 from app.org.schemas import (
     UserSchema, InvitationSchema, CreateInvitationSchema, AcceptInvitationSchema, ChangeRoleSchema,
+    RoleSchema, CreateRoleSchema, UpdateRoleSchema,
 )
+from app.org.permissions_catalog import get_permission_catalog
 from app.utils.decorators import require_permission
 from app.utils.errors import APIError
 
@@ -24,6 +26,7 @@ bp = Blueprint("org", __name__, url_prefix="/v1/org")
 
 user_schema = UserSchema()
 invitation_schema = InvitationSchema()
+role_schema = RoleSchema()
 
 
 def _load(schema):
@@ -47,10 +50,45 @@ def list_members():
 @bp.get("/roles")
 @require_permission("org:read")
 def list_roles():
-    from app.org.schemas import RoleSchema
-
     roles = services.list_roles(g.tenant_id)
-    return jsonify({"data": RoleSchema(many=True).dump(roles)})
+    return jsonify({"data": role_schema.dump(roles, many=True)})
+
+
+@bp.get("/permissions-catalog")
+@require_permission("org:read")
+def permissions_catalog():
+    """Real, grouped, friendly-labeled list of every permission that
+    can actually be granted -- see app/org/permissions_catalog.py's
+    own docstring for why this is hand-maintained rather than scanned
+    from route decorators at runtime."""
+    return jsonify({"data": get_permission_catalog()})
+
+
+@bp.post("/roles")
+@require_permission("org:manage")
+def create_role():
+    data = _load(CreateRoleSchema())
+    role = services.create_role(
+        g.tenant_id, name=data["name"], permission_set=data["permission_set"], caller_permissions=g.permissions,
+    )
+    return jsonify(role_schema.dump(role)), 201
+
+
+@bp.put("/roles/<uuid:role_id>")
+@require_permission("org:manage")
+def update_role(role_id):
+    data = _load(UpdateRoleSchema())
+    role = services.update_role(
+        g.tenant_id, role_id, name=data.get("name"), permission_set=data.get("permission_set"), caller_permissions=g.permissions,
+    )
+    return jsonify(role_schema.dump(role))
+
+
+@bp.delete("/roles/<uuid:role_id>")
+@require_permission("org:manage")
+def delete_role(role_id):
+    services.delete_role(g.tenant_id, role_id)
+    return "", 204
 
 
 @bp.get("/seats")
