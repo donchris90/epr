@@ -130,6 +130,10 @@ def create_app(config_name: str = None) -> Flask:
     from app.billing.routes import bp as billing_bp
     app.register_blueprint(billing_bp)
 
+    # --- Organization user management (invitations, seats, roles) ---
+    from app.org.routes import bp as org_bp
+    app.register_blueprint(org_bp)
+
     # --- Platform administration (cross-tenant, separate credential type) ---
     from app.platform_admin.routes import bp as platform_admin_bp
     app.register_blueprint(platform_admin_bp)

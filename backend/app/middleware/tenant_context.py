@@ -56,6 +56,8 @@ PUBLIC_PATHS = {
     "/v1/onboarding/signup",
     "/v1/platform-admin/auth/login",
     "/v1/billing/paystack/webhook",
+    "/v1/org/invitations/preview",
+    "/v1/org/invitations/accept",
 }
 
 # Paths a tenant must still be able to reach even when its

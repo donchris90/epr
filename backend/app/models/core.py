@@ -49,8 +49,12 @@ class User(db.Model, UUIDPrimaryKeyMixin, AuditMixin):
     password_hash = db.Column(db.String(255), nullable=False)
     role_id = db.Column(UUID(as_uuid=True), db.ForeignKey("roles.id"), nullable=True)
     status = db.Column(db.String(32), nullable=False, default="active")
+    department = db.Column(db.String(128), nullable=True)
+    job_title = db.Column(db.String(128), nullable=True)
 
     __table_args__ = (db.UniqueConstraint("tenant_id", "email", name="uq_users_tenant_email"),)
+
+    role = db.relationship("Role")
 
 
 class EmailTenantIndex(db.Model, UUIDPrimaryKeyMixin, AuditMixin):
@@ -99,6 +103,23 @@ class EmailTenantIndex(db.Model, UUIDPrimaryKeyMixin, AuditMixin):
     email = db.Column(db.String(255), nullable=False, unique=True, index=True)
     user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
     tenant_id = db.Column(UUID(as_uuid=True), db.ForeignKey("tenants.id"), nullable=False, index=True)
+
+
+class InvitationTokenIndex(db.Model, UUIDPrimaryKeyMixin):
+    """
+    Deliberately NOT tenant-scoped, deliberately NOT RLS-protected --
+    exactly the same reasoning as EmailTenantIndex above, applied to
+    invitation tokens: resolving which tenant a token belongs to
+    BEFORE any tenant context exists to look it up otherwise. See
+    app/org/services.py:get_invitation_by_token for how this and the
+    real, RLS-protected Invitation row are used together.
+    """
+
+    __tablename__ = "invitation_token_index"
+
+    token_hash = db.Column(db.String(64), nullable=False, unique=True)
+    invitation_id = db.Column(UUID(as_uuid=True), nullable=False)
+    tenant_id = db.Column(UUID(as_uuid=True), nullable=False)
 
 
 class Project(db.Model, UUIDPrimaryKeyMixin, AuditMixin):
