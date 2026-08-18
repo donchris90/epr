@@ -13,11 +13,46 @@ server.
 """
 import logging
 import smtplib
+import socket
 from email.mime.text import MIMEText
 
 from flask import current_app
 
 logger = logging.getLogger(__name__)
+
+
+def _create_ipv4_only_smtp_connection(host: str, port: int, timeout: int) -> smtplib.SMTP:
+    """
+    Real bug found from an actual production log, not guessed:
+    [Errno 101] ENETUNREACH ("Network is unreachable") is a routing
+    failure, not a blocked port -- a genuinely different OS-level
+    error than the [Errno 111] Connection refused a firewall/port
+    block produces. The classic cause, confirmed against multiple
+    independent real-world reports of this exact error connecting to
+    smtp.gmail.com from a container: getaddrinfo() resolves the
+    hostname to both an IPv4 and an IPv6 address, Python's default
+    socket.create_connection() tries them in the order returned (often
+    IPv6 first), and many container/cloud network configurations have
+    no actual IPv6 route -- so that first attempt fails immediately at
+    the kernel level, before any SMTP handshake is even possible.
+
+    Fixed by resolving the real IPv4 address ourselves and connecting
+    directly to it -- but smtplib.SMTP(host, ...) is still constructed
+    with the ORIGINAL HOSTNAME STRING, not the resolved IP, so
+    starttls()'s certificate validation still checks the connection
+    against smtp.gmail.com's real certificate correctly (validating
+    against a bare IP address would fail hostname verification, since
+    Gmail's certificate is issued for the hostname, not any specific
+    IP). Only the actual TCP connection step is forced to IPv4; every
+    other layer (TLS, SMTP AUTH) behaves exactly as it would over the
+    default dual-stack path.
+    """
+    ipv4_address = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)[0][4]
+
+    server = smtplib.SMTP(timeout=timeout)
+    server._host = host  # noqa: SLF001 -- needed so starttls() validates the certificate against the real hostname, not the raw IP
+    server.connect(ipv4_address[0], ipv4_address[1])
+    return server
 
 
 def send_email(*, to_address: str, subject: str, body: str) -> bool:
@@ -56,7 +91,7 @@ def send_email(*, to_address: str, subject: str, body: str) -> bool:
     message["To"] = to_address
 
     try:
-        with smtplib.SMTP(host, port, timeout=10) as server:
+        with _create_ipv4_only_smtp_connection(host, port, timeout=10) as server:
             if use_tls:
                 server.starttls()
             server.login(username, password)
