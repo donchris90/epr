@@ -109,6 +109,16 @@ services:
           type: keyvalue
           name: siteforge-redis
           property: connectionString
+      # Real fix for a real constraint documented above (no worker
+      # service on the free tier): set this to "true" so every
+      # .delay() call (invitation emails, notifications) runs
+      # synchronously, in-process, instead of being queued for a
+      # worker that doesn't exist and silently never sending. Set
+      # back to "false" (or remove this line) once siteforge-worker
+      # is added back on a paid plan -- true async is the better
+      # long-term shape, this is the legitimate free-tier stand-in.
+      - key: CELERY_TASK_ALWAYS_EAGER
+        value: "true"
       # Set to the real siteforge-web URL once that service exists
       # (Render assigns the .onrender.com URL on first deploy) --
       # see app/config.py's CORS_ORIGINS comment for what happens if

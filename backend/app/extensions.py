@@ -56,8 +56,59 @@ def _rate_limit_key():
 limiter = Limiter(key_func=_rate_limit_key, default_limits=["200 per minute"])
 
 # Celery is configured fully once the app factory has bound its config;
-# see app/celery_app.py for the bound instance used by worker processes.
+# see configure_celery below, called from both app/__init__.py's
+# create_app() (the actual web service / gunicorn / every .delay()
+# call made from within a live request) and app/celery_app.py (the
+# separate worker process, when one is actually running).
 celery = Celery(__name__)
+
+
+def configure_celery(app):
+    """
+    Real bug found and fixed, not by inspection: this previously only
+    ever ran from app/celery_app.py, the separate worker script -- but
+    the actual web service (wsgi.py -> create_app(), what gunicorn
+    runs on Render) never called it at all. Every .delay() made from
+    within a live request (creating an invitation, sending a
+    notification) was queuing against Celery's unconfigured default
+    broker (amqp://guest@localhost//), not the real Redis broker from
+    REDIS_URL/CELERY_BROKER_URL -- completely disconnected from
+    whatever a real worker might be listening to, which is exactly
+    what "the invitation was created but the email never sent" looks
+    like from the outside, on top of the separate, real Render
+    constraint that a worker service isn't even available on the free
+    tier at all (see render.yaml's own note on that).
+
+    Idempotent -- safe to call from both create_app() and the worker
+    script without double-registering anything, since it only ever
+    mutates the one shared `celery` object's config/task class.
+    """
+    celery.conf.update(
+        broker_url=app.config["CELERY_BROKER_URL"],
+        result_backend=app.config["CELERY_RESULT_BACKEND"],
+        # See app/config.py's own note on this -- the real, opt-in
+        # fix for a deployment with no separate worker process
+        # running at all.
+        task_always_eager=app.config["CELERY_TASK_ALWAYS_EAGER"],
+        beat_schedule={
+            "check-reorder-levels-daily": {
+                "task": "inv.check_and_create_reorder_purchase_requests",
+                "schedule": 60 * 60 * 24,
+            },
+            "apply-due-equipment-transfer-cutovers-daily": {
+                "task": "eqp.apply_due_transfer_cutovers",
+                "schedule": 60 * 60 * 24,
+            },
+        },
+    )
+
+    class ContextTask(celery.Task):
+        def __call__(self, *args, **kwargs):
+            with app.app_context():
+                return self.run(*args, **kwargs)
+
+    celery.Task = ContextTask
+    return celery
 
 # --- Auth lookup ---
 #

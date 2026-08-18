@@ -9,7 +9,7 @@ import click
 from flask import Flask
 
 from app.config import get_config
-from app.extensions import db, migrate, jwt, cors, celery, cache, limiter
+from app.extensions import db, migrate, jwt, cors, celery, configure_celery, cache, limiter
 from app.middleware.tenant_context import register_tenant_context
 
 
@@ -71,6 +71,14 @@ def create_app(config_name: str = None) -> Flask:
     jwt.init_app(app)
     cors.init_app(app, supports_credentials=True, origins=app.config["CORS_ORIGINS"])
     cache.init_app(app)
+    # Real fix for a real bug: previously only app/celery_app.py (the
+    # separate worker script) ever configured this -- the actual web
+    # service never did, so every .delay() call made from within a
+    # live request queued against Celery's unconfigured default
+    # broker, completely disconnected from the real Redis broker (and
+    # from CELERY_TASK_ALWAYS_EAGER, for deployments with no worker
+    # process running at all). See configure_celery's own docstring.
+    configure_celery(app)
 
     # --- metrics (SRS Section 6) ---
     # Same story as Sentry above: configured in requirements.txt,

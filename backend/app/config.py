@@ -82,6 +82,19 @@ class BaseConfig:
     REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
     CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", REDIS_URL)
     CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", REDIS_URL)
+    # Real fix for a real constraint: Render's free tier has no
+    # background-worker service (Starter plan and up only -- see
+    # render.yaml's own note on this), so a task queued with .delay()
+    # has nothing to ever consume it and just sits in Redis forever --
+    # exactly what "invitation created, email never sent" looks like.
+    # Setting this true makes every .delay() call run the task
+    # synchronously, in-process, right where it was queued -- no
+    # separate worker needed at all. The real, correct fix once a paid
+    # plan is acceptable is still a real worker service (true async,
+    # doesn't block the request that queued it) -- this is the
+    # legitimate free-tier alternative in the meantime, not a
+    # long-term substitute.
+    CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "false").lower() == "true"
 
     # Object storage (S3-compatible, SRS Section 3.1)
     S3_ENDPOINT_URL = os.environ.get("S3_ENDPOINT_URL", "http://localhost:9000")
