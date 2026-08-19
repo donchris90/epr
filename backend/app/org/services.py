@@ -155,6 +155,8 @@ def cancel_invitation(tenant_id, invitation_id):
 
 
 def _send_invitation_email(tenant_id, invitation, raw_token):
+    import logging
+
     from flask import current_app
     from app.models.core import Tenant
 
@@ -165,9 +167,29 @@ def _send_invitation_email(tenant_id, invitation, raw_token):
         f"Accept your invitation: {accept_url}\n\n"
         f"This invitation expires in {INVITATION_TTL_DAYS} days."
     )
-    send_email_notification.delay(
-        to_address=invitation.email, subject=f"You're invited to join {tenant.name if tenant else 'SiteForge'}", body=body
-    )
+    try:
+        send_email_notification.delay(
+            to_address=invitation.email, subject=f"You're invited to join {tenant.name if tenant else 'SiteForge'}", body=body
+        )
+    except Exception:
+        # Real bug found from a live production error, not by
+        # inspection: with CELERY_TASK_ALWAYS_EAGER on (the real
+        # free-tier fix for Render's missing worker service -- see
+        # app/config.py's own note), this task runs synchronously
+        # right here, and its retry-on-failure logic
+        # (app/notifications/tasks.py) raises an exception rather than
+        # silently re-queuing, since there's no real async queue to
+        # re-deliver to. That exception was propagating straight
+        # through this function, past create_invitation's caller
+        # (app/org/routes.py), which commits the invitation AFTER
+        # this call returns -- so an email failure wasn't just
+        # returning a 500, it was silently preventing the invitation
+        # itself from ever being committed at all. A failed
+        # notification email must never undo or block the real
+        # business transaction that triggered it.
+        logging.getLogger(__name__).warning(
+            "Invitation created but the notification email failed to send/queue for %s", invitation.email, exc_info=True
+        )
 
 
 def get_invitation_by_token(raw_token):

@@ -43,6 +43,54 @@ def _make_role(db, tenant_id, permissions=None):
     return role
 
 
+class TestNotificationFailureDoesNotBreakInvitation:
+    """
+    Real regression coverage for a real production bug: with
+    CELERY_TASK_ALWAYS_EAGER on (this session's real fix for Render's
+    missing free-tier worker service), the notification task's
+    retry-on-failure logic raises synchronously right in the calling
+    request -- and that exception was propagating all the way up
+    through invitation creation, both crashing the request with a 500
+    AND silently preventing the invitation from ever being committed
+    (create_invitation flushes but doesn't commit before sending the
+    email; the route commits afterward). Deliberately does NOT mock
+    send_email_notification here -- the whole point is confirming the
+    real, unmocked failure-and-retry path doesn't break anything.
+    """
+
+    def test_invitation_succeeds_even_when_email_dispatch_fails_in_eager_mode(self, app, db, client, seed_tenants, auth_headers):
+        app.config["CELERY_TASK_ALWAYS_EAGER"] = True
+        from app.extensions import configure_celery
+
+        configure_celery(app)
+        # SMTP deliberately left unconfigured (empty username/password,
+        # the seed_tenants/app fixture default) -- send_email_notification
+        # will genuinely fail and retry, exactly reproducing the real bug.
+        app.config["SMTP_USERNAME"] = ""
+        app.config["SMTP_PASSWORD"] = ""
+
+        _seed_plan_and_subscription(db, seed_tenants["a"], seat_limit=10)
+        role = _make_role(db, seed_tenants["a"])
+        headers = auth_headers("a", permissions=["org:manage", "org:read"])
+
+        r = client.post("/v1/org/invitations", headers=headers, json={"email": "eagerfail@example.com", "role_id": str(role.id)})
+
+        assert r.status_code == 201
+        assert r.get_json()["email"] == "eagerfail@example.com"
+
+        # The real point: genuinely, durably committed, not silently
+        # rolled back by the exception that used to propagate through here.
+        _as_tenant(db, seed_tenants["a"])
+        from app.org.models import Invitation
+
+        saved = Invitation.query.filter_by(tenant_id=seed_tenants["a"], email="eagerfail@example.com").first()
+        assert saved is not None
+        assert saved.status == "pending"
+
+        app.config["CELERY_TASK_ALWAYS_EAGER"] = False
+        configure_celery(app)
+
+
 @patch("app.org.services.send_email_notification")
 class TestSeatLimitEnforcement:
     def test_can_invite_up_to_the_seat_limit(self, mock_email, app, db, client, seed_tenants, auth_headers):

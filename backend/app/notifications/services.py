@@ -69,7 +69,24 @@ def _dispatch_external(notification: Notification) -> None:
 
     from app.notifications.tasks import send_email_notification
 
-    send_email_notification.delay(to_address=user.email, subject=notification.title, body=notification.body or "")
+    try:
+        send_email_notification.delay(to_address=user.email, subject=notification.title, body=notification.body or "")
+    except Exception:
+        # Same real bug, same real fix as
+        # app/org/services.py:_send_invitation_email -- with
+        # CELERY_TASK_ALWAYS_EAGER on (see app/config.py's own note),
+        # a failed send's retry-on-failure logic
+        # (app/notifications/tasks.py) raises synchronously right
+        # here, and this function is called from real business
+        # actions across this codebase (workflow approvals, among
+        # others, via app/workflow/services.py) -- a failed
+        # notification email must never crash or roll back whatever
+        # real action actually triggered it.
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "Notification %s created but the email failed to send/queue for %s", notification.id, user.email, exc_info=True
+        )
 
 
 def list_for_user(tenant_id, *, user_id, unread_only=False, cursor=None, limit=50):
