@@ -75,7 +75,15 @@ def create_invitation(tenant_id, *, email, role_id, invited_by_user_id, departme
     if not role:
         raise APIError("Role not found", status=404)
 
-    if User.query.filter_by(tenant_id=tenant_id, email=email).first():
+    # Excludes removed users deliberately, not just active ones -- a
+    # removed user (User.status == "removed", see remove_user's own
+    # docstring on why this is a soft delete, not a hard one) is a row
+    # that genuinely still exists in the database, but from the
+    # caller's perspective "removing" someone should free up their
+    # email to be re-invited. Without this exclusion, removing someone
+    # would have permanently blocked ever inviting that same address
+    # again -- found from a real report, not by inspection.
+    if User.query.filter(User.tenant_id == tenant_id, User.email == email, User.status != "removed").first():
         raise APIError("A user with this email already exists in your organization", status=409)
 
     existing_pending = Invitation.query.filter_by(tenant_id=tenant_id, email=email, status="pending").first()

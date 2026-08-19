@@ -314,6 +314,37 @@ class TestListRoles:
 
 
 class TestUserManagementActions:
+    def test_removed_user_email_can_be_reinvited(self, app, db, client, seed_tenants, auth_headers):
+        """Real regression test for a real reported bug: remove_user
+        is a soft delete (status="removed", the row genuinely still
+        exists), but the duplicate-check in create_invitation didn't
+        account for that -- removing someone permanently blocked ever
+        re-inviting that same email address again. Fixed at both the
+        application level (the duplicate check now excludes removed
+        users) and the database level (migration 0043 replaced the
+        unconditional unique constraint with a partial one that
+        excludes removed users), since a hard database constraint
+        would otherwise still reject the new User row created when
+        the fresh invitation is eventually accepted."""
+        from app.models.core import User
+        from app.auth.jwt_utils import hash_password
+
+        role = _make_role(db, seed_tenants["a"])
+        _as_tenant(db, seed_tenants["a"])
+        user = User(tenant_id=seed_tenants["a"], email="removed-then-reinvited@example.com", password_hash=hash_password("x"), role_id=role.id, status="active")
+        db.session.add(user)
+        db.session.commit()
+
+        headers = auth_headers("a", permissions=["org:manage", "org:read"])
+        r_remove = client.post(f"/v1/org/users/{user.id}/remove", headers=headers)
+        assert r_remove.status_code == 200
+
+        with patch("app.org.services.send_email_notification"):
+            r_invite = client.post("/v1/org/invitations", headers=headers, json={"email": "removed-then-reinvited@example.com", "role_id": str(role.id)})
+
+        assert r_invite.status_code == 201
+        assert r_invite.get_json()["email"] == "removed-then-reinvited@example.com"
+
     def test_suspend_blocks_login_and_reactivate_restores_it(self, app, db, client, seed_tenants, auth_headers):
         from app.models.core import User
         from app.auth.jwt_utils import hash_password
