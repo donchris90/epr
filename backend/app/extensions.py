@@ -174,6 +174,13 @@ def get_s3_client():
             aws_access_key_id=current_app.config["S3_ACCESS_KEY"] or None,
             aws_secret_access_key=current_app.config["S3_SECRET_KEY"] or None,
             config=BotoConfig(signature_version="s3v4", s3={"addressing_style": "path"}),
-            region_name="us-east-1",
+            # "auto" -- Cloudflare R2's own documented convention.
+            # Confirmed directly against R2's official docs: this
+            # value is required by the boto3 SDK's interface but not
+            # actually used by R2 itself, so any real S3-compatible
+            # provider that DOES care about region (genuine AWS S3,
+            # DigitalOcean Spaces, etc.) still works correctly too --
+            # this isn't an R2-only hardcoded assumption.
+            region_name=current_app.config["S3_REGION"],
         )
     return _s3_client

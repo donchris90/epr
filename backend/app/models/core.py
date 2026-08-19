@@ -51,6 +51,7 @@ class User(db.Model, UUIDPrimaryKeyMixin, AuditMixin):
     status = db.Column(db.String(32), nullable=False, default="active")
     department = db.Column(db.String(128), nullable=True)
     job_title = db.Column(db.String(128), nullable=True)
+    avatar_document_id = db.Column(UUID(as_uuid=True), nullable=True)
 
     # Partial unique index, not a plain UniqueConstraint -- matches
     # migration 0043's real fix: a removed user (status="removed", a

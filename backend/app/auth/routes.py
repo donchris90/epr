@@ -13,7 +13,7 @@ External portal users (Client Portal, Vendor Portal) authenticate through
 this same endpoint family but receive tokens scoped to a restricted
 permission set (SRS Section 8).
 """
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g, jsonify, request
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,
@@ -102,3 +102,61 @@ def logout():
     remaining_seconds = max(int(claims["exp"] - time.time()), 1)
     revoke_refresh_token(jti, expires_in_seconds=remaining_seconds)
     return jsonify({"status": "logged_out"})
+
+
+def _profile_response(user):
+    """Real, ready-to-use avatar URL, not just a raw document_id --
+    reuses the existing document download-URL logic
+    (app/documents/services.py) so the frontend can display the image
+    directly without a separate round-trip."""
+    from app.documents.services import get_download_url
+    from app.models.core import Document
+
+    avatar_url = None
+    if user.avatar_document_id:
+        document = Document.query.filter_by(id=user.avatar_document_id).first()
+        if document and document.status == "uploaded":
+            avatar_url = get_download_url(document)
+
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "status": user.status,
+        "department": user.department,
+        "job_title": user.job_title,
+        "avatar_url": avatar_url,
+    }
+
+
+@bp.get("/me")
+@jwt_required()
+def get_me():
+    from app.auth.services import get_profile
+
+    user = get_profile(g.tenant_id, g.user_id)
+    return jsonify(_profile_response(user))
+
+
+@bp.put("/me/avatar")
+@jwt_required()
+def set_my_avatar():
+    from app.auth.services import set_avatar
+
+    data = request.get_json(force=True) or {}
+    document_id = data.get("document_id")
+    if not document_id:
+        from app.utils.errors import APIError
+
+        raise APIError("document_id is required", status=400)
+
+    user = set_avatar(g.tenant_id, g.user_id, document_id=document_id)
+    return jsonify(_profile_response(user))
+
+
+@bp.delete("/me/avatar")
+@jwt_required()
+def delete_my_avatar():
+    from app.auth.services import remove_avatar
+
+    user = remove_avatar(g.tenant_id, g.user_id)
+    return jsonify(_profile_response(user))

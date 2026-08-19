@@ -129,6 +129,12 @@ class BaseConfig:
     # Object storage (S3-compatible, SRS Section 3.1)
     S3_ENDPOINT_URL = os.environ.get("S3_ENDPOINT_URL", "http://localhost:9000")
     S3_BUCKET = os.environ.get("S3_BUCKET", "siteforge-documents")
+    # "auto" by default -- Cloudflare R2's own documented convention
+    # (confirmed directly against R2's official docs: required by the
+    # boto3 SDK's interface, not actually used by R2 itself). A real
+    # AWS S3 or DigitalOcean Spaces deployment that does care about
+    # region can override this to a real region string.
+    S3_REGION = os.environ.get("S3_REGION", "auto")
     S3_ACCESS_KEY = os.environ.get("S3_ACCESS_KEY", "")
     S3_SECRET_KEY = os.environ.get("S3_SECRET_KEY", "")
     # Deliberately a separate bucket from S3_BUCKET, not a prefix
