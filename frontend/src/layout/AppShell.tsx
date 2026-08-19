@@ -4,6 +4,7 @@ import { clearTokens, getRefreshToken, getTenantLabel } from "../lib/auth";
 import { apiClient } from "../api/client";
 import { NotificationBell } from "../components/NotificationBell";
 import { GlobalSearch } from "../components/GlobalSearch";
+import { UserAvatar } from "../components/UserAvatar";
 
 const NAV = [
   { section: "Projects", items: [{ to: "/projects", label: "All Projects" }] },
@@ -63,6 +64,7 @@ const NAV = [
   {
     section: "Account",
     items: [
+      { to: "/settings/profile", label: "My Profile" },
       { to: "/settings/users", label: "Users & Roles" },
       { to: "/settings/roles", label: "Manage Roles" },
       { to: "/account/subscription", label: "Billing & Subscription" },
@@ -133,6 +135,7 @@ export default function AppShell() {
           <div className="sf-mono" style={{ fontSize: 11, color: "var(--sf-navy-400)", marginTop: 6 }}>
             {getTenantLabel()}
           </div>
+          <UserAvatar />
           <div style={{ marginTop: 12 }}>
             <GlobalSearch variant="inline" />
           </div>

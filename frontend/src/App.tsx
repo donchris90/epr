@@ -4,6 +4,7 @@ import SignupPage from "./pages/SignupPage";
 import SubscriptionExpiredPage from "./pages/SubscriptionExpiredPage";
 import BillingPage from "./pages/BillingPage";
 import UsersManagementPage from "./pages/UsersManagementPage";
+import ProfilePage from "./pages/ProfilePage";
 import RolesPage from "./pages/RolesPage";
 import ApprovalCenterPage from "./pages/ApprovalCenterPage";
 import DocumentLibraryPage from "./pages/DocumentLibraryPage";
@@ -82,6 +83,7 @@ export default function App() {
             <Route index element={<Navigate to="/business-development" replace />} />
             <Route path="account/subscription" element={<BillingPage />} />
             <Route path="settings/users" element={<UsersManagementPage />} />
+            <Route path="settings/profile" element={<ProfilePage />} />
             <Route path="settings/roles" element={<RolesPage />} />
             <Route path="approvals" element={<ApprovalCenterPage />} />
             <Route path="documents" element={<DocumentLibraryPage />} />
