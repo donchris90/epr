@@ -6,6 +6,7 @@ Modular monolith: a single deployable Flask app internally organized into
 and exposing a Python service interface (SRS Section 3.3).
 """
 import click
+import os
 from flask import Flask
 
 from app.config import get_config
@@ -47,6 +48,24 @@ MODULE_BLUEPRINTS = [
 def create_app(config_name: str = None) -> Flask:
     app = Flask(__name__)
     app.config.from_object(get_config(config_name))
+
+    # Real startup validation, added after a real production incident:
+    # an invitation email went out with a working http://localhost:5173
+    # link instead of the real deployed frontend, because FRONTEND_URL
+    # was never actually set on Render -- silently falling back to the
+    # local-dev default (app/config.py) with no warning anywhere. This
+    # can't auto-fix a missing env var, but it makes the misconfiguration
+    # immediately visible in the deploy logs the moment it happens again,
+    # rather than only discovered when someone reports a broken link.
+    effective_env = config_name or os.environ.get("FLASK_ENV", "development")
+    if effective_env == "production" and app.config["FRONTEND_URL"] == "http://localhost:5173":
+        app.logger.warning(
+            "FRONTEND_URL is not set (or still the local-dev default) in a production "
+            "environment -- invitation links and other user-facing URLs will point at "
+            "localhost, not the real deployed frontend. Set FRONTEND_URL to the real "
+            "frontend origin (e.g. https://siteforge-web.onrender.com) in this service's "
+            "environment variables."
+        )
 
     # --- error tracking (SRS Section 6) ---
     # Previously in requirements.txt but sentry_sdk.init() was never
