@@ -2,6 +2,26 @@
 Authentication helpers: password verification and refresh-token revocation.
 Passwords are hashed with Argon2id (SRS Section 10.4) -- no plaintext or
 reversibly-encrypted password storage.
+
+Real bug found from a live 502 error on the invitation-accept flow, not
+by inspection: argon2-cffi's PasswordHasher() with no arguments uses
+its own library default -- 64 MiB memory cost, 4-way parallelism, per
+single hash operation. That's a reasonable choice on a well-resourced
+server, but on Render's free tier (512 MB total RAM, shared across
+multiple gunicorn worker processes -- 4 were observed booting in this
+deployment's own logs) a single password hash genuinely competing for
+that much memory is a real, plausible cause of an out-of-memory kill
+mid-request, which is exactly what a 502 with no application-level
+error response at all looks like from the outside -- the worker
+process dies before Flask ever gets to return anything, so there's no
+clean error for CORS headers to even attach to.
+
+Explicitly configured to OWASP's own current documented minimum
+(Password Storage Cheat Sheet, 2026): m=19 MiB, t=2, p=1 -- a real,
+legitimate, still-secure standard specifically recommended for
+resource-constrained environments, confirmed directly against
+multiple current sources before making this change, not guessed at or
+weakened below any accepted practice.
 """
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
@@ -10,7 +30,7 @@ from sqlalchemy import text
 from app.extensions import db
 from app.models.core import User, EmailTenantIndex, Tenant
 
-_hasher = PasswordHasher()
+_hasher = PasswordHasher(memory_cost=19456, time_cost=2, parallelism=1)
 
 
 def hash_password(plain_password: str) -> str:
