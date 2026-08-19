@@ -52,7 +52,18 @@ class User(db.Model, UUIDPrimaryKeyMixin, AuditMixin):
     department = db.Column(db.String(128), nullable=True)
     job_title = db.Column(db.String(128), nullable=True)
 
-    __table_args__ = (db.UniqueConstraint("tenant_id", "email", name="uq_users_tenant_email"),)
+    # Partial unique index, not a plain UniqueConstraint -- matches
+    # migration 0043's real fix: a removed user (status="removed", a
+    # soft delete) must not permanently block re-inviting the same
+    # email address. Excludes removed users from the uniqueness check
+    # entirely, matching the same pattern already used for
+    # Invitation's own uq_invitations_one_pending_per_email.
+    __table_args__ = (
+        db.Index(
+            "uq_users_tenant_email_active", "tenant_id", "email",
+            unique=True, postgresql_where=db.text("status != 'removed'"),
+        ),
+    )
 
     role = db.relationship("Role")
 

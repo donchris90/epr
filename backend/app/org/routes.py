@@ -189,16 +189,12 @@ def accept_invitation():
     login issues, so the new user lands straight in the app rather
     than being asked to log in again with the password they just set."""
     data = _load(AcceptInvitationSchema())
-    user = services.accept_invitation(data["token"], password=data["password"])
+    result = services.accept_invitation(data["token"], password=data["password"])
 
-    from app.models.core import Role
-
-    role = Role.query.filter_by(id=user.role_id).first() if user.role_id else None
     claims = {
-        "tenant_id": str(user.tenant_id), "user_id": str(user.id),
-        "role_id": str(user.role_id) if user.role_id else None,
-        "permissions": list(role.permission_set) if role else [],
+        "tenant_id": result["tenant_id"], "user_id": result["user_id"],
+        "role_id": result["role_id"], "permissions": result["permissions"],
     }
-    access_token = create_access_token(identity=str(user.id), additional_claims=claims)
-    refresh_token = create_refresh_token(identity=str(user.id), additional_claims=claims)
+    access_token = create_access_token(identity=result["user_id"], additional_claims=claims)
+    refresh_token = create_refresh_token(identity=result["user_id"], additional_claims=claims)
     return jsonify({"access_token": access_token, "refresh_token": refresh_token}), 201

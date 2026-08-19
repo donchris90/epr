@@ -257,12 +257,30 @@ def get_invitation_by_token(raw_token):
 
 
 def accept_invitation(raw_token, *, password):
-    """Creates the real, login-capable User account this invitation
-    was for. Single-use by construction, not just convention: once
-    status flips to "accepted", get_invitation_by_token above can
-    never find this token as valid again, for the same reason an
-    expired one can't -- the status check runs before the expiry
-    check even matters."""
+    """
+    Creates the real, login-capable User account this invitation was
+    for. Single-use by construction, not just convention: once status
+    flips to "accepted", get_invitation_by_token above can never find
+    this token as valid again, for the same reason an expired one
+    can't -- the status check runs before the expiry check even
+    matters.
+
+    Real bug found from a live 500 on this exact route, not by
+    inspection: this used to return the raw User ORM object, and the
+    caller (app/org/routes.py) accessed user.role_id/user.tenant_id
+    afterward plus ran its own fresh Role query -- both needing tenant
+    context that flatly doesn't exist for this public,
+    unauthenticated route outside of what this function itself
+    explicitly sets. The normal middleware's automatic context
+    reapplication (app/middleware/tenant_context.py) only fires within
+    an authenticated request carrying g.tenant_id, which is never
+    populated here at all (there's no tenant to know yet -- resolving
+    it is the whole point of the token). Returning a plain dict of
+    values already captured while context was genuinely valid, rather
+    than an ORM object the caller might touch later under no context
+    at all, removes the failure mode entirely rather than patching it
+    at the call site.
+    """
     invitation = get_invitation_by_token(raw_token)
     if not invitation:
         raise APIError("This invitation is invalid or has expired", status=400)
@@ -292,10 +310,22 @@ def accept_invitation(raw_token, *, password):
 
     db.session.add(EmailTenantIndex(email=user.email, user_id=user.id, tenant_id=invitation.tenant_id))
 
+    # Captured as plain values here, while tenant context is still
+    # genuinely valid and before the commit below -- the route that
+    # calls this never touches the ORM object or runs a query of its
+    # own afterward.
+    role = Role.query.filter_by(id=user.role_id).first() if user.role_id else None
+    result = {
+        "user_id": str(user.id),
+        "tenant_id": str(user.tenant_id),
+        "role_id": str(user.role_id) if user.role_id else None,
+        "permissions": list(role.permission_set) if role else [],
+    }
+
     invitation.status = "accepted"
     invitation.accepted_at = datetime.now(timezone.utc)
     db.session.commit()
-    return user
+    return result
 
 
 def suspend_user(tenant_id, user_id):
