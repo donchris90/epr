@@ -53,6 +53,27 @@ class BaseConfig:
     # (or isn't a verified alias of) the authenticated account.
     SMTP_FROM_ADDRESS = os.environ.get("SMTP_FROM_ADDRESS", "") or SMTP_USERNAME
 
+    # Resend (app/notifications/email.py) -- a real, HTTP-based
+    # alternative to SMTP, added specifically because raw SMTP
+    # (smtp.gmail.com:587/465) proved consistently unreliable on
+    # Render's free-tier network for this deployment, despite genuine
+    # attempts to fix it at the connection level (IPv4-only resolution,
+    # multi-candidate fallback, port 465). Resend sends over ordinary
+    # HTTPS -- the same protocol every other outbound call this app
+    # already makes (Paystack, etc.) -- sidestepping whatever was
+    # actually happening to the SMTP ports specifically. Empty by
+    # default, same clean-no-op-not-a-crash pattern as SMTP_USERNAME
+    # above; when both RESEND_API_KEY and SMTP credentials are unset,
+    # send_email() still no-ops safely rather than failing.
+    RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+    # Resend's own sandbox address, usable with zero setup on a brand
+    # new account -- real accounts get real deliverability once a
+    # custom domain is verified in Resend's dashboard and this is
+    # updated to match, but this default means email genuinely starts
+    # working immediately with just an API key, no DNS configuration
+    # required first.
+    RESEND_FROM_ADDRESS = os.environ.get("RESEND_FROM_ADDRESS", "onboarding@resend.dev")
+
     # Paystack (app/billing/services.py) -- same empty-by-default,
     # clean-documented-no-op pattern as SMTP above, not a crash when
     # unset. FRONTEND_URL is where a tenant lands after completing (or

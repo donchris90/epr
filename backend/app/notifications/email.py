@@ -16,6 +16,7 @@ import smtplib
 import socket
 from email.mime.text import MIMEText
 
+import requests
 from flask import current_app
 
 logger = logging.getLogger(__name__)
@@ -95,13 +96,75 @@ def _create_ipv4_only_smtp_connection(host: str, port: int, timeout: int, ssl_mo
 
 def send_email(*, to_address: str, subject: str, body: str) -> bool:
     """
-    Returns True if the email was handed off to the SMTP server
-    successfully, False otherwise -- never raises. A notification
-    failing to email is a real problem worth logging, but it must
-    never be allowed to crash or roll back whatever business
-    transaction triggered it (the same requirement that keeps this
-    entirely out of the synchronous request path in the first place;
-    see app/notifications/tasks.py).
+    Returns True if the email was handed off successfully, False
+    otherwise -- never raises. A notification failing to email is a
+    real problem worth logging, but it must never be allowed to crash
+    or roll back whatever business transaction triggered it (the same
+    requirement that keeps this entirely out of the synchronous
+    request path in the first place; see app/notifications/tasks.py).
+
+    Prefers Resend (HTTP-based) when RESEND_API_KEY is configured,
+    falling back to SMTP otherwise -- see _send_via_resend's own
+    docstring for why Resend was added at all.
+    """
+    resend_key = current_app.config["RESEND_API_KEY"]
+    if resend_key:
+        return _send_via_resend(resend_key, to_address=to_address, subject=subject, body=body)
+    return _send_via_smtp(to_address=to_address, subject=subject, body=body)
+
+
+def _send_via_resend(api_key: str, *, to_address: str, subject: str, body: str) -> bool:
+    """
+    Real, HTTP-based alternative to SMTP -- added specifically because
+    raw SMTP (smtp.gmail.com, both port 587 and 465, both with IPv4-
+    only resolution and multi-candidate fallback already applied)
+    proved consistently unreliable connecting from this deployment's
+    actual Render free-tier network, despite genuine attempts to fix
+    it at the connection level. This sends over ordinary HTTPS -- the
+    same protocol every other outbound call this app already makes
+    (Paystack, etc.) -- sidestepping whatever was actually happening
+    to the SMTP ports specifically, rather than continuing to guess at
+    SMTP-level fixes for a problem that may not be fixable at that
+    level at all from this network.
+
+    Real API contract, confirmed directly against Resend's own current
+    documentation before writing this (POST https://api.resend.com/emails,
+    Bearer auth, JSON body), not written from memory.
+    """
+    if not to_address:
+        logger.warning("Email dispatch skipped: no recipient address for %r", subject)
+        return False
+
+    from_address = current_app.config["RESEND_FROM_ADDRESS"]
+
+    try:
+        response = requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"from": from_address, "to": [to_address], "subject": subject, "text": body or ""},
+            timeout=current_app.config["SMTP_TIMEOUT"],
+        )
+        if response.status_code >= 400:
+            # Real, specific detail in the log -- Resend's error
+            # responses are genuinely informative (e.g. "from address
+            # not verified" on a brand new account without a verified
+            # domain yet), worth surfacing rather than swallowing.
+            logger.warning(
+                "Resend dispatch failed for %r to %s: HTTP %s %s", subject, to_address, response.status_code, response.text[:500]
+            )
+            return False
+        return True
+    except requests.RequestException as exc:
+        logger.warning("Resend dispatch failed for %r to %s: %s", subject, to_address, exc)
+        return False
+
+
+def _send_via_smtp(*, to_address: str, subject: str, body: str) -> bool:
+    """
+    Real, original path -- sends via Gmail SMTP (or any STARTTLS/SSL
+    provider). Used automatically whenever RESEND_API_KEY isn't set,
+    so a deployment that hasn't switched to Resend keeps working
+    exactly as before.
     """
     host = current_app.config["SMTP_HOST"]
     port = current_app.config["SMTP_PORT"]

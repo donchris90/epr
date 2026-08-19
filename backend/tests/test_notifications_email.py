@@ -15,6 +15,7 @@ credential-free CI runs, not first-time proof the feature works.
 from unittest.mock import patch, MagicMock
 
 import pytest
+import requests
 
 
 class TestSendEmail:
@@ -106,6 +107,125 @@ class TestSendEmail:
 
                 result = send_email(to_address="recipient@example.com", subject="Test", body="Body")
                 assert result is False
+
+
+class TestSendEmailViaResend:
+    """
+    Real, HTTP-based alternative to SMTP, added specifically because
+    raw SMTP proved unreliable on this deployment's Render free-tier
+    network. Mocks requests.post rather than hitting the real Resend
+    API -- matches this codebase's established pattern for third-party
+    HTTP integrations (see test_paystack_billing.py), and the actual
+    API contract was confirmed directly against Resend's own current
+    documentation before writing the integration itself, not assumed.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _reset_resend_config(self, app):
+        # The app fixture is session-scoped -- without this, setting
+        # RESEND_API_KEY in one test here would leak into every later
+        # test in the whole suite (confirmed directly: an earlier,
+        # unguarded version of this test class caused the unrelated
+        # real end-to-end SMTP test below to silently route through
+        # Resend instead, since the key was still set from a prior test).
+        yield
+        app.config["RESEND_API_KEY"] = ""
+
+    def test_prefers_resend_over_smtp_when_configured(self, app):
+        """The real routing decision -- RESEND_API_KEY set means
+        Resend is used, SMTP is never even attempted."""
+        app.config["RESEND_API_KEY"] = "re_test_key"
+        app.config["SMTP_USERNAME"] = "sender@gmail.com"
+        app.config["SMTP_PASSWORD"] = "app-password"
+
+        with app.app_context():
+            with patch("requests.post") as mock_post, patch("smtplib.SMTP") as mock_smtp:
+                mock_post.return_value = MagicMock(status_code=200)
+                from app.notifications.email import send_email
+
+                send_email(to_address="recipient@example.com", subject="Test", body="Body")
+
+                mock_post.assert_called_once()
+                mock_smtp.assert_not_called()
+
+    def test_falls_back_to_smtp_when_resend_not_configured(self, app):
+        app.config["RESEND_API_KEY"] = ""
+        app.config["SMTP_USERNAME"] = "sender@gmail.com"
+        app.config["SMTP_PASSWORD"] = "app-password"
+
+        with app.app_context():
+            with patch("requests.post") as mock_post, patch("smtplib.SMTP") as mock_smtp_class:
+                mock_server = MagicMock()
+                mock_smtp_class.return_value.__enter__.return_value = mock_server
+                from app.notifications.email import send_email
+
+                send_email(to_address="recipient@example.com", subject="Test", body="Body")
+
+                mock_post.assert_not_called()
+                mock_smtp_class.assert_called()
+
+    def test_sends_the_real_correct_request_shape(self, app):
+        """Confirmed directly against Resend's own documented API
+        contract before writing this: POST to the real endpoint,
+        Bearer auth with the real key, the real from/to/subject/text
+        fields -- not guessed."""
+        app.config["RESEND_API_KEY"] = "re_test_key_abc123"
+        app.config["RESEND_FROM_ADDRESS"] = "onboarding@resend.dev"
+
+        with app.app_context():
+            with patch("requests.post") as mock_post:
+                mock_post.return_value = MagicMock(status_code=200)
+                from app.notifications.email import send_email
+
+                result = send_email(to_address="recipient@example.com", subject="You're invited", body="Real invite content")
+
+                assert result is True
+                mock_post.assert_called_once_with(
+                    "https://api.resend.com/emails",
+                    headers={"Authorization": "Bearer re_test_key_abc123", "Content-Type": "application/json"},
+                    json={
+                        "from": "onboarding@resend.dev",
+                        "to": ["recipient@example.com"],
+                        "subject": "You're invited",
+                        "text": "Real invite content",
+                    },
+                    timeout=app.config["SMTP_TIMEOUT"],
+                )
+
+    def test_real_http_error_from_resend_is_a_clean_failure_not_a_crash(self, app):
+        """E.g. a brand new account trying to send from an address
+        Resend hasn't verified yet -- a real, expected failure mode
+        while getting set up, must never raise."""
+        app.config["RESEND_API_KEY"] = "re_test_key"
+
+        with app.app_context():
+            with patch("requests.post") as mock_post:
+                mock_post.return_value = MagicMock(status_code=422, text='{"message": "from address not verified"}')
+                from app.notifications.email import send_email
+
+                result = send_email(to_address="recipient@example.com", subject="Test", body="Body")
+                assert result is False
+
+    def test_real_network_failure_talking_to_resend_is_a_clean_failure_not_a_crash(self, app):
+        app.config["RESEND_API_KEY"] = "re_test_key"
+
+        with app.app_context():
+            with patch("requests.post", side_effect=requests.exceptions.ConnectionError("timed out")):
+                from app.notifications.email import send_email
+
+                result = send_email(to_address="recipient@example.com", subject="Test", body="Body")
+                assert result is False
+
+    def test_no_recipient_is_a_clean_failure_before_any_real_request(self, app):
+        app.config["RESEND_API_KEY"] = "re_test_key"
+
+        with app.app_context():
+            with patch("requests.post") as mock_post:
+                from app.notifications.email import send_email
+
+                result = send_email(to_address="", subject="Test", body="Body")
+                assert result is False
+                mock_post.assert_not_called()
 
 
 class TestIPv4OnlySMTPConnection:
