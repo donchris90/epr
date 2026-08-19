@@ -359,16 +359,38 @@ def reactivate_user(tenant_id, user_id):
 
 
 def remove_user(tenant_id, user_id):
-    """Soft-removed (status="removed"), never a hard delete -- matches
+    """
+    Soft-removed (status="removed"), never a hard delete -- matches
     this codebase's consistent audit-trail discipline everywhere else
     (nothing genuinely disappears, it's marked). A removed user is
     excluded from list_org_members above and cannot log in (the same
     real status != "active" check every other non-active status
-    already relies on)."""
+    already relies on).
+
+    Real bug found from a live report, not by inspection: this used to
+    stop at the User row alone -- but EmailTenantIndex.email carries a
+    genuinely GLOBAL unique constraint (necessarily so, since its
+    entire purpose is resolving which tenant an email belongs to
+    before login has any tenant context to filter by at all -- see
+    that model's own docstring). Removing a user left their index row
+    behind, unreferenced by anything useful but still occupying that
+    email globally -- so a fresh invitation to the same address could
+    create a new, real User row (migration 0043's own fix made that
+    part correctly possible again), but accept_invitation would then
+    fail with a raw IntegrityError the moment it tried to insert a
+    NEW index row for that same, still-occupied email.
+
+    Safe to delete outright, not just orphan: a removed user was
+    already unable to log in regardless of this row's existence (the
+    real status != "active" check in authenticate_user), so this row
+    served no purpose once removed -- it was purely a stale
+    reservation blocking reuse, not an active protection for anything.
+    """
     user = User.query.filter_by(id=user_id, tenant_id=tenant_id).first()
     if not user:
         raise APIError("User not found", status=404)
     user.status = "removed"
+    EmailTenantIndex.query.filter_by(user_id=user_id).delete()
     db.session.commit()
     return user
 

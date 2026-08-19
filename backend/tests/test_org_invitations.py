@@ -343,7 +343,58 @@ class TestUserManagementActions:
             r_invite = client.post("/v1/org/invitations", headers=headers, json={"email": "removed-then-reinvited@example.com", "role_id": str(role.id)})
 
         assert r_invite.status_code == 201
-        assert r_invite.get_json()["email"] == "removed-then-reinvited@example.com"
+
+    def test_removed_user_email_can_be_fully_reinvited_and_accepted(self, app, db, client, seed_tenants, auth_headers):
+        """
+        Real regression test for the deeper part of the same bug,
+        reported live after the fix above already shipped: the
+        duplicate-check and users-table-constraint fixes were real and
+        necessary, but not sufficient on their own. EmailTenantIndex
+        carries a genuinely GLOBAL unique-per-email constraint
+        (necessarily so -- it resolves which tenant an email belongs
+        to before login has any tenant context to filter by at all).
+        remove_user previously only touched the User row, leaving the
+        original EmailTenantIndex row behind -- so accepting a fresh
+        invitation to the same email could create a real new User row,
+        but then failed with a raw IntegrityError the moment it tried
+        to insert its own EmailTenantIndex row for that
+        still-globally-occupied email.
+
+        Deliberately seeds a real EmailTenantIndex row for the
+        original user (what a real signup/accept always creates,
+        which the simpler test above does not) -- that row's presence
+        is exactly the real-world precondition that exposes this
+        specific bug.
+        """
+        from app.models.core import User, EmailTenantIndex
+        from app.auth.jwt_utils import hash_password
+
+        role = _make_role(db, seed_tenants["a"])
+        _as_tenant(db, seed_tenants["a"])
+        email = "full-remove-reaccept@example.com"
+        user = User(tenant_id=seed_tenants["a"], email=email, password_hash=hash_password("x"), role_id=role.id, status="active")
+        db.session.add(user)
+        db.session.flush()
+        db.session.add(EmailTenantIndex(email=email, user_id=user.id, tenant_id=seed_tenants["a"]))
+        db.session.commit()
+
+        headers = auth_headers("a", permissions=["org:manage", "org:read"])
+        r_remove = client.post(f"/v1/org/users/{user.id}/remove", headers=headers)
+        assert r_remove.status_code == 200
+
+        with patch("app.org.services.secrets.token_urlsafe", return_value="full-remove-reaccept-token"), patch(
+            "app.org.services.send_email_notification"
+        ):
+            r_invite = client.post("/v1/org/invitations", headers=headers, json={"email": email, "role_id": str(role.id)})
+        assert r_invite.status_code == 201
+
+        # The real point: accept must succeed, not just invitation creation
+        r_accept = client.post("/v1/org/invitations/accept", json={"token": "full-remove-reaccept-token", "password": "newpassword123"})
+        assert r_accept.status_code == 201
+        assert "access_token" in r_accept.get_json()
+
+        r_login = client.post("/v1/auth/login", json={"email": email, "password": "newpassword123"})
+        assert r_login.status_code == 200
 
     def test_suspend_blocks_login_and_reactivate_restores_it(self, app, db, client, seed_tenants, auth_headers):
         from app.models.core import User
