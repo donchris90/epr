@@ -37,7 +37,7 @@ export default function IssuesPage() {
           Issues above the countersignature threshold require a second sign-off before the record is considered
           complete.
         </p>
-        <form onSubmit={handleIssue} style={{ display: "grid", gridTemplateColumns: "1.5fr 1.5fr 1fr 1fr auto", gap: 8 }}>
+        <form onSubmit={handleIssue} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1.5fr 1.5fr 1fr 1fr auto", gap: 8 }}>
           <select
             required
             value={form.tank_id}

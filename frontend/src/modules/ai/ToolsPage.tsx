@@ -16,7 +16,7 @@ export default function ToolsPage() {
         README), but every call here is grounded in real module data and logged below for auditability.
       </p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+      <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
         <Card>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <h3 style={{ fontSize: 14 }}>At-risk projects (CPI/SPI &lt; 0.9)</h3>
@@ -44,7 +44,7 @@ export default function ToolsPage() {
 
         <Card>
           <h3 style={{ fontSize: 14, marginBottom: 12 }}>Idle equipment</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, marginBottom: 12 }}>
+          <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, marginBottom: 12 }}>
             <Field label="Period start">
               <Input type="date" value={period.start} onChange={(e) => setPeriod({ ...period, start: e.target.value })} />
             </Field>

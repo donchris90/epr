@@ -29,10 +29,10 @@ export default function SetupPage() {
     <div>
       <PageHeader eyebrow="Financial Management" title="Setup" />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
         <Card>
           <h3 style={{ fontSize: 14, marginBottom: 12 }}>Companies</h3>
-          <form onSubmit={handleCreateCompany} style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8, marginBottom: 16 }}>
+          <form onSubmit={handleCreateCompany} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8, marginBottom: 16 }}>
             <Input
               required
               placeholder="Company name"
@@ -72,7 +72,7 @@ export default function SetupPage() {
 
         <Card>
           <h3 style={{ fontSize: 14, marginBottom: 12 }}>Chart of accounts</h3>
-          <form onSubmit={handleCreateAccount} style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr auto", gap: 8, marginBottom: 16 }}>
+          <form onSubmit={handleCreateAccount} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr auto", gap: 8, marginBottom: 16 }}>
             <Input
               required
               placeholder="Code"

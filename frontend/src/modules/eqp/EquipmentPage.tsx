@@ -46,7 +46,7 @@ export default function EquipmentPage() {
 
       {showForm && (
         <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleCreate} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr auto", gap: 12 }}>
+          <form onSubmit={handleCreate} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr auto", gap: 12 }}>
             <Field label="Name">
               <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </Field>

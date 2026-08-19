@@ -92,7 +92,7 @@ export default function PurchaseOrderDetailPage() {
         action={<Badge tone={STATUS_TONE[po.status] ?? "neutral"}>{po.status.replace(/_/g, " ")}</Badge>}
       />
 
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
+      <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
         <div>
           <Card style={{ marginBottom: 20 }}>
             <h3 style={{ fontSize: 14, marginBottom: 12 }}>Line items</h3>
@@ -159,7 +159,7 @@ export default function PurchaseOrderDetailPage() {
 
               {matchError && <ErrorBanner title="Match could not be recorded" detail={matchError} />}
 
-              <form onSubmit={handleMatch} style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 12, marginBottom: 16 }}>
+              <form onSubmit={handleMatch} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 12, marginBottom: 16 }}>
                 <Field label="Vendor invoice reference">
                   <Input
                     required
@@ -206,7 +206,7 @@ export default function PurchaseOrderDetailPage() {
                     )}
                   </div>
                   {po.latest_match.match_status === "discrepancy" && (
-                    <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                    <div className="sf-grid-responsive" style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
                       <Input
                         placeholder="Reason for approving the exception"
                         value={exceptionReason}
@@ -261,7 +261,7 @@ export default function PurchaseOrderDetailPage() {
                 A single-step workflow that applies to any value — add more roles for higher-value thresholds as
                 needed.
               </p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+              <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
                 <Input
                   placeholder="Approver role, e.g. site_manager"
                   value={thresholdRole}

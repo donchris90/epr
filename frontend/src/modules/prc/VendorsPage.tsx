@@ -67,7 +67,7 @@ export default function VendorsPage() {
       {showForm && (
         <Card style={{ marginBottom: 20 }}>
           <form onSubmit={handleCreate}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <Field label="Vendor name">
                 <Input required value={name} onChange={(e) => setName(e.target.value)} placeholder="ABC Building Materials Ltd" />
               </Field>
@@ -87,7 +87,7 @@ export default function VendorsPage() {
           <h3 style={{ fontSize: 14, marginBottom: 12 }}>Add compliance document</h3>
           {docError && <ErrorBanner title="Couldn't save document" detail={docError} onDismiss={() => setDocError(null)} />}
           <form onSubmit={handleAddDoc}>
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12, marginBottom: 12 }}>
               <Field label="Document type">
                 <Input required placeholder="e.g. Tax clearance, Insurance" value={docType} onChange={(e) => setDocType(e.target.value)} />
               </Field>

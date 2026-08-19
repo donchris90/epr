@@ -56,7 +56,7 @@ export default function AgreementDetailPage() {
     <div>
       <PageHeader eyebrow="Subcontract Agreement" title="Scope, Measurement & Certification" />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+      <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
         <Card>
           <h3 style={{ fontSize: 14, marginBottom: 12 }}>Scope items</h3>
           {scopeItems?.length ? (
@@ -75,7 +75,7 @@ export default function AgreementDetailPage() {
           ) : (
             <p style={{ fontSize: 12, color: "var(--sf-navy-400)", marginBottom: 12 }}>No scope items yet.</p>
           )}
-          <form onSubmit={handleAddScope} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 8, marginTop: 12 }}>
+          <form onSubmit={handleAddScope} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 8, marginTop: 12 }}>
             <Input required placeholder="Description" value={scopeForm.description} onChange={(e) => setScopeForm({ ...scopeForm, description: e.target.value })} />
             <Input placeholder="Qty" value={scopeForm.quantity} onChange={(e) => setScopeForm({ ...scopeForm, quantity: e.target.value })} />
             <Input placeholder="Rate" value={scopeForm.rate} onChange={(e) => setScopeForm({ ...scopeForm, rate: e.target.value })} />
@@ -88,7 +88,7 @@ export default function AgreementDetailPage() {
           <p style={{ fontSize: 12, color: "var(--sf-navy-400)", marginBottom: 12 }}>
             A sheet must be verified before it can back a payment certificate.
           </p>
-          <form onSubmit={handleCreateSheet} style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr auto", gap: 8 }}>
+          <form onSubmit={handleCreateSheet} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr auto", gap: 8 }}>
             <select
               required
               value={sheetForm.scope_item_id}
@@ -125,7 +125,7 @@ export default function AgreementDetailPage() {
           Issues against the verified measurement sheets staged above.
         </p>
         {certError && <ErrorBanner title="Could not issue certificate" detail={certError} onDismiss={() => setCertError(null)} />}
-        <form onSubmit={handleIssueCertificate} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginBottom: 16 }}>
+        <form onSubmit={handleIssueCertificate} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginBottom: 16 }}>
           <Input required placeholder="Certificate number" value={certNumber} onChange={(e) => setCertNumber(e.target.value)} />
           <Button type="submit" disabled={issueCertificate.isPending || !sheetIds.length}>
             {issueCertificate.isPending ? "Issuing…" : "Issue certificate"}

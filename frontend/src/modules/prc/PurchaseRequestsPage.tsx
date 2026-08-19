@@ -91,7 +91,7 @@ export default function PurchaseRequestsPage() {
       {showForm && (
         <Card style={{ marginBottom: 20 }}>
           <form onSubmit={handleCreate}>
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 16 }}>
+            <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 16 }}>
               <Field label="Description">
                 <Input required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
               </Field>
@@ -123,7 +123,7 @@ export default function PurchaseRequestsPage() {
             <ErrorBanner title="This request would breach the remaining CBS budget" detail={breachDetail} />
           )}
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, marginBottom: breachDetail ? 12 : 0 }}>
+          <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, marginBottom: breachDetail ? 12 : 0 }}>
             <Field label="Remaining budget (optional)">
               <Input
                 placeholder="Leave blank to skip the check"
@@ -137,7 +137,7 @@ export default function PurchaseRequestsPage() {
           </div>
 
           {breachDetail && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12 }}>
+            <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12 }}>
               <Field label="Override justification (required to proceed anyway)">
                 <Input required value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} />
               </Field>

@@ -72,7 +72,7 @@ export default function IncidentsPage() {
 
       {showIncidentForm && (
         <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleCreateIncident} style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: 12 }}>
+          <form onSubmit={handleCreateIncident} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: 12 }}>
             <select
               aria-label="Incident classification"
               value={incidentForm.classification}
@@ -91,7 +91,7 @@ export default function IncidentsPage() {
 
       {showNearMissForm && (
         <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleCreateNearMiss} style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: 12 }}>
+          <form onSubmit={handleCreateNearMiss} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: 12 }}>
             <select
               aria-label="Near miss classification"
               value={nearMissForm.classification}

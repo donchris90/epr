@@ -118,11 +118,11 @@ export default function EstimatePage() {
         action={<Badge tone={currentVersion.status === "submitted" ? "green" : "neutral"}>{currentVersion.status}</Badge>}
       />
 
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
+      <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
         <div>
           <Card>
             <h3 style={{ fontSize: 14, marginBottom: 12 }}>Priced BOQ</h3>
-            <form onSubmit={handleAddItem} style={{ display: "grid", gridTemplateColumns: "3fr 1fr 1fr auto", gap: 8, marginBottom: 16 }}>
+            <form onSubmit={handleAddItem} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "3fr 1fr 1fr auto", gap: 8, marginBottom: 16 }}>
               <Input required placeholder="Description" value={itemDescription} onChange={(e) => setItemDescription(e.target.value)} />
               <Input placeholder="Unit" value={itemUnit} onChange={(e) => setItemUnit(e.target.value)} />
               <Input placeholder="Qty" value={itemQty} onChange={(e) => setItemQty(e.target.value)} />

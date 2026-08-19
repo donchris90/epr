@@ -46,7 +46,7 @@ export default function DiariesPage() {
       {showForm && (
         <Card style={{ marginBottom: 20 }}>
           <form onSubmit={handleCreate}>
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 16 }}>
+            <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 16 }}>
               <Field label="Project">
                 <ProjectSelect
                   required

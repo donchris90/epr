@@ -110,32 +110,34 @@ export default function BillingPage() {
       {plans === null ? (
         <div style={{ padding: 24, fontSize: 13, color: "var(--sf-navy-400)" }}>Loading…</div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+        <div className="row g-3">
           {plans.map((plan) => {
             const price = billingCycle === "monthly" ? plan.monthly_price_ngn : plan.annual_price_ngn;
             const isCurrent = subscription?.plan?.code === plan.code && subscription.is_active;
             return (
-              <Card key={plan.id}>
-                <div style={{ fontSize: 16, fontWeight: 600 }}>{plan.name}</div>
-                <div style={{ fontSize: 24, fontWeight: 700, margin: "8px 0" }}>
-                  {formatMoney(price)}
-                  <span style={{ fontSize: 13, fontWeight: 400, color: "var(--sf-navy-400)" }}>
-                    {" "}
-                    / {billingCycle === "monthly" ? "mo" : "yr"}
-                  </span>
-                </div>
-                <div style={{ fontSize: 13, color: "var(--sf-navy-400)", marginBottom: 16 }}>
-                  {plan.seat_limit ? `Up to ${plan.seat_limit} users` : "Unlimited users"}
-                </div>
-                <Button
-                  variant={isCurrent ? "secondary" : "primary"}
-                  disabled={isCurrent || subscribingCode === plan.code}
-                  onClick={() => handleSubscribe(plan.code)}
-                  style={{ width: "100%" }}
-                >
-                  {isCurrent ? "Current plan" : subscribingCode === plan.code ? "Redirecting…" : "Subscribe"}
-                </Button>
-              </Card>
+              <div key={plan.id} className="col-12 col-md-6 col-lg-4">
+                <Card>
+                  <div style={{ fontSize: 16, fontWeight: 600 }}>{plan.name}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, margin: "8px 0" }}>
+                    {formatMoney(price)}
+                    <span style={{ fontSize: 13, fontWeight: 400, color: "var(--sf-navy-400)" }}>
+                      {" "}
+                      / {billingCycle === "monthly" ? "mo" : "yr"}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 13, color: "var(--sf-navy-400)", marginBottom: 16 }}>
+                    {plan.seat_limit ? `Up to ${plan.seat_limit} users` : "Unlimited users"}
+                  </div>
+                  <Button
+                    variant={isCurrent ? "secondary" : "primary"}
+                    disabled={isCurrent || subscribingCode === plan.code}
+                    onClick={() => handleSubscribe(plan.code)}
+                    style={{ width: "100%" }}
+                  >
+                    {isCurrent ? "Current plan" : subscribingCode === plan.code ? "Redirecting…" : "Subscribe"}
+                  </Button>
+                </Card>
+              </div>
             );
           })}
         </div>

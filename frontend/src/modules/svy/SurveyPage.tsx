@@ -77,7 +77,7 @@ export default function SurveyPage() {
         </Field>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
+      <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
         <Card>
           <h3 style={{ fontSize: 14, marginBottom: 12 }}>Design surface</h3>
           <form onSubmit={handleCreateSurface} style={{ marginBottom: 12 }}>

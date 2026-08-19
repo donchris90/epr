@@ -142,7 +142,7 @@ export default function DiaryDetailPage() {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
+      <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
         <div>
           <Card style={{ marginBottom: 20 }}>
             <h3 style={{ fontSize: 14, marginBottom: 12 }}>Narrative</h3>
@@ -188,7 +188,7 @@ export default function DiaryDetailPage() {
               <p style={{ fontSize: 12, color: "var(--sf-navy-400)", marginBottom: 12 }}>No weather logged yet.</p>
             )}
             {!isLocked && (
-              <form onSubmit={handleWeather} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 8 }}>
+              <form onSubmit={handleWeather} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 8 }}>
                 <Input
                   placeholder="Condition"
                   value={weatherForm.condition}
@@ -238,7 +238,7 @@ export default function DiaryDetailPage() {
             {!isLocked && (
               <form
                 onSubmit={handleLabor}
-                style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 8, marginTop: 12 }}
+                className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 8, marginTop: 12 }}
               >
                 <Input
                   required
@@ -294,7 +294,7 @@ export default function DiaryDetailPage() {
             {!isLocked && (
               <form
                 onSubmit={handleEquipment}
-                style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 8, marginTop: 12 }}
+                className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 8, marginTop: 12 }}
               >
                 <Input
                   required

@@ -47,7 +47,7 @@ export default function ITPsPage() {
 
       {showForm && (
         <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleCreate} style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: 12 }}>
+          <form onSubmit={handleCreate} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: 12 }}>
             <Field label="Activity type">
               <Input required value={form.activity_type} onChange={(e) => setForm({ ...form, activity_type: e.target.value })} placeholder="e.g. Concrete pour" />
             </Field>
@@ -64,7 +64,7 @@ export default function ITPsPage() {
       ) : !itps?.length ? (
         <EmptyState title="No ITPs yet" hint="Create one, then define sequenced hold points that gate progress." />
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 20 }}>
+        <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 20 }}>
           <Card style={{ padding: 0 }}>
             <Table>
               <thead><tr><Th>Title</Th></tr></thead>
@@ -135,7 +135,7 @@ export default function ITPsPage() {
                 ) : (
                   <p style={{ fontSize: 12, color: "var(--sf-navy-400)", marginBottom: 12 }}>No hold points defined yet.</p>
                 )}
-                <form onSubmit={handleAddHoldPoint} style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: 8, marginTop: 12 }}>
+                <form onSubmit={handleAddHoldPoint} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: 8, marginTop: 12 }}>
                   <Input required placeholder="Sequence #" value={hpForm.sequence_order} onChange={(e) => setHpForm({ ...hpForm, sequence_order: e.target.value })} />
                   <Input required placeholder="Description" value={hpForm.description} onChange={(e) => setHpForm({ ...hpForm, description: e.target.value })} />
                   <Button type="submit" disabled={addHoldPoint.isPending}>Add</Button>

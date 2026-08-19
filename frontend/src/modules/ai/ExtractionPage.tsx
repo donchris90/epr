@@ -52,7 +52,7 @@ export default function ExtractionPage() {
 
       <Card style={{ marginBottom: 20 }}>
         <h3 style={{ fontSize: 14, marginBottom: 12 }}>Simulate an extraction</h3>
-        <form onSubmit={handleCreate} style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr auto", gap: 12 }}>
+        <form onSubmit={handleCreate} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr auto", gap: 12 }}>
           <Field label="Item code">
             <Input required value={form.item_code} onChange={(e) => setForm({ ...form, item_code: e.target.value })} />
           </Field>
@@ -88,7 +88,7 @@ export default function ExtractionPage() {
           )}
 
           {job.status === "reviewed" && (
-            <form onSubmit={handleCommit} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+            <form onSubmit={handleCommit} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
               <Input required placeholder="Estimate version ID" value={estimateVersionId} onChange={(e) => setEstimateVersionId(e.target.value)} />
               <Button type="submit" disabled={commitJob.isPending}>Commit to BOQ</Button>
             </form>
@@ -96,7 +96,7 @@ export default function ExtractionPage() {
 
           {job.status === "extracted" && (
             <div style={{ marginTop: 12 }}>
-              <form onSubmit={handleCommit} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+              <form onSubmit={handleCommit} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
                 <Input required placeholder="Estimate version ID" value={estimateVersionId} onChange={(e) => setEstimateVersionId(e.target.value)} />
                 <Button type="submit" disabled={commitJob.isPending} variant="danger">
                   Try commit without review

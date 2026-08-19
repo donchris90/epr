@@ -16,7 +16,7 @@ export default function ContractDetailPage() {
         action={<Badge tone={contract.status === "active" ? "steel" : "green"}>{contract.status}</Badge>}
       />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+      <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
         <Card>
           <div className="sf-mono" style={{ fontSize: 11, color: "var(--sf-navy-400)", marginBottom: 4 }}>
             CONTRACT VALUE

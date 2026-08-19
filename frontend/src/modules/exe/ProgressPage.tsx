@@ -32,7 +32,7 @@ export default function ProgressPage() {
       <Card style={{ marginBottom: 20 }}>
         <h3 style={{ fontSize: 14, marginBottom: 12 }}>Record progress against an activity</h3>
         <form onSubmit={handleSubmit}>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 16 }}>
+          <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 16 }}>
             <Field label="Activity ID">
               <Input
                 required

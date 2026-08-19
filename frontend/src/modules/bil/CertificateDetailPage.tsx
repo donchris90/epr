@@ -76,7 +76,7 @@ export default function CertificateDetailPage() {
         action={<Badge tone={STATUS_TONE[cert.status] ?? "neutral"}>{cert.status.replace(/_/g, " ")}</Badge>}
       />
 
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
+      <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
         <div>
           <Card style={{ marginBottom: 20 }}>
             <h3 style={{ fontSize: 14, marginBottom: 12 }}>Certified lines</h3>
@@ -113,7 +113,7 @@ export default function CertificateDetailPage() {
                   <ErrorBanner title="Cannot add this line" detail={lineError} onDismiss={() => setLineError(null)} />
                 )}
                 <form onSubmit={handleAddLine} style={{ marginTop: 12 }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+                  <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
                     <Input
                       required
                       placeholder="BOQ item UUID"
@@ -139,7 +139,7 @@ export default function CertificateDetailPage() {
                       onChange={(e) => setLineForm({ ...lineForm, contracted_quantity: e.target.value })}
                     />
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                  <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
                     <Input
                       placeholder="Variation order UUID (optional — must be approved)"
                       value={lineForm.variation_order_id}
@@ -166,7 +166,7 @@ export default function CertificateDetailPage() {
                 )}
               </div>
               {cert.payment_tracking.status !== "paid" && (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+                <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
                   <Input placeholder="Amount received" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} />
                   <Button
                     disabled={!paidAmount || recordPayment.isPending}
@@ -193,7 +193,7 @@ export default function CertificateDetailPage() {
           {isDraft && (
             <Card style={{ marginBottom: 20 }}>
               <h3 style={{ fontSize: 14, marginBottom: 12 }}>Apply retention</h3>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginBottom: 12 }}>
+              <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginBottom: 12 }}>
                 <Input value={retentionPct} onChange={(e) => setRetentionPct(e.target.value)} placeholder="%" />
                 <Button disabled={applyRetention.isPending} onClick={() => applyRetention.mutate(retentionPct)}>
                   Apply

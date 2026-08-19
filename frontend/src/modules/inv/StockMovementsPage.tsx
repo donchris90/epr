@@ -53,12 +53,12 @@ export default function StockMovementsPage() {
 
       {error && <ErrorBanner title="Could not complete this movement" detail={error} onDismiss={() => setError(null)} />}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+      <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
         <Card>
           <h3 style={{ fontSize: 14, marginBottom: 12 }}>Receive stock</h3>
           <form onSubmit={handleReceive}>
             <WarehouseAndItemSelect warehouses={warehouses ?? []} materialItems={materialItems ?? []} form={receiveForm} setForm={setReceiveForm} />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+            <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
               <Input required placeholder="Quantity" value={receiveForm.quantity} onChange={(e) => setReceiveForm({ ...receiveForm, quantity: e.target.value })} />
               <Input required placeholder="Unit cost" value={receiveForm.unit_cost} onChange={(e) => setReceiveForm({ ...receiveForm, unit_cost: e.target.value })} />
             </div>
@@ -82,7 +82,7 @@ export default function StockMovementsPage() {
         </Card>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
         <Card>
           <h3 style={{ fontSize: 14, marginBottom: 12 }}>Below reorder threshold</h3>
           {belowThreshold?.length ? (
@@ -127,7 +127,7 @@ export default function StockMovementsPage() {
 
 function WarehouseAndItemSelect({ warehouses, materialItems, form, setForm }: any) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+    <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
       <select
         required
         value={form.warehouse_id}

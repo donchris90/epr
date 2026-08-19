@@ -76,11 +76,19 @@ export default function ProjectDetailPage() {
       />
 
       <Card>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 20 }}>
-          <Stat label="Client" value={project.client_name ?? "Not assigned"} />
-          <Stat label="Contract value" value={project.contract_value ? formatMoney(project.contract_value, project.currency ?? "NGN") : "No contract linked yet"} />
-          <Stat label="Start date" value={project.start_date ?? "—"} />
-          <Stat label="End date" value={project.end_date ?? "—"} />
+        <div className="row g-3">
+          <div className="col-6 col-lg-3">
+            <Stat label="Client" value={project.client_name ?? "Not assigned"} />
+          </div>
+          <div className="col-6 col-lg-3">
+            <Stat label="Contract value" value={project.contract_value ? formatMoney(project.contract_value, project.currency ?? "NGN") : "No contract linked yet"} />
+          </div>
+          <div className="col-6 col-lg-3">
+            <Stat label="Start date" value={project.start_date ?? "—"} />
+          </div>
+          <div className="col-6 col-lg-3">
+            <Stat label="End date" value={project.end_date ?? "—"} />
+          </div>
         </div>
       </Card>
 

@@ -55,7 +55,7 @@ export default function DelayEventsPage() {
       {showForm && (
         <Card style={{ marginBottom: 20 }}>
           <form onSubmit={handleCreate}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+            <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
               <Field label="Cause">
                 <select
                   value={form.cause_classification}

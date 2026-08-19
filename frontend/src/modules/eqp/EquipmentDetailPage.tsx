@@ -41,7 +41,7 @@ export default function EquipmentDetailPage() {
     <div>
       <PageHeader eyebrow="Equipment" title={equipment.name} action={<Badge tone="neutral">{equipment.status}</Badge>} />
 
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
+      <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
         <div>
           <Card style={{ marginBottom: 20 }}>
             <h3 style={{ fontSize: 14, marginBottom: 12 }}>Maintenance records</h3>
@@ -61,7 +61,7 @@ export default function EquipmentDetailPage() {
             ) : (
               <p style={{ fontSize: 12, color: "var(--sf-navy-400)", marginBottom: 12 }}>No maintenance recorded yet.</p>
             )}
-            <form onSubmit={handleAddMaintenance} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginTop: 12 }}>
+            <form onSubmit={handleAddMaintenance} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginTop: 12 }}>
               <Input placeholder="Description" value={maintDesc} onChange={(e) => setMaintDesc(e.target.value)} />
               <Button type="submit" disabled={createMaintenance.isPending}>Log</Button>
             </form>
@@ -69,7 +69,7 @@ export default function EquipmentDetailPage() {
 
           <Card>
             <h3 style={{ fontSize: 14, marginBottom: 12 }}>Record utilization</h3>
-            <form onSubmit={handleAddUtilization} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 8 }}>
+            <form onSubmit={handleAddUtilization} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 8 }}>
               <Input required type="date" value={utilForm.record_date} onChange={(e) => setUtilForm({ ...utilForm, record_date: e.target.value })} />
               <Input placeholder="Hours scheduled" value={utilForm.hours_scheduled} onChange={(e) => setUtilForm({ ...utilForm, hours_scheduled: e.target.value })} />
               <Input required placeholder="Hours operated" value={utilForm.hours_operated} onChange={(e) => setUtilForm({ ...utilForm, hours_operated: e.target.value })} />

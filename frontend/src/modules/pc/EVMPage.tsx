@@ -63,7 +63,7 @@ export default function EVMPage() {
 
       {showForm && (
         <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleCreate} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr auto", gap: 8 }}>
+          <form onSubmit={handleCreate} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr auto", gap: 8 }}>
             <Input required type="date" value={form.period_end} onChange={(e) => setForm({ ...form, period_end: e.target.value })} />
             <Input required placeholder="PV" value={form.planned_value} onChange={(e) => setForm({ ...form, planned_value: e.target.value })} />
             <Input required placeholder="EV" value={form.earned_value} onChange={(e) => setForm({ ...form, earned_value: e.target.value })} />
@@ -122,7 +122,7 @@ export default function EVMPage() {
             <Button variant="secondary" onClick={() => setShowRiskForm((v) => !v)}>{showRiskForm ? "Cancel" : "New risk"}</Button>
           </div>
           {showRiskForm && (
-            <form onSubmit={handleAddRisk} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 8, marginBottom: 12 }}>
+            <form onSubmit={handleAddRisk} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 8, marginBottom: 12 }}>
               <Input required placeholder="Description" value={riskForm.description} onChange={(e) => setRiskForm({ ...riskForm, description: e.target.value })} />
               <Input required placeholder="Probability (0-1)" value={riskForm.probability} onChange={(e) => setRiskForm({ ...riskForm, probability: e.target.value })} />
               <Input required placeholder="Impact value" value={riskForm.impact_value} onChange={(e) => setRiskForm({ ...riskForm, impact_value: e.target.value })} />

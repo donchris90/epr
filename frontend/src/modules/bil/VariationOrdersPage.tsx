@@ -61,7 +61,7 @@ export default function VariationOrdersPage() {
       {showForm && (
         <Card style={{ marginBottom: 20 }}>
           <form onSubmit={handleCreate}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <Field label="Contract ID">
                 <Input required value={form.contract_id} onChange={(e) => setForm({ ...form, contract_id: e.target.value })} />
               </Field>

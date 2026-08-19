@@ -90,7 +90,7 @@ export default function SchedulePage() {
 
           {showNodeForm && (
             <Card style={{ marginBottom: 20 }}>
-              <form onSubmit={handleCreateNode} style={{ display: "grid", gridTemplateColumns: "1fr 3fr auto", gap: 12 }}>
+              <form onSubmit={handleCreateNode} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 3fr auto", gap: 12 }}>
                 <Field label="Code">
                   <Input placeholder="1.0" value={nodeForm.code} onChange={(e) => setNodeForm({ ...nodeForm, code: e.target.value })} />
                 </Field>
@@ -112,7 +112,7 @@ export default function SchedulePage() {
           {wbsNodes?.length ? (
             <Card style={{ marginBottom: 20 }}>
               <h3 style={{ fontSize: 14, marginBottom: 12 }}>Add an activity</h3>
-              <form onSubmit={handleAddActivity} style={{ display: "grid", gridTemplateColumns: "1.5fr 2fr 1fr 1fr auto", gap: 12 }}>
+              <form onSubmit={handleAddActivity} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1.5fr 2fr 1fr 1fr auto", gap: 12 }}>
                 <Field label="WBS node">
                   <select
                     required
@@ -168,7 +168,7 @@ export default function SchedulePage() {
           {activities?.length ? (
             <Card style={{ marginBottom: 20 }}>
               <h3 style={{ fontSize: 14, marginBottom: 12 }}>Link a dependency</h3>
-              <form onSubmit={handleAddDependency} style={{ display: "grid", gridTemplateColumns: "1.5fr 1.5fr 1fr 1fr auto", gap: 12 }}>
+              <form onSubmit={handleAddDependency} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1.5fr 1.5fr 1fr 1fr auto", gap: 12 }}>
                 <Field label="Predecessor">
                   <select
                     required

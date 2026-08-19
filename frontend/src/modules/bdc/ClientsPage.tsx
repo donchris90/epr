@@ -28,7 +28,7 @@ export default function ClientsPage() {
       {showForm && (
         <Card style={{ marginBottom: 20 }}>
           <form onSubmit={handleCreate}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <Field label="Client name">
                 <Input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Construction Ltd" />
               </Field>

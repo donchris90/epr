@@ -12,7 +12,8 @@ export default function DashboardPage() {
     <div>
       <PageHeader eyebrow="Executive Dashboard" title="Company Overview" />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20, marginBottom: 20 }}>
+      <div className="row g-3 mb-3">
+        <div className="col-12 col-md-6 col-lg-4">
         <Card>
           <div style={{ fontSize: 11, color: "var(--sf-navy-400)", textTransform: "uppercase", marginBottom: 8 }}>Revenue (actual vs budget)</div>
           {revenue ? (
@@ -27,7 +28,9 @@ export default function DashboardPage() {
             <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No revenue data yet.</p>
           )}
         </Card>
+        </div>
 
+        <div className="col-12 col-md-6 col-lg-4">
         <Card>
           <div style={{ fontSize: 11, color: "var(--sf-navy-400)", textTransform: "uppercase", marginBottom: 8 }}>AR / AP Aging</div>
           {aging ? (
@@ -39,7 +42,9 @@ export default function DashboardPage() {
             <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No aging data yet.</p>
           )}
         </Card>
+        </div>
 
+        <div className="col-12 col-md-6 col-lg-4">
         <Card>
           <div style={{ fontSize: 11, color: "var(--sf-navy-400)", textTransform: "uppercase", marginBottom: 8 }}>Equipment Utilization</div>
           {utilization?.length ? (
@@ -54,9 +59,11 @@ export default function DashboardPage() {
             <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No utilization data yet.</p>
           )}
         </Card>
+        </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      <div className="row g-3">
+        <div className="col-12 col-lg-6">
         <Card style={{ padding: 0 }}>
           <div style={{ padding: "12px 16px 0" }}>
             <h3 style={{ fontSize: 14, marginBottom: 12 }}>Active projects — CPI / SPI</h3>
@@ -78,7 +85,9 @@ export default function DashboardPage() {
             <p style={{ fontSize: 12, color: "var(--sf-navy-400)", padding: 16 }}>No active project data yet.</p>
           )}
         </Card>
+        </div>
 
+        <div className="col-12 col-lg-6">
         <Card style={{ padding: 0 }}>
           <div style={{ padding: "12px 16px 0" }}>
             <h3 style={{ fontSize: 14, marginBottom: 12 }}>Consolidated project risks</h3>
@@ -99,6 +108,7 @@ export default function DashboardPage() {
             <p style={{ fontSize: 12, color: "var(--sf-navy-400)", padding: 16 }}>No open risks across active projects.</p>
           )}
         </Card>
+        </div>
       </div>
     </div>
   );

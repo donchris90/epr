@@ -41,7 +41,7 @@ export default function LeadsPage() {
       {showForm && (
         <Card style={{ marginBottom: 20 }}>
           <form onSubmit={handleCreate}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <Field label="Lead name">
                 <Input required value={name} onChange={(e) => setName(e.target.value)} placeholder="New Highway Extension" />
               </Field>

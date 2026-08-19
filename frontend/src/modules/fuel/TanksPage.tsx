@@ -57,7 +57,7 @@ export default function TanksPage() {
 
       {showForm && (
         <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleCreate} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 12 }}>
+          <form onSubmit={handleCreate} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 12 }}>
             <Field label="Name">
               <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </Field>
@@ -87,7 +87,7 @@ export default function TanksPage() {
             detection.
           </p>
           {reconcileError && <ErrorBanner title="Reconciliation flagged a variance" detail={reconcileError} onDismiss={() => setReconcileError(null)} />}
-          <form onSubmit={handleReconcile} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8 }}>
+          <form onSubmit={handleReconcile} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8 }}>
             <Input required placeholder="Dip reading (litres)" value={dipReading} onChange={(e) => setDipReading(e.target.value)} />
             <Button type="submit" disabled={reconcileTank.isPending}>Reconcile</Button>
             <Button type="button" variant="secondary" onClick={() => setReconcileTankId(null)}>Cancel</Button>
@@ -98,7 +98,7 @@ export default function TanksPage() {
       {purchaseTankId && (
         <Card style={{ marginBottom: 20 }}>
           <h3 style={{ fontSize: 14, marginBottom: 12 }}>Record fuel purchase</h3>
-          <form onSubmit={handlePurchase} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto auto", gap: 8 }}>
+          <form onSubmit={handlePurchase} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto auto", gap: 8 }}>
             <Input required placeholder="Quantity (litres)" value={purchaseForm.quantity_litres} onChange={(e) => setPurchaseForm({ ...purchaseForm, quantity_litres: e.target.value })} />
             <Input required placeholder="Unit price" value={purchaseForm.unit_price} onChange={(e) => setPurchaseForm({ ...purchaseForm, unit_price: e.target.value })} />
             <Button type="submit" disabled={createPurchase.isPending}>Record</Button>

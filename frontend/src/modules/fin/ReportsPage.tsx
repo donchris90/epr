@@ -8,7 +8,7 @@ export default function ReportsPage() {
   return (
     <div>
       <PageHeader eyebrow="Financial Management" title="Reports" />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+      <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
         <IncomeStatementCard />
         <BudgetControlCheckCard />
       </div>
@@ -37,7 +37,7 @@ function IncomeStatementCard() {
     <Card>
       <h3 style={{ fontSize: 14, marginBottom: 12 }}>Income statement</h3>
       {error && <ErrorBanner title="Could not generate" detail={error} onDismiss={() => setError(null)} />}
-      <form onSubmit={handleGenerate} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+      <form onSubmit={handleGenerate} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
         <Field label="Period start">
           <Input required type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} />
         </Field>
@@ -86,7 +86,7 @@ function BudgetControlCheckCard() {
         whatever policy applies to the cost category.
       </p>
       {error && <ErrorBanner title="Blocked by budget policy" detail={error} onDismiss={() => setError(null)} />}
-      <form onSubmit={handleCheck} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+      <form onSubmit={handleCheck} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
         <Field label="Cost code (CBS line UUID)">
           <Input required value={form.cost_code} onChange={(e) => setForm({ ...form, cost_code: e.target.value })} />
         </Field>

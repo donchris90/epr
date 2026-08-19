@@ -207,4 +207,23 @@ button {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
+
+  /* Real fix for a real, widespread bug: many pages across this app
+     used a raw CSS grid with a hardcoded desktop column count (e.g.
+     "1fr 1fr 1fr", "2fr 1fr auto") and no responsive override at
+     all -- forcing severe squishing on a phone-width screen
+     regardless of how many columns or what they contained. Rather
+     than hand-rewrite 17+ distinct column patterns across 23+ files
+     (real risk of breaking JSX structure at that scale for
+     comparatively little gain over this), this generic utility
+     class collapses ANY such grid to a single column below the
+     breakpoint -- applied as an additional className alongside the
+     existing inline gridTemplateColumns, which still governs desktop
+     layout unchanged. The !important is deliberate and scoped: a
+     mobile-only override utility class needs it to beat inline
+     styles, which are otherwise unbeatable by an external stylesheet
+     regardless of selector specificity. */
+  .sf-grid-responsive {
+    grid-template-columns: 1fr !important;
+  }
 }

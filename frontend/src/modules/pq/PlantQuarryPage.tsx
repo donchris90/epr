@@ -49,10 +49,10 @@ export default function PlantQuarryPage() {
     <div>
       <PageHeader eyebrow="Plant & Quarry Management" title="Stockpiles & Explosives Register" />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
         <Card>
           <h3 style={{ fontSize: 14, marginBottom: 12 }}>Stockpiles</h3>
-          <form onSubmit={handleCreateStockpile} style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr auto", gap: 8, marginBottom: 12 }}>
+          <form onSubmit={handleCreateStockpile} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr auto", gap: 8, marginBottom: 12 }}>
             <Input required placeholder="Material type" value={stockpileForm.material_type} onChange={(e) => setStockpileForm({ ...stockpileForm, material_type: e.target.value })} />
             <Input placeholder="Initial qty" value={stockpileForm.quantity} onChange={(e) => setStockpileForm({ ...stockpileForm, quantity: e.target.value })} />
             <Button type="submit" disabled={createStockpile.isPending}>Add</Button>
@@ -99,7 +99,7 @@ export default function PlantQuarryPage() {
               Current balance: <span className="sf-mono" style={{ fontWeight: 700 }}>{balance.balance ?? "—"}</span>
             </div>
           )}
-          <form onSubmit={handleCreateEntry} style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr 1fr auto", gap: 8, marginBottom: 12 }}>
+          <form onSubmit={handleCreateEntry} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr 1fr auto", gap: 8, marginBottom: 12 }}>
             <select
               value={entryForm.entry_type}
               onChange={(e) => setEntryForm({ ...entryForm, entry_type: e.target.value })}

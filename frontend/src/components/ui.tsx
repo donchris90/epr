@@ -11,10 +11,8 @@ export function PageHeader({
 }) {
   return (
     <div
+      className="d-flex flex-column flex-md-row justify-content-md-between align-items-md-end gap-2"
       style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "flex-end",
         marginBottom: 24,
         paddingBottom: 16,
         borderBottom: "1px solid var(--sf-line)",

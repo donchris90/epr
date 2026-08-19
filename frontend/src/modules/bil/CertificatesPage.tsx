@@ -51,7 +51,7 @@ export default function CertificatesPage() {
 
       {showForm && (
         <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleCreate} style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 16 }}>
+          <form onSubmit={handleCreate} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 16 }}>
             <Field label="Contract ID (optional)">
               <Input value={form.contract_id} onChange={(e) => setForm({ ...form, contract_id: e.target.value })} />
             </Field>

@@ -21,7 +21,7 @@ export default function PayrollPage() {
 
       <Card style={{ marginBottom: 20 }}>
         <h3 style={{ fontSize: 14, marginBottom: 12 }}>Generate a payroll run</h3>
-        <form onSubmit={handleGenerate} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 12 }}>
+        <form onSubmit={handleGenerate} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 12 }}>
           <Field label="Period start">
             <Input required type="date" value={form.period_start} onChange={(e) => setForm({ ...form, period_start: e.target.value })} />
           </Field>

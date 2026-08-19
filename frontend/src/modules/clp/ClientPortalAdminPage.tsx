@@ -36,7 +36,7 @@ export default function ClientPortalAdminPage() {
     <div>
       <PageHeader eyebrow="Client Portal" title="Client Users & Project Assignments" />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+      <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
         <Card>
           <h3 style={{ fontSize: 14, marginBottom: 12 }}>Register a client user</h3>
           <form onSubmit={handleCreateUser}>
@@ -61,7 +61,7 @@ export default function ClientPortalAdminPage() {
             This assignment is the only thing that grants portal access to a project — a client can never see
             another project's data, regardless of any other permission.
           </p>
-          <form onSubmit={handleAssign} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+          <form onSubmit={handleAssign} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
             <Input required placeholder="Project ID" value={projectId} onChange={(e) => setProjectId(e.target.value)} disabled={!createdUser} />
             <Button type="submit" disabled={assignToProject.isPending || !createdUser}>Assign</Button>
           </form>

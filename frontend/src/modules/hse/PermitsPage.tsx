@@ -62,7 +62,7 @@ export default function PermitsPage() {
 
       {showRaForm && (
         <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleCreateRA} style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 12 }}>
+          <form onSubmit={handleCreateRA} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 12 }}>
             <Field label="Activity / area">
               <Input required value={raForm.activity_or_area} onChange={(e) => setRaForm({ ...raForm, activity_or_area: e.target.value })} />
             </Field>
@@ -88,7 +88,7 @@ export default function PermitsPage() {
             Blocked if the linked risk assessment has expired, or if worker training isn't recorded as current.
           </p>
           {permitError && <ErrorBanner title="Cannot issue permit" detail={permitError} onDismiss={() => setPermitError(null)} />}
-          <form onSubmit={handleIssuePermit} style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1.5fr auto", gap: 12 }}>
+          <form onSubmit={handleIssuePermit} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1.5fr auto", gap: 12 }}>
             <Input required placeholder="Project ID" value={permitForm.project_id} onChange={(e) => setPermitForm({ ...permitForm, project_id: e.target.value })} />
             <select
               value={permitForm.permit_type}

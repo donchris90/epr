@@ -23,7 +23,7 @@ export default function VendorPortalAdminPage() {
 
       <Card style={{ marginBottom: 20 }}>
         <h3 style={{ fontSize: 14, marginBottom: 12 }}>Register a vendor portal user</h3>
-        <form onSubmit={handleCreateUser} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 12 }}>
+        <form onSubmit={handleCreateUser} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 12 }}>
           <Field label="Vendor ID">
             <Input required value={userForm.vendor_id} onChange={(e) => setUserForm({ ...userForm, vendor_id: e.target.value })} />
           </Field>

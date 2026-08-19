@@ -133,7 +133,7 @@ function APInvoiceForm({ companies, accounts, postAP, invoices }: any) {
       </p>
       {error && <ErrorBanner title="Could not post invoice" detail={error} onDismiss={() => setError(null)} />}
       <form onSubmit={handleSubmit}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+        <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
           <Field label="Company">
             <AccountSelect value={form.company_id} onChange={(v) => setForm({ ...form, company_id: v })} options={companies} />
           </Field>
@@ -212,7 +212,7 @@ function ARInvoiceForm({ companies, accounts, postAR, invoices }: any) {
       </p>
       {error && <ErrorBanner title="Could not post invoice" detail={error} onDismiss={() => setError(null)} />}
       <form onSubmit={handleSubmit}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+        <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
           <Field label="Company">
             <AccountSelect value={form.company_id} onChange={(v) => setForm({ ...form, company_id: v })} options={companies} />
           </Field>
@@ -321,7 +321,7 @@ function ManualExceptionForm({ companies, accounts, postException }: any) {
       {error && <ErrorBanner title="Could not post entry" detail={error} onDismiss={() => setError(null)} />}
 
       <form onSubmit={handleSubmit}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 16, marginBottom: 16 }}>
+        <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 16, marginBottom: 16 }}>
           <Field label="Company">
             <AccountSelect value={companyId} onChange={setCompanyId} options={companies} />
           </Field>
@@ -332,7 +332,7 @@ function ManualExceptionForm({ companies, accounts, postException }: any) {
 
         <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 600, color: "var(--sf-navy-400)" }}>Lines</div>
         {lines.map((line, i) => (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+          <div key={i} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
             <AccountSelect
               value={line.account_id}
               onChange={(v) => updateLine(i, { account_id: v })}

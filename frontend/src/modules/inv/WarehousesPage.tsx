@@ -50,7 +50,7 @@ export default function WarehousesPage() {
 
       {showWhForm && (
         <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleCreateWarehouse} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 2fr auto", gap: 12 }}>
+          <form onSubmit={handleCreateWarehouse} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 2fr auto", gap: 12 }}>
             <Field label="Name">
               <Input required value={whForm.name} onChange={(e) => setWhForm({ ...whForm, name: e.target.value })} />
             </Field>
@@ -75,7 +75,7 @@ export default function WarehousesPage() {
 
       {showItemForm && (
         <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleCreateItem} style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr auto", gap: 12 }}>
+          <form onSubmit={handleCreateItem} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr auto", gap: 12 }}>
             <Field label="Code">
               <Input required value={itemForm.code} onChange={(e) => setItemForm({ ...itemForm, code: e.target.value })} />
             </Field>
@@ -95,7 +95,7 @@ export default function WarehousesPage() {
       ) : !warehouses?.length ? (
         <EmptyState title="No warehouses yet" hint="Create one to start receiving and issuing stock." />
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 20 }}>
+        <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 20 }}>
           <Card style={{ padding: 0 }}>
             <Table>
               <thead>

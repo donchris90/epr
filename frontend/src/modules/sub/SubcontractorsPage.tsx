@@ -46,7 +46,7 @@ export default function SubcontractorsPage() {
 
       {showSubForm && (
         <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleCreateSub} style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 12 }}>
+          <form onSubmit={handleCreateSub} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 12 }}>
             <Field label="Name">
               <Input required value={subForm.name} onChange={(e) => setSubForm({ ...subForm, name: e.target.value })} />
             </Field>
@@ -60,7 +60,7 @@ export default function SubcontractorsPage() {
 
       {showAgForm && (
         <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleCreateAgreement} style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr auto", gap: 12 }}>
+          <form onSubmit={handleCreateAgreement} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr auto", gap: 12 }}>
             <select
               required
               value={agForm.subcontractor_id}

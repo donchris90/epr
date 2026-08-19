@@ -54,7 +54,7 @@ export default function EmployeesPage() {
 
       {showEmpForm && (
         <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleCreateEmployee} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr auto", gap: 12 }}>
+          <form onSubmit={handleCreateEmployee} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr auto", gap: 12 }}>
             <Field label="Name">
               <Input required value={empForm.name} onChange={(e) => setEmpForm({ ...empForm, name: e.target.value })} />
             </Field>
@@ -81,7 +81,7 @@ export default function EmployeesPage() {
 
       {showCasualForm && (
         <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleCreateCasual} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 12 }}>
+          <form onSubmit={handleCreateCasual} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 12 }}>
             <Field label="Name">
               <Input required value={casualForm.name} onChange={(e) => setCasualForm({ ...casualForm, name: e.target.value })} />
             </Field>

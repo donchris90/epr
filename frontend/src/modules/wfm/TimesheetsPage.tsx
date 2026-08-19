@@ -55,7 +55,7 @@ export default function TimesheetsPage() {
 
       {showTsForm && (
         <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleGenerate} style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr 1fr auto", gap: 8 }}>
+          <form onSubmit={handleGenerate} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr 1fr auto", gap: 8 }}>
             <Input required placeholder="Employee ID" value={tsForm.employee_id} onChange={(e) => setTsForm({ ...tsForm, employee_id: e.target.value })} />
             <Input required type="date" value={tsForm.period_start} onChange={(e) => setTsForm({ ...tsForm, period_start: e.target.value })} />
             <Input required type="date" value={tsForm.period_end} onChange={(e) => setTsForm({ ...tsForm, period_end: e.target.value })} />
@@ -68,7 +68,7 @@ export default function TimesheetsPage() {
 
       {showLeaveForm && (
         <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleLeave} style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr auto", gap: 8 }}>
+          <form onSubmit={handleLeave} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr auto", gap: 8 }}>
             <Input required placeholder="Employee ID" value={leaveForm.employee_id} onChange={(e) => setLeaveForm({ ...leaveForm, employee_id: e.target.value })} />
             <select
               value={leaveForm.leave_type}

@@ -74,7 +74,7 @@ export default function AssetsPage() {
 
       {showForm && (
         <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleCreate} style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 12 }}>
+          <form onSubmit={handleCreate} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 12 }}>
             <Field label="Name">
               <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </Field>
@@ -99,7 +99,7 @@ export default function AssetsPage() {
       ) : !assets?.length ? (
         <EmptyState title="No assets yet" hint="Assets are typically created from a locked as-built record at handover." />
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 20 }}>
+        <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 20 }}>
           <Card style={{ padding: 0 }}>
             <Table>
               <thead><tr><Th>Name</Th><Th>Category</Th></tr></thead>
@@ -158,7 +158,7 @@ export default function AssetsPage() {
                         </tbody>
                       </Table>
                     )}
-                    <form onSubmit={handleAddDefect} style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginTop: 12, marginBottom: 12 }}>
+                    <form onSubmit={handleAddDefect} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginTop: 12, marginBottom: 12 }}>
                       <Input required placeholder="Defect description" value={defectDesc} onChange={(e) => setDefectDesc(e.target.value)} />
                       <Button type="submit" disabled={addDefect.isPending}>Add defect</Button>
                     </form>
