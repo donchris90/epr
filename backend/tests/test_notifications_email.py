@@ -163,6 +163,86 @@ class TestIPv4OnlySMTPConnection:
 
             assert mock_server._host == "smtp.gmail.com"
 
+    def test_falls_back_to_the_next_ipv4_candidate_if_the_first_fails(self, app):
+        """Real fix to a real weakness in the original version of this
+        fix: it only ever tried the first IPv4 candidate with no
+        fallback. Gmail's real infrastructure resolves to more than
+        one IPv4 address in production -- if the first is unreachable
+        for this deployment's network path while a second candidate
+        would work, this must actually try it, not fail identically
+        every time on the same bad address."""
+        with patch("socket.getaddrinfo") as mock_getaddrinfo, patch("smtplib.SMTP") as mock_smtp_class:
+            mock_getaddrinfo.return_value = [
+                (2, 1, 6, "", ("142.250.1.108", 587)),
+                (2, 1, 6, "", ("142.250.1.109", 587)),
+            ]
+            first_attempt = MagicMock()
+            first_attempt.connect.side_effect = OSError("Network is unreachable")
+            second_attempt = MagicMock()
+            mock_smtp_class.side_effect = [first_attempt, second_attempt]
+
+            from app.notifications.email import _create_ipv4_only_smtp_connection
+
+            result = _create_ipv4_only_smtp_connection("smtp.gmail.com", 587, timeout=10)
+
+            assert result is second_attempt
+            second_attempt.connect.assert_called_once_with("142.250.1.109", 587)
+
+    def test_raises_the_last_error_if_every_ipv4_candidate_fails(self, app):
+        with patch("socket.getaddrinfo") as mock_getaddrinfo, patch("smtplib.SMTP") as mock_smtp_class:
+            mock_getaddrinfo.return_value = [(2, 1, 6, "", ("142.250.1.108", 587))]
+            failing_attempt = MagicMock()
+            failing_attempt.connect.side_effect = OSError("timed out")
+            mock_smtp_class.return_value = failing_attempt
+
+            from app.notifications.email import _create_ipv4_only_smtp_connection
+
+            with pytest.raises(OSError, match="timed out"):
+                _create_ipv4_only_smtp_connection("smtp.gmail.com", 587, timeout=10)
+
+    def test_ssl_mode_uses_smtp_ssl_not_starttls(self, app):
+        """Real, genuinely different connection shape for port 465
+        (implicit TLS from the first byte) vs. 587 (plaintext then
+        STARTTLS) -- see _create_ipv4_only_smtp_connection's own
+        docstring on why this is worth having as a real alternative,
+        not just a config flag with no effect."""
+        with patch("socket.getaddrinfo") as mock_getaddrinfo, patch("smtplib.SMTP_SSL") as mock_smtp_ssl_class, patch(
+            "smtplib.SMTP"
+        ) as mock_smtp_class:
+            mock_getaddrinfo.return_value = [(2, 1, 6, "", ("142.250.1.109", 465))]
+            mock_server = MagicMock()
+            mock_smtp_ssl_class.return_value = mock_server
+
+            from app.notifications.email import _create_ipv4_only_smtp_connection
+
+            _create_ipv4_only_smtp_connection("smtp.gmail.com", 465, timeout=10, ssl_mode=True)
+
+            mock_smtp_ssl_class.assert_called_once_with(timeout=10)
+            mock_smtp_class.assert_not_called()
+
+    def test_send_email_automatically_uses_ssl_mode_for_port_465(self, app):
+        app.config["SMTP_HOST"] = "smtp.gmail.com"
+        app.config["SMTP_PORT"] = 465
+        app.config["SMTP_USE_TLS"] = True
+        app.config["SMTP_USERNAME"] = "sender@gmail.com"
+        app.config["SMTP_PASSWORD"] = "app-password"
+        app.config["SMTP_FROM_ADDRESS"] = "sender@gmail.com"
+
+        with app.app_context():
+            with patch("app.notifications.email._create_ipv4_only_smtp_connection") as mock_connect:
+                mock_server = MagicMock()
+                mock_connect.return_value.__enter__.return_value = mock_server
+
+                from app.notifications.email import send_email
+
+                send_email(to_address="recipient@example.com", subject="Test", body="Body")
+
+                # ssl_mode=True passed automatically for port 465, and
+                # starttls() must never be called on an already-encrypted
+                # SSL connection.
+                assert mock_connect.call_args.kwargs["ssl_mode"] is True
+                mock_server.starttls.assert_not_called()
+
     def test_real_end_to_end_send_against_a_real_local_smtp_server(self, app):
         """Not mocked -- an actual aiosmtpd server, actual TCP
         connection, actual AUTH LOGIN exchange, actual message

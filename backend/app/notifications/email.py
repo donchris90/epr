@@ -21,7 +21,7 @@ from flask import current_app
 logger = logging.getLogger(__name__)
 
 
-def _create_ipv4_only_smtp_connection(host: str, port: int, timeout: int) -> smtplib.SMTP:
+def _create_ipv4_only_smtp_connection(host: str, port: int, timeout: int, ssl_mode: bool = False) -> smtplib.SMTP:
     """
     Real bug found from an actual production log, not guessed:
     [Errno 101] ENETUNREACH ("Network is unreachable") is a routing
@@ -36,23 +36,61 @@ def _create_ipv4_only_smtp_connection(host: str, port: int, timeout: int) -> smt
     no actual IPv6 route -- so that first attempt fails immediately at
     the kernel level, before any SMTP handshake is even possible.
 
-    Fixed by resolving the real IPv4 address ourselves and connecting
-    directly to it -- but smtplib.SMTP(host, ...) is still constructed
-    with the ORIGINAL HOSTNAME STRING, not the resolved IP, so
-    starttls()'s certificate validation still checks the connection
-    against smtp.gmail.com's real certificate correctly (validating
-    against a bare IP address would fail hostname verification, since
-    Gmail's certificate is issued for the hostname, not any specific
-    IP). Only the actual TCP connection step is forced to IPv4; every
-    other layer (TLS, SMTP AUTH) behaves exactly as it would over the
+    Real fix to the first version of this fix, found from continued
+    real-world reports, not assumed correct the first time: Gmail's
+    real infrastructure resolves to more than one IPv4 address
+    depending on network/resolver/region (confirmed by checking a real
+    DNS lookup directly, though the exact count varies -- Google's
+    infrastructure is load-balanced across many addresses in
+    production even when a single sandbox happens to see only one).
+    The original version of this function took only the first
+    candidate with no fallback -- if that specific address is slow,
+    rate-limiting, or unreachable for this deployment's network path
+    while a different address in the same pool would have worked,
+    every single attempt fails identically. Now tries every IPv4
+    candidate in order, exactly matching socket.create_connection's
+    own robust behavior, just restricted to IPv4-only rather than also
+    trying IPv6.
+
+    ssl_mode -- real, genuine alternative for a deployment where plain
+    port 587 (a plaintext connection, upgraded to TLS mid-handshake via
+    STARTTLS) consistently times out rather than being actively
+    refused: port 465 establishes TLS immediately, before any SMTP
+    protocol bytes are visible at all. A simple network-level filter
+    watching for SMTP protocol patterns (EHLO, STARTTLS) on the wire
+    has nothing to pattern-match against an immediately-encrypted
+    connection -- it looks like any other TLS traffic from the first
+    packet. Not guaranteed to help with every possible network
+    restriction, but a real, meaningfully different connection shape
+    worth having available, not just port 587 with no alternative.
+
+    smtplib.SMTP(host, ...) is still constructed with the ORIGINAL
+    HOSTNAME STRING, not any resolved IP, so certificate validation
+    still checks the connection against smtp.gmail.com's real
+    certificate correctly (validating against a bare IP address would
+    fail hostname verification, since Gmail's certificate is issued
+    for the hostname, not any specific IP). Only the actual TCP
+    connection step is forced to IPv4-only candidates; every other
+    layer (TLS, SMTP AUTH) behaves exactly as it would over the
     default dual-stack path.
     """
-    ipv4_address = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)[0][4]
+    candidates = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+    if not candidates:
+        raise OSError(f"No IPv4 address found for {host}")
 
-    server = smtplib.SMTP(timeout=timeout)
-    server._host = host  # noqa: SLF001 -- needed so starttls() validates the certificate against the real hostname, not the raw IP
-    server.connect(ipv4_address[0], ipv4_address[1])
-    return server
+    smtp_cls = smtplib.SMTP_SSL if ssl_mode else smtplib.SMTP
+
+    last_error = None
+    for _family, _socktype, _proto, _canonname, sockaddr in candidates:
+        try:
+            server = smtp_cls(timeout=timeout)
+            server._host = host  # noqa: SLF001 -- needed so starttls()/SSL validates the certificate against the real hostname, not the raw IP
+            server.connect(sockaddr[0], sockaddr[1])
+            return server
+        except OSError as exc:
+            last_error = exc
+            continue
+    raise last_error
 
 
 def send_email(*, to_address: str, subject: str, body: str) -> bool:
@@ -90,9 +128,19 @@ def send_email(*, to_address: str, subject: str, body: str) -> bool:
     message["From"] = from_address
     message["To"] = to_address
 
+    # Real, automatic: port 465 is the standard implicit-TLS SMTP
+    # port (encrypted from the first byte, no STARTTLS upgrade step --
+    # see _create_ipv4_only_smtp_connection's own docstring on why
+    # this is a genuinely different, worth-having connection shape,
+    # not just a cosmetic config option). SMTP_USE_TLS still governs
+    # the port 587 STARTTLS path unchanged.
+    ssl_mode = port == 465
+
     try:
-        with _create_ipv4_only_smtp_connection(host, port, timeout=current_app.config["SMTP_TIMEOUT"]) as server:
-            if use_tls:
+        with _create_ipv4_only_smtp_connection(
+            host, port, timeout=current_app.config["SMTP_TIMEOUT"], ssl_mode=ssl_mode
+        ) as server:
+            if use_tls and not ssl_mode:
                 server.starttls()
             server.login(username, password)
             server.sendmail(from_address, [to_address], message.as_string())
