@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { clearTokens, getRefreshToken, getTenantLabel } from "../lib/auth";
 import { apiClient } from "../api/client";
 import { NotificationBell } from "../components/NotificationBell";
+import { GlobalSearch } from "../components/GlobalSearch";
 
 const NAV = [
   { section: "Projects", items: [{ to: "/projects", label: "All Projects" }] },
@@ -84,7 +85,10 @@ export default function AppShell() {
         <span className="sf-mono" style={{ fontSize: 13, color: "var(--sf-amber)" }}>
           SiteForge
         </span>
-        <NotificationBell />
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <GlobalSearch variant="icon" />
+          <NotificationBell />
+        </div>
       </div>
 
       {drawerOpen && <div className="sf-sidebar-backdrop" onClick={() => setDrawerOpen(false)} />}
@@ -128,6 +132,9 @@ export default function AppShell() {
           </div>
           <div className="sf-mono" style={{ fontSize: 11, color: "var(--sf-navy-400)", marginTop: 6 }}>
             {getTenantLabel()}
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <GlobalSearch variant="inline" />
           </div>
         </div>
 
