@@ -114,6 +114,28 @@ def create_invitation(tenant_id, *, email, role_id, invited_by_user_id, departme
     # is practical without added kept-in-sync infrastructure.
     db.session.add(InvitationTokenIndex(token_hash=token_hash, invitation_id=invitation.id, tenant_id=tenant_id))
 
+    # Real fix, real order: commit BEFORE attempting the email, not
+    # after. The invitation is a real, durable fact the moment this
+    # line runs -- it reserves its seat and appears in the UI
+    # regardless of whatever happens with the email next. Previously
+    # this committed only in the route, after _send_invitation_email
+    # returned, which meant a slow or hanging SMTP attempt blocked the
+    # commit (and the whole HTTP response) for however long that
+    # attempt took -- not just an exception risk (already fixed
+    # separately), but a real request-hang risk on its own.
+    db.session.commit()
+
+    # Defensive, not assumed: the middleware's after_begin listener
+    # only re-applies tenant context automatically within a real
+    # Flask request (has_request_context()) -- a direct call to this
+    # service function (as several tests do, and as a real internal
+    # script might) has no such context, so the query inside
+    # _send_invitation_email below would otherwise run with no tenant
+    # context at all right after this commit. Same defensive pattern
+    # already applied elsewhere this session rather than relying on
+    # context surviving a commit boundary.
+    db.session.execute(text("SET LOCAL app.tenant_id = :tid"), {"tid": str(tenant_id)})
+
     _send_invitation_email(tenant_id, invitation, raw_token)
     return invitation
 

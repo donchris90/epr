@@ -111,9 +111,6 @@ def create_invitation():
         g.tenant_id, email=data["email"], role_id=data["role_id"], invited_by_user_id=g.user_id,
         department=data.get("department"), job_title=data.get("job_title"), message=data.get("message"),
     )
-    from app.extensions import db
-
-    db.session.commit()
     return jsonify(invitation_schema.dump(invitation)), 201
 
 

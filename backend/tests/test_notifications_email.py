@@ -76,7 +76,7 @@ class TestSendEmail:
                 # connection happens via a separate .connect() call to
                 # the resolved IPv4 address, not embedded in the
                 # constructor the way the old, broken version did it.
-                mock_smtp_class.assert_called_once_with(timeout=10)
+                mock_smtp_class.assert_called_once_with(timeout=6)  # SMTP_TIMEOUT default (app/config.py)
                 mock_server.connect.assert_called_once_with("142.250.1.109", 587)
                 # The real point of preserving _host manually: TLS
                 # certificate validation (starttls -> server_hostname=
@@ -244,3 +244,53 @@ class TestSendEmailNotificationTask:
 
                 with pytest.raises(Exception):  # Celery's Retry signal, in eager/direct-call mode
                     send_email_notification.run(to_address="test@example.com", subject="Subj", body="Body")
+
+    def test_eager_mode_does_not_retry_on_failure(self, app):
+        """Real fix for a real production hang: in eager mode (Render
+        free tier, CELERY_TASK_ALWAYS_EAGER on -- see app/config.py's
+        own note), a failed send must return a clean failure result
+        immediately, not raise self.retry() -- there's no async worker
+        to hand a real retry off to, so retrying here just means the
+        same blocked HTTP request pays for additional SMTP timeouts."""
+        app.config["CELERY_TASK_ALWAYS_EAGER"] = True
+        from app.extensions import configure_celery
+
+        configure_celery(app)
+
+        with app.app_context():
+            with patch("app.notifications.tasks.send_email", return_value=False):
+                from app.notifications.tasks import send_email_notification
+
+                result = send_email_notification.delay(to_address="test@example.com", subject="Subj", body="Body")
+                # No exception -- confirmed by simply reaching this line
+                assert result.get() == {"sent": False, "to": "test@example.com"}
+
+        app.config["CELERY_TASK_ALWAYS_EAGER"] = False
+        configure_celery(app)
+
+    def test_eager_mode_failure_does_not_block_for_multiple_retry_delays(self, app):
+        """Real timing proof, not just a logical assertion: confirms
+        the actual production symptom (a request hanging for multiple
+        SMTP timeouts while retries occur) genuinely cannot happen
+        anymore -- a failed send in eager mode returns near-instantly,
+        not after paying for (in the old code) up to 3 real retry
+        delays."""
+        import time
+
+        app.config["CELERY_TASK_ALWAYS_EAGER"] = True
+        from app.extensions import configure_celery
+
+        configure_celery(app)
+
+        with app.app_context():
+            with patch("app.notifications.tasks.send_email", return_value=False):
+                from app.notifications.tasks import send_email_notification
+
+                started = time.monotonic()
+                send_email_notification.delay(to_address="test@example.com", subject="Subj", body="Body").get()
+                elapsed = time.monotonic() - started
+
+        app.config["CELERY_TASK_ALWAYS_EAGER"] = False
+        configure_celery(app)
+
+        assert elapsed < 1.0  # would be 30+ seconds (default_retry_delay) with the old retry-in-eager-mode behavior

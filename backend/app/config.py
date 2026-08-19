@@ -39,6 +39,15 @@ class BaseConfig:
     SMTP_USE_TLS = os.environ.get("SMTP_USE_TLS", "true").lower() == "true"
     SMTP_USERNAME = os.environ.get("SMTP_USERNAME", "")
     SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+    # Real, configurable, deliberately short by default -- this
+    # connection now runs synchronously inside a live HTTP request
+    # whenever CELERY_TASK_ALWAYS_EAGER is on (Render's free tier;
+    # see app/config.py's own note on that setting), with no async
+    # boundary to absorb a slow or hanging attempt. A blocked-port or
+    # network-unreachable failure should surface quickly, not hold the
+    # whole request (and the browser waiting on it) for the previous
+    # 10-second default.
+    SMTP_TIMEOUT = int(os.environ.get("SMTP_TIMEOUT", "6"))
     # Falls back to SMTP_USERNAME (the Gmail address itself) since
     # Gmail's SMTP server rejects a From address that doesn't match
     # (or isn't a verified alias of) the authenticated account.

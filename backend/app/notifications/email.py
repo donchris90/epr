@@ -91,7 +91,7 @@ def send_email(*, to_address: str, subject: str, body: str) -> bool:
     message["To"] = to_address
 
     try:
-        with _create_ipv4_only_smtp_connection(host, port, timeout=10) as server:
+        with _create_ipv4_only_smtp_connection(host, port, timeout=current_app.config["SMTP_TIMEOUT"]) as server:
             if use_tls:
                 server.starttls()
             server.login(username, password)
