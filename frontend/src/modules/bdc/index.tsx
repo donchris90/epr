@@ -1,7 +1,10 @@
 import { NavLink, Route, Routes, Navigate } from "react-router-dom";
 import ClientsPage from "./ClientsPage";
+import ClientDetailPage from "./ClientDetailPage";
 import LeadsPage from "./LeadsPage";
+import LeadDetailPage from "./LeadDetailPage";
 import OpportunitiesPage from "./OpportunitiesPage";
+import OpportunityDetailPage from "./OpportunityDetailPage";
 
 const TABS = [
   { to: "/business-development/pipeline", label: "Pipeline" },
@@ -33,8 +36,11 @@ export default function BDCModule() {
       <Routes>
         <Route index element={<Navigate to="/business-development/pipeline" replace />} />
         <Route path="pipeline" element={<OpportunitiesPage />} />
+        <Route path="opportunities/:opportunityId" element={<OpportunityDetailPage />} />
         <Route path="leads" element={<LeadsPage />} />
+        <Route path="leads/:leadId" element={<LeadDetailPage />} />
         <Route path="clients" element={<ClientsPage />} />
+        <Route path="clients/:clientId" element={<ClientDetailPage />} />
       </Routes>
     </div>
   );

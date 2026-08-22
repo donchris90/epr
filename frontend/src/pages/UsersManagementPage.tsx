@@ -1,20 +1,11 @@
 import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
-import { apiClient } from "../api/client";
-import {
-  PageHeader,
-  Button,
-  Card,
-  Table,
-  Th,
-  Td,
-  Badge,
-  ErrorBanner,
-  EmptyState,
-  Input,
-  Select,
-  Field,
-} from "../components/ui";
+import { apiClient, getErrorMessage, getErrorStatus, getFieldErrors } from "../api/client";
+import { PageHeader, Button, Card, Table, Th, Td, Badge, EmptyState, Input, Select, Field } from "../components/ui";
+import { LoadingState } from "../components/Loading";
+import { ErrorState } from "../components/ErrorState";
+import { Modal } from "../components/Modal";
+import { useToast } from "../lib/toast";
+import { useUnsavedChanges } from "../lib/useUnsavedChanges";
 
 interface Role {
   id: string;
@@ -48,10 +39,6 @@ interface Seats {
   seats_remaining: number | null;
 }
 
-function getErrorMessage(err: any): string {
-  return err?.response?.data?.detail || err?.response?.data?.title || "Something went wrong.";
-}
-
 function statusBadge(status: string) {
   const tones: Record<string, "green" | "brick" | "neutral"> = {
     active: "green",
@@ -68,42 +55,32 @@ function statusBadge(status: string) {
   return <Badge tone={tones[status] ?? "neutral"}>{labels[status] ?? status}</Badge>;
 }
 
-/** Overlay -- this app has no shared Modal component yet; see
- * PlatformAdminTenantsPage.tsx's identical local Overlay for the same
- * reasoning (one screen's worth of usage isn't reason enough to
- * invent a generic one). */
-function Overlay({ onClose, children }: { onClose: () => void; children: ReactNode }) {
-  return (
-    <div
-      onClick={onClose}
-      style={{ position: "fixed", inset: 0, background: "rgba(11, 18, 27, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}
-    >
-      <div onClick={(e) => e.stopPropagation()} style={{ width: 420 }}>
-        <Card>{children}</Card>
-      </div>
-    </div>
-  );
-}
-
 /** Real invitation creation -- POST /v1/org/invitations, backed by
  * real seat-limit enforcement server-side (a 402 here is not a bug,
  * it's the plan's real limit, matching Phase 33's own point that the
  * frontend must never be the only enforcement layer). */
 function InviteUserModal({ roles, onClose, onDone }: { roles: Role[]; onClose: () => void; onDone: () => void }) {
+  const toast = useToast();
   const [email, setEmail] = useState("");
   const [roleId, setRoleId] = useState(roles[0]?.id ?? "");
   const [department, setDepartment] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [message, setMessage] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const isDirty = email.trim() !== "" || department.trim() !== "" || jobTitle.trim() !== "" || message.trim() !== "";
+  useUnsavedChanges(isDirty && !submitting);
+
   async function submit() {
-    if (!email.trim() || !roleId) {
-      setError("Email and role are required.");
-      return;
-    }
+    const errors: Record<string, string> = {};
+    if (!email.trim()) errors.email = "Email is required.";
+    if (!roleId) errors.role = "Select a role.";
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
     setSubmitting(true);
     setError(null);
     setLimitReached(null);
@@ -115,11 +92,13 @@ function InviteUserModal({ roles, onClose, onDone }: { roles: Role[]; onClose: (
         job_title: jobTitle.trim() || undefined,
         message: message.trim() || undefined,
       });
+      toast.success(`Invitation sent to ${email.trim()}.`);
       onDone();
-    } catch (err: any) {
-      if (err?.response?.status === 402) {
+    } catch (err) {
+      if (getErrorStatus(err) === 402) {
         setLimitReached(getErrorMessage(err));
       } else {
+        setFieldErrors(Object.fromEntries(getFieldErrors(err).map((f) => [f.field, f.message])));
         setError(getErrorMessage(err));
       }
     } finally {
@@ -129,8 +108,7 @@ function InviteUserModal({ roles, onClose, onDone }: { roles: Role[]; onClose: (
 
   if (limitReached) {
     return (
-      <Overlay onClose={onClose}>
-        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>User limit reached</div>
+      <Modal title="User limit reached" onClose={onClose}>
         <div style={{ fontSize: 13, color: "var(--sf-navy-600)", marginBottom: 16 }}>{limitReached}</div>
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <Button variant="secondary" onClick={onClose}>
@@ -138,17 +116,16 @@ function InviteUserModal({ roles, onClose, onDone }: { roles: Role[]; onClose: (
           </Button>
           <Button onClick={() => (window.location.href = "/account/subscription")}>Upgrade Plan</Button>
         </div>
-      </Overlay>
+      </Modal>
     );
   }
 
   return (
-    <Overlay onClose={onClose}>
-      <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 16 }}>Invite User</div>
-      <Field label="Email">
+    <Modal title="Invite User" onClose={onClose} confirmCloseIfDirty={isDirty && !submitting}>
+      <Field label="Email" required error={fieldErrors.email}>
         <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.com" />
       </Field>
-      <Field label="Role">
+      <Field label="Role" required error={fieldErrors.role}>
         <Select value={roleId} onChange={(e) => setRoleId(e.target.value)}>
           {roles.map((role) => (
             <option key={role.id} value={role.id}>
@@ -166,7 +143,11 @@ function InviteUserModal({ roles, onClose, onDone }: { roles: Role[]; onClose: (
       <Field label="Message (optional)">
         <Input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Welcome to the team..." />
       </Field>
-      {error && <div style={{ color: "var(--sf-brick)", fontSize: 12, marginTop: 8 }}>{error}</div>}
+      {error && (
+        <div role="alert" style={{ color: "var(--sf-brick)", fontSize: 12, marginTop: 8 }}>
+          {error}
+        </div>
+      )}
       <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
         <Button variant="secondary" onClick={onClose} disabled={submitting}>
           Cancel
@@ -175,16 +156,17 @@ function InviteUserModal({ roles, onClose, onDone }: { roles: Role[]; onClose: (
           {submitting ? "Sending…" : "Send Invitation"}
         </Button>
       </div>
-    </Overlay>
+    </Modal>
   );
 }
 
 export default function UsersManagementPage() {
+  const toast = useToast();
   const [seats, setSeats] = useState<Seats | null>(null);
   const [users, setUsers] = useState<OrgUser[] | null>(null);
   const [invitations, setInvitations] = useState<Invitation[] | null>(null);
   const [roles, setRoles] = useState<Role[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [showInvite, setShowInvite] = useState(false);
 
@@ -200,23 +182,24 @@ export default function UsersManagementPage() {
       setUsers(membersRes.data.users);
       setInvitations(membersRes.data.pending_invitations);
       setRoles(rolesRes.data.data);
-    } catch (err: any) {
-      setError(getErrorMessage(err));
+    } catch (err) {
+      setError(err);
     }
   }
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function userAction(action: "suspend" | "reactivate" | "remove", userId: string) {
+  async function userAction(action: "suspend" | "reactivate" | "remove", userId: string, label: string) {
     setPendingId(userId);
-    setError(null);
     try {
       await apiClient.post(`/org/users/${userId}/${action}`);
+      toast.success(`${label} succeeded.`);
       await load();
-    } catch (err: any) {
-      setError(getErrorMessage(err));
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setPendingId(null);
     }
@@ -224,12 +207,12 @@ export default function UsersManagementPage() {
 
   async function resendInvitation(id: string) {
     setPendingId(id);
-    setError(null);
     try {
       await apiClient.post(`/org/invitations/${id}/resend`);
+      toast.success("Invitation resent.");
       await load();
-    } catch (err: any) {
-      setError(getErrorMessage(err));
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setPendingId(null);
     }
@@ -237,12 +220,12 @@ export default function UsersManagementPage() {
 
   async function cancelInvitation(id: string) {
     setPendingId(id);
-    setError(null);
     try {
       await apiClient.post(`/org/invitations/${id}/cancel`);
+      toast.success("Invitation canceled.");
       await load();
-    } catch (err: any) {
-      setError(getErrorMessage(err));
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setPendingId(null);
     }
@@ -273,15 +256,23 @@ export default function UsersManagementPage() {
         </div>
       )}
 
-      {error && <ErrorBanner title="Something went wrong" detail={error} onDismiss={() => setError(null)} />}
-
       <Card style={{ padding: 0, marginBottom: 20 }}>
-        {users === null ? (
-          <div style={{ padding: 24, fontSize: 13, color: "var(--sf-navy-400)" }}>Loading…</div>
+        {error ? (
+          <ErrorState error={error} onRetry={load} />
+        ) : users === null ? (
+          <LoadingState variant="table" label="Loading organization users" />
         ) : users.length === 0 && (invitations?.length ?? 0) === 0 ? (
-          <EmptyState title="No organization members yet" hint="Invite your first teammate to get started." />
+          <EmptyState
+            title="No organization members yet"
+            hint="Invite your first teammate to get started."
+            action={
+              <Button onClick={() => setShowInvite(true)} disabled={roles.length === 0}>
+                + Invite User
+              </Button>
+            }
+          />
         ) : (
-          <Table>
+          <Table ariaLabel="Organization users and pending invitations">
             <thead>
               <tr>
                 <Th>Email</Th>
@@ -303,16 +294,30 @@ export default function UsersManagementPage() {
                   <Td style={{ textAlign: "right" }}>
                     <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                       {u.status === "active" && (
-                        <Button variant="danger" disabled={pendingId === u.id} onClick={() => userAction("suspend", u.id)}>
+                        <Button
+                          variant="danger"
+                          disabled={pendingId === u.id}
+                          onClick={() => userAction("suspend", u.id, `Suspending ${u.email}`)}
+                        >
                           Suspend
                         </Button>
                       )}
                       {u.status === "suspended" && (
-                        <Button variant="secondary" disabled={pendingId === u.id} onClick={() => userAction("reactivate", u.id)}>
+                        <Button
+                          variant="secondary"
+                          disabled={pendingId === u.id}
+                          onClick={() => userAction("reactivate", u.id, `Reactivating ${u.email}`)}
+                        >
                           Reactivate
                         </Button>
                       )}
-                      <Button variant="ghost" disabled={pendingId === u.id} onClick={() => userAction("remove", u.id)}>
+                      <Button
+                        variant="ghost"
+                        disabled={pendingId === u.id}
+                        onClick={() => {
+                          if (window.confirm(`Remove ${u.email} from the organization?`)) userAction("remove", u.id, `Removing ${u.email}`);
+                        }}
+                      >
                         Remove
                       </Button>
                     </div>

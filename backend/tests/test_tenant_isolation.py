@@ -1762,7 +1762,7 @@ class TestCLPClientScopeIsolation:
 
         r = client.post(
             "/v1/clp/client-users", headers=auth_headers("a"),
-            json={"client_organization_name": "Second Tenant A Client", "email": "a2@client.com"},
+            json={"client_organization_name": "Second Tenant A Client", "email": "a2@client.com", "password": "a real password"},
         )
         assert r.status_code == 201
 

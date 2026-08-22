@@ -4,7 +4,7 @@ import { useCreateClientUser, useAssignClientToProject, useClientRequests, useRe
 
 export default function ClientPortalAdminPage() {
   const createClientUser = useCreateClientUser();
-  const [userForm, setUserForm] = useState({ client_organization_name: "", email: "" });
+  const [userForm, setUserForm] = useState({ client_organization_name: "", email: "", password: "" });
   const [createdUser, setCreatedUser] = useState<any>(null);
 
   const assignToProject = useAssignClientToProject();
@@ -18,7 +18,7 @@ export default function ClientPortalAdminPage() {
     e.preventDefault();
     const res = await createClientUser.mutateAsync(userForm);
     setCreatedUser(res.data);
-    setUserForm({ client_organization_name: "", email: "" });
+    setUserForm({ client_organization_name: "", email: "", password: "" });
   }
 
   async function handleAssign(e: React.FormEvent) {
@@ -46,11 +46,22 @@ export default function ClientPortalAdminPage() {
             <Field label="Email">
               <Input required type="email" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} />
             </Field>
+            <Field label="Portal password">
+              <Input
+                required
+                type="password"
+                minLength={8}
+                value={userForm.password}
+                onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+              />
+            </Field>
             <Button type="submit" disabled={createClientUser.isPending}>{createClientUser.isPending ? "Creating…" : "Create"}</Button>
           </form>
           {createdUser && (
             <div style={{ marginTop: 12, fontSize: 12, color: "var(--sf-navy-400)" }}>
-              Created: <span className="sf-mono">{createdUser.client_organization_name}</span>
+              Created: <span className="sf-mono">{createdUser.client_organization_name}</span> — share the email and
+              password you just set with them directly; there is no self-service reset yet, so a new password means
+              creating the account again for now.
             </div>
           )}
         </Card>

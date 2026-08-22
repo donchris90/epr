@@ -1,21 +1,13 @@
 import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { apiClient } from "../../api/client";
-import {
-  PageHeader,
-  Card,
-  Button,
-  Table,
-  Th,
-  Td,
-  Badge,
-  ErrorBanner,
-  EmptyState,
-  Input,
-  Select,
-  Field,
-} from "../../components/ui";
+import { apiClient, getErrorMessage, getFieldErrors } from "../../api/client";
+import { PageHeader, Card, Button, Badge, Input, Select, Field } from "../../components/ui";
+import { LoadingState } from "../../components/Loading";
+import { ErrorState } from "../../components/ErrorState";
+import { DataTable } from "../../components/DataTable";
+import { Modal } from "../../components/Modal";
+import { useToast } from "../../lib/toast";
+import { useUnsavedChanges } from "../../lib/useUnsavedChanges";
 
 interface Project {
   id: string;
@@ -42,10 +34,6 @@ interface OrgUser {
   email: string;
 }
 
-function getErrorMessage(err: any): string {
-  return err?.response?.data?.detail || err?.response?.data?.title || "Something went wrong.";
-}
-
 function statusBadge(status: string) {
   const tones: Record<string, "green" | "amber" | "neutral" | "brick"> = {
     active: "green",
@@ -56,19 +44,6 @@ function statusBadge(status: string) {
   return <Badge tone={tones[status] ?? "neutral"}>{status.replace(/_/g, " ")}</Badge>;
 }
 
-function Overlay({ onClose, children }: { onClose: () => void; children: ReactNode }) {
-  return (
-    <div
-      onClick={onClose}
-      style={{ position: "fixed", inset: 0, background: "rgba(33, 26, 20, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}
-    >
-      <div onClick={(e) => e.stopPropagation()} style={{ width: 440 }}>
-        <Card>{children}</Card>
-      </div>
-    </div>
-  );
-}
-
 /** Real project creation -- POST /v1/projects. Client/PM dropdowns are
  * genuinely optional: a project can exist before either is assigned
  * (matches real construction practice), and each dropdown degrades to
@@ -77,6 +52,7 @@ function Overlay({ onClose, children }: { onClose: () => void; children: ReactNo
  * org:read for PMs, fin:read for companies) -- one missing permission
  * shouldn't break the whole form. */
 function CreateProjectModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const toast = useToast();
   const [companies, setCompanies] = useState<Company[] | "error" | null>(null);
   const [clients, setClients] = useState<Client[] | "error">([]);
   const [members, setMembers] = useState<OrgUser[] | "error">([]);
@@ -87,8 +63,12 @@ function CreateProjectModal({ onClose, onDone }: { onClose: () => void; onDone: 
   const [pmId, setPmId] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const isDirty = name.trim() !== "" || companyId !== "" || clientId !== "" || pmId !== "" || startDate !== "" || endDate !== "";
+  useUnsavedChanges(isDirty && !submitting);
 
   useEffect(() => {
     apiClient
@@ -109,8 +89,12 @@ function CreateProjectModal({ onClose, onDone }: { onClose: () => void; onDone: 
   }, []);
 
   async function submit() {
-    if (!name.trim() || !companyId) {
-      setError("Project name and company are required.");
+    const nextFieldErrors: Record<string, string> = {};
+    if (!name.trim()) nextFieldErrors.name = "Project name is required.";
+    if (!companyId) nextFieldErrors.company = "Select a company.";
+    setFieldErrors(nextFieldErrors);
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setError(null);
       return;
     }
     setSubmitting(true);
@@ -124,8 +108,10 @@ function CreateProjectModal({ onClose, onDone }: { onClose: () => void; onDone: 
         start_date: startDate || undefined,
         end_date: endDate || undefined,
       });
+      toast.success(`"${name.trim()}" was created.`);
       onDone();
     } catch (err: any) {
+      setFieldErrors(Object.fromEntries(getFieldErrors(err).map((f) => [f.field, f.message])));
       setError(getErrorMessage(err));
     } finally {
       setSubmitting(false);
@@ -133,14 +119,12 @@ function CreateProjectModal({ onClose, onDone }: { onClose: () => void; onDone: 
   }
 
   return (
-    <Overlay onClose={onClose}>
-      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>Create Project</div>
-
-      <Field label="Project name">
+    <Modal title="Create Project" onClose={onClose} confirmCloseIfDirty={isDirty && !submitting}>
+      <Field label="Project name" required error={fieldErrors.name}>
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Lekki Tower Phase 1" />
       </Field>
 
-      <Field label="Company">
+      <Field label="Company" required error={fieldErrors.company}>
         {companies === null ? (
           <Select disabled>
             <option>Loading…</option>
@@ -204,7 +188,11 @@ function CreateProjectModal({ onClose, onDone }: { onClose: () => void; onDone: 
         </Field>
       </div>
 
-      {error && <div style={{ color: "var(--sf-brick)", fontSize: 12, marginTop: 4 }}>{error}</div>}
+      {error && (
+        <div role="alert" style={{ color: "var(--sf-brick)", fontSize: 12, marginTop: 4 }}>
+          {error}
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
         <Button variant="secondary" onClick={onClose} disabled={submitting}>
@@ -214,7 +202,7 @@ function CreateProjectModal({ onClose, onDone }: { onClose: () => void; onDone: 
           {submitting ? "Creating…" : "Create Project"}
         </Button>
       </div>
-    </Overlay>
+    </Modal>
   );
 }
 
@@ -222,7 +210,7 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
   const [showCreate, setShowCreate] = useState(false);
 
   async function load() {
@@ -230,14 +218,15 @@ export default function ProjectsPage() {
     try {
       const res = await apiClient.get("/projects", { params: { search: search || undefined, status: statusFilter || undefined } });
       setProjects(res.data.data);
-    } catch (err: any) {
-      setError(getErrorMessage(err));
+    } catch (err) {
+      setError(err);
     }
   }
 
   useEffect(() => {
     const timeout = setTimeout(load, 250); // debounce search typing
     return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, statusFilter]);
 
   return (
@@ -248,12 +237,18 @@ export default function ProjectsPage() {
         action={<Button onClick={() => setShowCreate(true)}>+ New Project</Button>}
       />
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
         <div style={{ flex: 1, maxWidth: 320 }}>
-          <Input placeholder="Search projects…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <label className="sf-visually-hidden" htmlFor="projects-search">
+            Search projects
+          </label>
+          <Input id="projects-search" placeholder="Search projects…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <div style={{ width: 180 }}>
-          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <label className="sf-visually-hidden" htmlFor="projects-status-filter">
+            Filter by status
+          </label>
+          <Select id="projects-status-filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="">All statuses</option>
             <option value="active">Active</option>
             <option value="on_hold">On hold</option>
@@ -263,40 +258,30 @@ export default function ProjectsPage() {
         </div>
       </div>
 
-      {error && <ErrorBanner title="Something went wrong" detail={error} onDismiss={() => setError(null)} />}
-
-      <Card style={{ padding: 0 }}>
-        {projects === null ? (
-          <div style={{ padding: 24, fontSize: 13, color: "var(--sf-navy-400)" }}>Loading…</div>
-        ) : projects.length === 0 ? (
-          <EmptyState title="No projects yet" hint="Create your first project to get started." />
+      <Card style={{ padding: projects === null || error ? 0 : undefined }}>
+        {error ? (
+          <ErrorState error={error} onRetry={load} />
+        ) : projects === null ? (
+          <LoadingState variant="table" label="Loading projects" />
         ) : (
-          <Table>
-            <thead>
-              <tr>
-                <Th>Name</Th>
-                <Th>Start date</Th>
-                <Th>End date</Th>
-                <Th>Status</Th>
-                <Th />
-              </tr>
-            </thead>
-            <tbody>
-              {projects.map((p) => (
-                <tr key={p.id}>
-                  <Td>{p.name}</Td>
-                  <Td mono>{p.start_date || "—"}</Td>
-                  <Td mono>{p.end_date || "—"}</Td>
-                  <Td>{statusBadge(p.status)}</Td>
-                  <Td style={{ textAlign: "right" }}>
-                    <Link to={`/projects/${p.id}`}>
-                      <Button variant="ghost">View</Button>
-                    </Link>
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
+          <DataTable
+            columns={[
+              { key: "name", header: "Name", render: (p) => p.name, sortValue: (p) => p.name.toLowerCase() },
+              { key: "start", header: "Start date", render: (p) => <span className="sf-mono">{p.start_date || "—"}</span>, sortValue: (p) => p.start_date ?? "" },
+              { key: "end", header: "End date", render: (p) => <span className="sf-mono">{p.end_date || "—"}</span>, sortValue: (p) => p.end_date ?? "" },
+              { key: "status", header: "Status", render: (p) => statusBadge(p.status), sortValue: (p) => p.status },
+            ]}
+            rows={projects}
+            getRowId={(p) => p.id}
+            emptyTitle="No projects yet"
+            emptyHint="Create your first project to get started."
+            emptyAction={<Button onClick={() => setShowCreate(true)}>+ New Project</Button>}
+            rowActions={(p) => (
+              <Link to={`/projects/${p.id}`}>
+                <Button variant="ghost">View</Button>
+              </Link>
+            )}
+          />
         )}
       </Card>
 

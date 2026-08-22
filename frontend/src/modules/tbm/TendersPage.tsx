@@ -1,102 +1,120 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { PageHeader, Card, Button, Table, Th, Td, EmptyState, Input, Select, Field, Badge } from "../../components/ui";
-import { useOpportunities } from "../bdc/hooks";
+import { PageHeader, Button, Card, Badge, Field, Input } from "../../components/ui";
+import { DataTable } from "../../components/DataTable";
+import { QueryState } from "../../components/QueryState";
+import { Modal } from "../../components/Modal";
 import { useTenders, useCreateTender } from "./hooks";
+import { useToast } from "../../lib/toast";
+import { getErrorMessage, getFieldErrors } from "../../api/client";
+import { useUnsavedChanges } from "../../lib/useUnsavedChanges";
 
-const STAGE_TONE: Record<string, "neutral" | "amber" | "steel" | "green" | "brick"> = {
-  draft: "neutral",
-  in_estimate: "steel",
-  in_approval: "amber",
-  submitted: "steel",
-  awarded: "green",
-  lost: "brick",
-};
+function statusTone(status: string): "green" | "amber" | "neutral" | "brick" {
+  if (status === "won") return "green";
+  if (status === "lost") return "brick";
+  if (status === "submitted") return "amber";
+  return "neutral";
+}
 
-export default function TendersPage() {
-  const { data: tenders, isLoading } = useTenders();
-  const { data: opportunities } = useOpportunities();
-  const createTender = useCreateTender();
-
-  const [showForm, setShowForm] = useState(false);
+function CreateTenderModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const toast = useToast();
+  const create = useCreateTender();
   const [opportunityId, setOpportunityId] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
 
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    await createTender.mutateAsync({ opportunity_id: opportunityId, reference_number: referenceNumber });
-    setOpportunityId("");
-    setReferenceNumber("");
-    setShowForm(false);
+  const isDirty = opportunityId.trim() !== "" || referenceNumber.trim() !== "";
+  useUnsavedChanges(isDirty && !create.isPending);
+
+  async function submit() {
+    const errors: Record<string, string> = {};
+    if (!opportunityId.trim()) errors.opportunityId = "Opportunity ID is required.";
+    if (!referenceNumber.trim()) errors.referenceNumber = "Reference number is required.";
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    setFormError(null);
+    try {
+      await create.mutateAsync({ opportunity_id: opportunityId.trim(), reference_number: referenceNumber.trim() });
+      toast.success(`Tender "${referenceNumber.trim()}" was created.`);
+      onDone();
+    } catch (err) {
+      setFieldErrors(Object.fromEntries(getFieldErrors(err).map((f) => [f.field, f.message])));
+      setFormError(getErrorMessage(err));
+    }
   }
 
   return (
-    <div>
-      <PageHeader
-        eyebrow="Tender-to-Contract"
-        title="Tenders"
-        action={<Button onClick={() => setShowForm((v) => !v)}>{showForm ? "Cancel" : "Register tender"}</Button>}
-      />
-
-      {showForm && (
-        <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleCreate}>
-            <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <Field label="Opportunity">
-                <Select required value={opportunityId} onChange={(e) => setOpportunityId(e.target.value)}>
-                  <option value="">Select opportunity…</option>
-                  {opportunities?.map((o: any) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Reference number">
-                <Input required value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} placeholder="TND-2026-001" />
-              </Field>
-            </div>
-            <Button type="submit" disabled={createTender.isPending}>
-              {createTender.isPending ? "Saving…" : "Register tender"}
-            </Button>
-          </form>
-        </Card>
+    <Modal title="Create Tender" onClose={onClose} confirmCloseIfDirty={isDirty && !create.isPending}>
+      <Field label="Opportunity ID" required error={fieldErrors.opportunityId}>
+        <Input value={opportunityId} onChange={(e) => setOpportunityId(e.target.value)} placeholder="Opportunity UUID" />
+      </Field>
+      <Field label="Reference number" required error={fieldErrors.referenceNumber}>
+        <Input value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} placeholder="e.g. TND-2026-014" />
+      </Field>
+      {formError && (
+        <div role="alert" style={{ color: "var(--sf-brick)", fontSize: 12, marginTop: 4 }}>
+          {formError}
+        </div>
       )}
+      <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
+        <Button variant="secondary" onClick={onClose} disabled={create.isPending}>
+          Cancel
+        </Button>
+        <Button onClick={submit} disabled={create.isPending}>
+          {create.isPending ? "Creating…" : "Create Tender"}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
 
-      {isLoading ? (
-        <p>Loading…</p>
-      ) : !tenders?.length ? (
-        <EmptyState title="No tenders yet" hint="Register a tender against a qualified opportunity to begin pricing and submission." />
-      ) : (
-        <Card style={{ padding: 0 }}>
-          <Table>
-            <thead>
-              <tr>
-                <Th>Reference</Th>
-                <Th>Status</Th>
-                <Th>Deadline</Th>
-                <Th></Th>
-              </tr>
-            </thead>
-            <tbody>
-              {tenders.map((t: any) => (
-                <tr key={t.id}>
-                  <Td mono>{t.reference_number}</Td>
-                  <Td>
-                    <Badge tone={STAGE_TONE[t.status] || "neutral"}>{t.status.replace(/_/g, " ")}</Badge>
-                  </Td>
-                  <Td mono>{t.submission_deadline ? new Date(t.submission_deadline).toLocaleDateString() : "—"}</Td>
-                  <Td>
-                    <Link to={`/tenders/${t.id}`} style={{ fontSize: 12, fontWeight: 600 }}>
-                      Open →
-                    </Link>
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </Card>
-      )}
+export default function TendersPage() {
+  const query = useTenders();
+  const [showCreate, setShowCreate] = useState(false);
+
+  const columns = useMemo(
+    () => [
+      { key: "reference", header: "Reference", render: (t: any) => t.reference_number, sortValue: (t: any) => t.reference_number },
+      { key: "status", header: "Status", render: (t: any) => <Badge tone={statusTone(t.status)}>{t.status}</Badge>, sortValue: (t: any) => t.status },
+      { key: "due", header: "Due date", render: (t: any) => <span className="sf-mono">{t.due_date || "—"}</span>, sortValue: (t: any) => t.due_date ?? "" },
+    ],
+    []
+  );
+
+  return (
+    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px" }}>
+      <PageHeader eyebrow="Tender Management" title="Tenders" action={<Button onClick={() => setShowCreate(true)}>+ New Tender</Button>} />
+
+      <Card style={{ padding: query.isLoading || query.isError ? 0 : undefined }}>
+        <QueryState
+          query={query}
+          variant="table"
+          loadingLabel="Loading tenders"
+          emptyTitle="No tenders yet"
+          emptyHint="Create a tender once an opportunity is ready to bid."
+          emptyAction={<Button onClick={() => setShowCreate(true)}>+ New Tender</Button>}
+        >
+          {(tenders: any[]) => (
+            <DataTable
+              columns={columns}
+              rows={tenders}
+              getRowId={(t) => t.id}
+              searchFields={(t) => [t.reference_number, t.status]}
+              searchPlaceholder="Search tenders…"
+              emptyTitle="No tenders match your search"
+              rowActions={(t) => (
+                <Link to={`/tenders/${t.id}`}>
+                  <Button variant="ghost">View</Button>
+                </Link>
+              )}
+            />
+          )}
+        </QueryState>
+      </Card>
+
+      {showCreate && <CreateTenderModal onClose={() => setShowCreate(false)} onDone={() => setShowCreate(false)} />}
     </div>
   );
 }

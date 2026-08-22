@@ -9,9 +9,17 @@ Access tokens are JWTs carrying tenant_id, user_id, role_id, and
 permissions claims, verified on every request (see middleware/tenant_context.py)
 and used to set the RLS session variable.
 
-External portal users (Client Portal, Vendor Portal) authenticate through
-this same endpoint family but receive tokens scoped to a restricted
-permission set (SRS Section 8).
+Client Portal users do NOT authenticate through this endpoint family --
+that claim in an earlier revision of this docstring was aspirational,
+not actual: `authenticate_user` below only ever looks up the internal
+`users` table, and `ClientPortalUser` had no password of any kind until
+the client portal build added one. A real client-facing login now
+exists at POST /v1/clp/auth/login (app/modules/clp/routes.py),
+deliberately a SEPARATE endpoint family issuing tokens with their own
+`is_client: true` claim -- see that module's docstring for why a
+shared family was rejected. Vendor Portal (VNP) has the identical gap
+STILL OPEN (see docs/CLIENT_PORTAL_GAPS.md); nothing below authenticates
+a VNP user either.
 """
 from flask import Blueprint, g, jsonify, request
 from flask_jwt_extended import (
@@ -67,6 +75,18 @@ def refresh():
 
     identity = get_jwt_identity()
     old_claims = get_jwt()
+
+    # Client portal build: a client-issued refresh token (see
+    # app/modules/clp/routes.py:client_refresh) must never be
+    # refreshable here -- this route has no idea how to re-derive
+    # clp:read/clp:write permissions or the is_client claim, and
+    # silently dropping is_client on refresh would have quietly
+    # disabled the client-can-only-act-as-itself check in
+    # app/modules/clp/routes.py:_get_client_user_or_404 for the
+    # resulting token.
+    if old_claims.get("is_client"):
+        return jsonify({"type": "about:blank", "title": "Not a staff session", "status": 401}), 401
+
     new_claims = {
         "tenant_id": old_claims.get("tenant_id"),
         "user_id": old_claims.get("user_id"),

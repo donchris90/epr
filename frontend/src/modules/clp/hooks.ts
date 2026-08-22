@@ -3,7 +3,8 @@ import { apiClient } from "../../api/client";
 
 export function useCreateClientUser() {
   return useMutation({
-    mutationFn: (payload: { client_organization_name: string; email: string }) => apiClient.post("/clp/client-users", payload),
+    mutationFn: (payload: { client_organization_name: string; email: string; password: string }) =>
+      apiClient.post("/clp/client-users", payload),
   });
 }
 

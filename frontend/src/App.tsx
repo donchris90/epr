@@ -40,6 +40,7 @@ import CLPModule from "./modules/clp";
 import VNPModule from "./modules/vnp";
 import MFAModule from "./modules/mfa";
 import AIModule from "./modules/ai";
+import ClientPortalApp from "./client-portal";
 
 /**
  * Primary navigation is organized around the project lifecycle
@@ -57,6 +58,18 @@ export default function App() {
         <Route path="/signup" element={<SignupPage />} />
         {/* Public -- an invitee isn't logged in yet, matching /login and /signup above. */}
         <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+
+        {/* The real client-facing portal (see
+            client-portal/index.tsx) -- deliberately outside
+            ProtectedRoute/AppShell entirely, the same reasoning as
+            platform-admin below: a client session is a completely
+            different credential type (client-portal/lib/auth.ts,
+            its own token storage keys) with no tenant nav, no
+            internal AppShell, and no access to any internal route.
+            /client-portal (singular route, inside AppShell above)
+            remains the STAFF admin tool for administering this --
+            untouched, still exactly where it was. */}
+        <Route path="/portal/*" element={<ClientPortalApp />} />
 
         {/* Platform admin: deliberately outside the tenant
             ProtectedRoute/AppShell tree above -- it's a completely

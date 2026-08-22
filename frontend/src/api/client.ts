@@ -33,6 +33,109 @@ export function getErrorMessage(err: any): string {
   return err?.response?.data?.detail || err?.response?.data?.title || "Something went wrong.";
 }
 
+/** True when the request never reached the server at all (offline,
+ * DNS failure, CORS, timeout) -- axios sets no `response` in that
+ * case, which is the one situation "check your connection" is
+ * actually the right advice rather than a generic error. */
+export function isNetworkError(err: any): boolean {
+  return !!err?.isAxiosError && !err?.response;
+}
+
+export function getErrorStatus(err: any): number | undefined {
+  return err?.response?.status;
+}
+
+/** Short, human title for a status code -- used by ErrorState/
+ * QueryState so every screen describes 403/404/409/422/429/500 the
+ * same way instead of each page inventing its own wording. 401/402
+ * aren't listed: the response interceptor above already redirects
+ * for those before a component ever sees the rejected promise. */
+export function getErrorTitle(err: any): string {
+  if (isNetworkError(err)) return "Network error";
+  switch (getErrorStatus(err)) {
+    case 403:
+      return "You don't have permission to do this";
+    case 404:
+      return "Not found";
+    case 409:
+      return "This couldn't be completed";
+    case 422:
+      return "Check the highlighted fields";
+    case 429:
+      return "Too many requests";
+    case 500:
+    case 502:
+    case 503:
+    case 504:
+      return "Something went wrong on our end";
+    default:
+      return "Something went wrong";
+  }
+}
+
+/** One-line, situation-appropriate detail to pair with getErrorTitle.
+ * Falls back to the backend's own RFC 7807 `detail`/`title` (see
+ * getErrorMessage) for anything not called out with special wording
+ * below (chiefly 422, where the backend's own detail is usually
+ * already the most specific/correct message available). */
+export function getErrorDetail(err: any): string {
+  if (isNetworkError(err)) return "Check your internet connection and try again.";
+  switch (getErrorStatus(err)) {
+    case 403:
+      return "Your account doesn't have access to this. Contact an administrator if you think this is wrong.";
+    case 404:
+      return "It may have been moved, deleted, or you may not have access to it.";
+    case 409:
+      return getErrorMessage(err) || "This conflicts with the current state of the record. Refresh and try again.";
+    case 429:
+      return "You've made too many requests. Wait a moment and try again.";
+    case 500:
+    case 502:
+    case 503:
+    case 504:
+      return "This is on us, not you. Try again in a moment.";
+    default:
+      return getErrorMessage(err);
+  }
+}
+
+/** Whether a retry action makes sense for this error. Permission and
+ * validation errors won't resolve by retrying the same request. */
+export function isRetryableError(err: any): boolean {
+  const status = getErrorStatus(err);
+  return isNetworkError(err) || status === undefined || ![403, 404, 422].includes(status);
+}
+
+export interface FieldError {
+  field: string;
+  message: string;
+}
+
+/** Extracts per-field validation errors from a 422 response so forms
+ * can highlight the actual offending inputs instead of only showing
+ * one generic banner. Backend validation errors (FastAPI/Pydantic
+ * style, proxied through the RFC 7807 `detail`) commonly arrive as
+ * either `detail: [{loc: [...,"field"], msg}]` or a plain object map
+ * `{errors: {field: "message"}}` -- both are handled; anything else
+ * yields an empty list and the caller falls back to getErrorMessage. */
+export function getFieldErrors(err: any): FieldError[] {
+  if (getErrorStatus(err) !== 422) return [];
+  const data = err?.response?.data;
+  if (Array.isArray(data?.detail)) {
+    return data.detail
+      .map((d: any) => {
+        const loc = Array.isArray(d?.loc) ? d.loc : [];
+        const field = loc[loc.length - 1];
+        return field ? { field: String(field), message: d.msg || "Invalid value" } : null;
+      })
+      .filter((v: FieldError | null): v is FieldError => v !== null);
+  }
+  if (data?.errors && typeof data.errors === "object") {
+    return Object.entries(data.errors).map(([field, message]) => ({ field, message: String(message) }));
+  }
+  return [];
+}
+
 // --- Automatic access-token refresh on 401 (SRS Section 6.2) ------------------
 //
 // The backend issues short-lived (15 min) access tokens by design, so

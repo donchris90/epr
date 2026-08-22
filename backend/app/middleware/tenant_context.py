@@ -58,6 +58,15 @@ PUBLIC_PATHS = {
     "/v1/billing/paystack/webhook",
     "/v1/org/invitations/preview",
     "/v1/org/invitations/accept",
+    # Client Portal's own login family (client-facing portal build) --
+    # same two reasons as the /v1/auth/* entries above: /login takes no
+    # JWT at all, /refresh and /logout take a refresh token specifically,
+    # which this middleware's own optional access-token check would
+    # otherwise reject before either route's @jwt_required(refresh=True)
+    # ever ran.
+    "/v1/clp/auth/login",
+    "/v1/clp/auth/refresh",
+    "/v1/clp/auth/logout",
 }
 
 # Paths a tenant must still be able to reach even when its
@@ -99,6 +108,15 @@ def register_tenant_context(app, db):
         g.user_id = claims.get("user_id")
         g.role_id = claims.get("role_id")
         g.permissions = claims.get("permissions", [])
+        # Client Portal build: distinguishes a client-facing session
+        # (issued only by /v1/clp/auth/login) from an internal staff
+        # session, so routes that must never let a client act as
+        # another client (see app/modules/clp/routes.py's own
+        # _get_client_user_or_404) can tell the two apart. Absent
+        # entirely from every staff-issued token, so `g.get("is_client")`
+        # is falsy for all pre-existing sessions with no change needed
+        # anywhere else.
+        g.is_client = claims.get("is_client", False)
 
         # Covers the transaction already open (if any) at the start of
         # this request; the after_begin listener below covers every

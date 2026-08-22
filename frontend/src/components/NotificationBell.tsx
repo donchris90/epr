@@ -81,7 +81,7 @@ export function NotificationBell() {
 
   useEffect(() => {
     if (open && notifications === null) loadNotifications();
-  }, [open]);
+  }, [open, notifications]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {

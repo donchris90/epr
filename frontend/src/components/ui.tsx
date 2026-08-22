@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { cloneElement, isValidElement, useId } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 export function PageHeader({
   eyebrow,
@@ -120,9 +121,20 @@ export function Badge({ children, tone = "neutral" }: { children: ReactNode; ton
   );
 }
 
-export function ErrorBanner({ title, detail, onDismiss }: { title: string; detail?: string; onDismiss?: () => void }) {
+export function ErrorBanner({
+  title,
+  detail,
+  onDismiss,
+  onRetry,
+}: {
+  title: string;
+  detail?: string;
+  onDismiss?: () => void;
+  onRetry?: () => void;
+}) {
   return (
     <div
+      role="alert"
       style={{
         display: "flex",
         justifyContent: "space-between",
@@ -139,6 +151,24 @@ export function ErrorBanner({ title, detail, onDismiss }: { title: string; detai
       <div>
         <strong style={{ color: "var(--sf-brick)" }}>{title}</strong>
         {detail && <div style={{ marginTop: 2, color: "var(--sf-navy-600)" }}>{detail}</div>}
+        {onRetry && (
+          <button
+            onClick={onRetry}
+            style={{
+              marginTop: 8,
+              background: "none",
+              border: "1px solid var(--sf-brick)",
+              color: "var(--sf-brick)",
+              borderRadius: "var(--sf-radius)",
+              padding: "4px 10px",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Try again
+          </button>
+        )}
       </div>
       {onDismiss && (
         <button
@@ -153,7 +183,7 @@ export function ErrorBanner({ title, detail, onDismiss }: { title: string; detai
   );
 }
 
-export function EmptyState({ title, hint }: { title: string; hint?: string }) {
+export function EmptyState({ title, hint, action }: { title: string; hint?: string; action?: ReactNode }) {
   return (
     <div
       style={{
@@ -165,15 +195,16 @@ export function EmptyState({ title, hint }: { title: string; hint?: string }) {
       }}
     >
       <div style={{ fontWeight: 600, color: "var(--sf-navy-600)", marginBottom: 4 }}>{title}</div>
-      {hint && <div style={{ fontSize: 13 }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 13, marginBottom: action ? 16 : 0 }}>{hint}</div>}
+      {action && <div>{action}</div>}
     </div>
   );
 }
 
-export function Table({ children }: { children: ReactNode }) {
+export function Table({ children, ariaLabel }: { children: ReactNode; ariaLabel?: string }) {
   return (
     <div className="sf-table-scroll">
-      <table style={{ width: "100%", minWidth: 640, borderCollapse: "collapse", fontSize: 13 }}>
+      <table aria-label={ariaLabel} style={{ width: "100%", minWidth: 640, borderCollapse: "collapse", fontSize: 13 }}>
         {children}
       </table>
     </div>
@@ -243,12 +274,66 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   );
 }
 
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+/** Standardized form field: label + control + optional hint/error.
+ * When `error` is set, the control (if it's a single Input/Select
+ * element) is automatically wired with aria-invalid and
+ * aria-describedby pointing at the error text -- callers don't need
+ * to thread ids through by hand. `required` both marks the label and
+ * sets aria-required on the control for the same reason. */
+export function Field({
+  label,
+  children,
+  error,
+  hint,
+  required,
+}: {
+  label: string;
+  children: ReactNode;
+  error?: string;
+  hint?: string;
+  required?: boolean;
+}) {
+  const reactId = useId();
+  const controlId = `${reactId}-control`;
+  const errorId = `${reactId}-error`;
+  const hintId = `${reactId}-hint`;
+  const describedBy = [error ? errorId : null, hint ? hintId : null].filter(Boolean).join(" ") || undefined;
+
+  const resolvedId = isValidElement(children) ? (children as ReactElement<any>).props.id ?? controlId : undefined;
+  const control = isValidElement(children)
+    ? cloneElement(children as ReactElement<any>, {
+        id: resolvedId,
+        "aria-invalid": error ? true : (children as ReactElement<any>).props["aria-invalid"],
+        "aria-describedby":
+          [describedBy, (children as ReactElement<any>).props["aria-describedby"]].filter(Boolean).join(" ") ||
+          undefined,
+        "aria-required": required || (children as ReactElement<any>).props["aria-required"],
+      })
+    : children;
+
   return (
-    <label style={{ display: "block", marginBottom: 14 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--sf-navy-600)", marginBottom: 4 }}>{label}</div>
-      {children}
-    </label>
+    <div style={{ display: "block", marginBottom: 14 }}>
+      <label htmlFor={resolvedId} style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--sf-navy-600)", marginBottom: 4 }}>
+        {label}
+        {required && (
+          <span aria-hidden="true" style={{ color: "var(--sf-brick)" }}>
+            {" "}
+            *
+          </span>
+        )}
+      </label>
+      {control}
+      {hint && !error && (
+        <div id={hintId} style={{ fontSize: 12, color: "var(--sf-navy-400)", marginTop: 4 }}>
+          {hint}
+        </div>
+      )}
+      {error && (
+        <div id={errorId} role="alert" style={{ fontSize: 12, color: "var(--sf-brick)", marginTop: 4 }}>
+          {error}
+        </div>
+      )}
+    </div>
   );
 }
 

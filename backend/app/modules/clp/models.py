@@ -50,15 +50,49 @@ CLIENT_REQUEST_STATUSES = ("open", "in_progress", "resolved")
 class ClientPortalUser(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
     """The external client/asset-owner user -- deliberately NOT the
     same table as the internal `users` model; a client user should
-    never be reachable through internal user lookups."""
+    never be reachable through internal user lookups.
+
+    `password_hash` (migration 0046_clp_client_auth) is nullable: a
+    client user created without a password (or seeded before that
+    migration) simply cannot log in yet -- see
+    services.authenticate_client_user. It is verified with the same
+    Argon2id `verify_password` the internal `users` table uses
+    (app/auth/jwt_utils.py), not a separate scheme."""
 
     __tablename__ = "clp_portal_users"
 
     client_organization_name = db.Column(db.String(255), nullable=False)
     email = db.Column(db.String(255), nullable=False)
+    password_hash = db.Column(db.String(255), nullable=True)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
 
     __table_args__ = (db.UniqueConstraint("tenant_id", "email", name="uq_clp_portal_users_tenant_email"),)
+
+
+class ClientPortalEmailIndex(db.Model, UUIDPrimaryKeyMixin, AuditMixin):
+    """Login lookup for `ClientPortalUser`, added by migration
+    0046_clp_client_auth. Deliberately NOT the same table as
+    `app.models.core.EmailTenantIndex` and deliberately NOT globally
+    unique on email: `clp_portal_users` already allows the same
+    client email to exist independently across multiple tenants
+    (uq_clp_portal_users_tenant_email is scoped to tenant_id, not
+    global) because a real client organization can legitimately be a
+    client of more than one contractor at once. `services.
+    authenticate_client_user` resolves every matching row for an
+    email and tries each tenant in turn.
+
+    Deliberately NOT tenant-scoped, deliberately NOT RLS-protected --
+    same reasoning as EmailTenantIndex: resolving which tenant(s) an
+    email might belong to has to happen before any session has tenant
+    context to set."""
+
+    __tablename__ = "clp_email_index"
+
+    email = db.Column(db.String(255), nullable=False, index=True)
+    client_user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("clp_portal_users.id"), nullable=False)
+    tenant_id = db.Column(UUID(as_uuid=True), db.ForeignKey("tenants.id"), nullable=False, index=True)
+
+    __table_args__ = (db.UniqueConstraint("email", "tenant_id", name="uq_clp_email_index_email_tenant"),)
 
 
 class ClientProjectAssignment(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):

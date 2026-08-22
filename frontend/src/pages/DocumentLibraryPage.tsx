@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { apiClient } from "../api/client";
+import { apiClient, getErrorMessage } from "../api/client";
 import { useUploadDocument } from "../api/documents";
-import { PageHeader, Card, Button, Table, Th, Td, Badge, ErrorBanner, EmptyState, Select, Field } from "../components/ui";
+import { PageHeader, Card, Button, Table, Th, Td, Badge, Select, Field, EmptyState } from "../components/ui";
+import { LoadingState } from "../components/Loading";
+import { ErrorState } from "../components/ErrorState";
 import { ProjectSelect } from "../components/ProjectSelect";
+import { useToast } from "../lib/toast";
 
 interface DocumentRow {
   id: string;
@@ -16,10 +19,6 @@ interface DocumentRow {
 }
 
 const COMMON_DOC_TYPES = ["drawing", "contract", "photo", "report", "certificate", "invoice", "other"];
-
-function getErrorMessage(err: any): string {
-  return err?.response?.data?.detail || err?.response?.data?.title || "Something went wrong.";
-}
 
 function formatSize(bytes: number | null) {
   if (!bytes) return "—";
@@ -46,11 +45,12 @@ function statusBadge(status: string) {
  * real upload will genuinely fail. That failure surfaces as a real
  * error here, not a silent no-op or a fake success. */
 export default function DocumentLibraryPage() {
+  const toast = useToast();
   const [documents, setDocuments] = useState<DocumentRow[] | null>(null);
   const [projectFilter, setProjectFilter] = useState("");
   const [docTypeFilter, setDocTypeFilter] = useState("");
   const [uploadDocType, setUploadDocType] = useState("other");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const upload = useUploadDocument();
@@ -62,8 +62,8 @@ export default function DocumentLibraryPage() {
         params: { project_id: projectFilter || undefined, doc_type: docTypeFilter || undefined },
       });
       setDocuments(res.data.data);
-    } catch (err: any) {
-      setError(getErrorMessage(err));
+    } catch (err) {
+      setError(err);
     }
   }
 
@@ -81,12 +81,12 @@ export default function DocumentLibraryPage() {
     e.target.value = "";
     if (!file) return;
 
-    setError(null);
     try {
       await upload.mutateAsync({ file, docType: uploadDocType, projectId: projectFilter || undefined });
+      toast.success(`"${file.name}" uploaded.`);
       await load();
-    } catch (err: any) {
-      setError(
+    } catch (err) {
+      toast.error(
         `Upload failed: ${getErrorMessage(err)}. If this keeps happening, S3 storage may not be configured on this deployment yet.`
       );
     }
@@ -98,21 +98,21 @@ export default function DocumentLibraryPage() {
       if (res.data.download_url) {
         window.open(res.data.download_url, "_blank");
       } else {
-        setError("This document has no download link yet — it may still be uploading.");
+        toast.error("This document has no download link yet — it may still be uploading.");
       }
-    } catch (err: any) {
-      setError(getErrorMessage(err));
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     }
   }
 
   async function handleDelete(doc: DocumentRow) {
     setPendingId(doc.id);
-    setError(null);
     try {
       await apiClient.delete(`/documents/${doc.id}`);
+      toast.success(`"${doc.original_filename ?? "Document"}" deleted.`);
       await load();
-    } catch (err: any) {
-      setError(getErrorMessage(err));
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setPendingId(null);
     }
@@ -160,15 +160,19 @@ export default function DocumentLibraryPage() {
         </div>
       </div>
 
-      {error && <ErrorBanner title="Something went wrong" detail={error} onDismiss={() => setError(null)} />}
-
       <Card style={{ padding: 0 }}>
-        {documents === null ? (
-          <div style={{ padding: 24, fontSize: 13, color: "var(--sf-navy-400)" }}>Loading…</div>
+        {error ? (
+          <ErrorState error={error} onRetry={load} />
+        ) : documents === null ? (
+          <LoadingState variant="table" label="Loading documents" />
         ) : documents.length === 0 ? (
-          <EmptyState title="No documents yet" hint="Upload your first document to get started." />
+          <EmptyState
+            title="No documents yet"
+            hint="Upload your first document to get started."
+            action={<Button onClick={handlePickFile}>+ Upload</Button>}
+          />
         ) : (
-          <Table>
+          <Table ariaLabel="Documents">
             <thead>
               <tr>
                 <Th>File</Th>
