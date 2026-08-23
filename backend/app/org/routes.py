@@ -194,6 +194,9 @@ def accept_invitation():
     claims = {
         "tenant_id": result["tenant_id"], "user_id": result["user_id"],
         "role_id": result["role_id"], "permissions": result["permissions"],
+        # None -- a brand-new user (see app/auth/jwt_utils.py:build_auth_claims's
+        # own docstring) has never changed their password.
+        "pwd_ts": None,
     }
     access_token = create_access_token(identity=result["user_id"], additional_claims=claims)
     refresh_token = create_refresh_token(identity=result["user_id"], additional_claims=claims)

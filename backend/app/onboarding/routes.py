@@ -39,12 +39,16 @@ def signup():
     # Auto-login: the new administrator lands in the app immediately,
     # the same real token shape /v1/auth/login issues -- tenant_id,
     # user_id, role_id, and permissions claims, verified on every
-    # subsequent request exactly like any other session.
+    # subsequent request exactly like any other session. pwd_ts is
+    # always None here (see app/auth/jwt_utils.py:build_auth_claims's
+    # own docstring) -- a brand-new user has never changed their
+    # password.
     claims = {
         "tenant_id": str(result["tenant_id"]),
         "user_id": str(result["user_id"]),
         "role_id": str(result["admin_role_id"]),
         "permissions": result["admin_permissions"],
+        "pwd_ts": None,
     }
     access_token = create_access_token(identity=str(result["user_id"]), additional_claims=claims)
     refresh_token = create_refresh_token(identity=str(result["user_id"]), additional_claims=claims)

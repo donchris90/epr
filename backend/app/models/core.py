@@ -5,6 +5,7 @@ every one of the 25 module bounded contexts.
 """
 import uuid
 
+from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from app.extensions import db
@@ -52,6 +53,21 @@ class User(db.Model, UUIDPrimaryKeyMixin, AuditMixin):
     department = db.Column(db.String(128), nullable=True)
     job_title = db.Column(db.String(128), nullable=True)
     avatar_document_id = db.Column(UUID(as_uuid=True), nullable=True)
+    # Real, standard security mechanism, not decorative -- every
+    # login/refresh/signup/invitation-accept embeds this timestamp as
+    # a JWT claim (pwd_ts); the tenant-context middleware rejects any
+    # token whose claim doesn't match this column's current value.
+    # Changing a password naturally changes this, which invalidates
+    # every previously-issued token on every device immediately,
+    # without needing to track individual sessions/JTIs at all. NULL
+    # for an account that has never changed its password since
+    # creation -- treated the same as "always matches" (see
+    # jwt_utils.py's own check), not a forced reset.
+    password_changed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    # Real, set on every successful login (app/auth/jwt_utils.py:authenticate_user)
+    # -- previously no last-login tracking existed anywhere in this
+    # backend at all.
+    last_login_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
     # Partial unique index, not a plain UniqueConstraint -- matches
     # migration 0043's real fix: a removed user (status="removed", a
@@ -132,6 +148,36 @@ class InvitationTokenIndex(db.Model, UUIDPrimaryKeyMixin):
     token_hash = db.Column(db.String(64), nullable=False, unique=True)
     invitation_id = db.Column(UUID(as_uuid=True), nullable=False)
     tenant_id = db.Column(UUID(as_uuid=True), nullable=False)
+
+
+class PasswordResetToken(db.Model, UUIDPrimaryKeyMixin):
+    """
+    Deliberately NOT tenant-scoped, deliberately NOT RLS-protected --
+    exactly the same reasoning as EmailTenantIndex/InvitationTokenIndex
+    above: a person requesting a password reset has no tenant context
+    at all (they may not even be logged in), so resolving "which
+    tenant does this token belong to" has to happen before any RLS
+    context can be set. Never stores the raw token, only its SHA-256
+    hash, matching Invitation.token_hash's own established pattern --
+    knowing this table's contents doesn't let anyone reset a password
+    without the real, un-hashed token value from the actual email.
+
+    used_at is set the moment the token is successfully redeemed
+    (real single-use enforcement, not just relying on the caller to
+    behave) -- request_password_reset creates a fresh row each time
+    rather than reusing one, so an old, already-used or expired token
+    genuinely can never work again, and a person can have multiple
+    outstanding reset requests without one invalidating another.
+    """
+
+    __tablename__ = "password_reset_tokens"
+
+    tenant_id = db.Column(UUID(as_uuid=True), nullable=False)
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("users.id"), nullable=False)
+    token_hash = db.Column(db.String(64), nullable=False, unique=True)
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    used_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
 
 
 class Project(db.Model, UUIDPrimaryKeyMixin, AuditMixin):

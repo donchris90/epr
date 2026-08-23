@@ -51,6 +51,11 @@ from sqlalchemy.orm import Session
 PUBLIC_PATHS = {
     "/v1/health",
     "/v1/auth/login",
+    # Genuinely public -- a person requesting a reset, or completing
+    # one via an emailed link, has no session/JWT at all yet, the same
+    # real reason /v1/auth/login itself is exempt.
+    "/v1/auth/forgot-password",
+    "/v1/auth/reset-password",
     "/v1/auth/refresh",
     "/v1/auth/logout",
     "/v1/onboarding/signup",
@@ -117,6 +122,25 @@ def register_tenant_context(app, db):
         # is falsy for all pre-existing sessions with no change needed
         # anywhere else.
         g.is_client = claims.get("is_client", False)
+
+        # Real session-invalidation check, added alongside password
+        # reset support -- staff sessions only (this codebase's
+        # separate client-portal password change, built earlier, has
+        # no equivalent mechanism and isn't this task's scope; a
+        # client token's user_id refers to ClientPortalUser, a
+        # different model entirely, so running this same check against
+        # it would be checking the wrong table). A token whose pwd_ts
+        # claim no longer matches the user's real, current
+        # password_changed_at was issued before their most recent
+        # password change and must stop working immediately, not just
+        # expire naturally over the next 30 days.
+        if tenant_id and g.user_id and not g.is_client:
+            from app.auth.jwt_utils import check_pwd_ts_claim
+
+            if not check_pwd_ts_claim(tenant_id, g.user_id, claims.get("pwd_ts")):
+                from app.utils.errors import APIError
+
+                raise APIError("Session no longer valid", status=401)
 
         # Covers the transaction already open (if any) at the start of
         # this request; the after_begin listener below covers every

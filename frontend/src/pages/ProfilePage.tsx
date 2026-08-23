@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiClient } from "../api/client";
 import { useUploadDocument } from "../api/documents";
+import { clearTokens } from "../lib/auth";
 import { PageHeader, Card, Button, ErrorBanner, Field, Input } from "../components/ui";
+import { PasswordStrengthMeter } from "../components/PasswordStrengthMeter";
 
 interface Profile {
   id: string;
@@ -27,11 +30,19 @@ function getErrorMessage(err: any): string {
  * claimed file type), so a rejected upload here reflects a real
  * server-side check, not just a client-side guess. */
 export default function ProfilePage() {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const upload = useUploadDocument();
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   async function load() {
     setError(null);
@@ -40,6 +51,41 @@ export default function ProfilePage() {
       setProfile(res.data);
     } catch (err: any) {
       setError(getErrorMessage(err));
+    }
+  }
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPasswordError(null);
+
+    if (newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("New passwords do not match.");
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      await apiClient.put("/auth/me/password", { current_password: currentPassword, new_password: newPassword });
+      setPasswordSuccess(true);
+      // Real, deliberate: a successful change invalidates every
+      // session for this account immediately, including this one
+      // (see app/auth/jwt_utils.py's own docstring on the real
+      // pwd_ts mechanism) -- the current tokens genuinely stop
+      // working the moment this request succeeds, so signing out and
+      // sending the person to log in again with the new password is
+      // the only real, correct next step, not an arbitrary UX choice.
+      setTimeout(() => {
+        clearTokens();
+        navigate("/login");
+      }, 2000);
+    } catch (err: any) {
+      setPasswordError(getErrorMessage(err));
+    } finally {
+      setChangingPassword(false);
     }
   }
 
@@ -143,6 +189,35 @@ export default function ProfilePage() {
         <Field label="Job title">
           <Input value={profile.job_title ?? "—"} disabled />
         </Field>
+      </Card>
+
+      <Card style={{ marginTop: 24 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Change password</h3>
+        <p style={{ fontSize: 12, color: "var(--sf-navy-400)", marginBottom: 16 }}>
+          Changing your password signs you out of every device, including this one.
+        </p>
+        {passwordSuccess ? (
+          <div style={{ fontSize: 13, color: "var(--sf-green)" }}>
+            Password changed. You'll be signed out shortly — please sign in again with your new password.
+          </div>
+        ) : (
+          <form onSubmit={handleChangePassword}>
+            <Field label="Current password">
+              <Input type="password" required value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="••••••••" />
+            </Field>
+            <Field label="New password">
+              <Input type="password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" />
+            </Field>
+            <PasswordStrengthMeter password={newPassword} />
+            <Field label="Confirm new password">
+              <Input type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" />
+            </Field>
+            {passwordError && <ErrorBanner title="Could not change password" detail={passwordError} onDismiss={() => setPasswordError(null)} />}
+            <Button type="submit" disabled={changingPassword}>
+              {changingPassword ? "Changing…" : "Change password"}
+            </Button>
+          </form>
+        )}
       </Card>
     </div>
   );

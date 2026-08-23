@@ -29,6 +29,25 @@ class TestLogin:
         assert body["refresh_token"]
         assert body["access_token"] != body["refresh_token"]
 
+    def test_login_records_last_login_at(self, app, db, client, real_user, seed_tenants):
+        """Real regression test for a real bug found and fixed while
+        building last-login tracking: setting last_login_at required a
+        second db.session.commit() inside the real login flow, and
+        re-reading user.id right after that commit (to pass as the
+        JWT identity) triggered a refresh query with no tenant context
+        left, breaking login outright. Fixed by reusing the value
+        already captured in claims before the commit, instead of
+        re-reading the (now-expired) ORM attribute afterward."""
+        assert real_user.last_login_at is None
+
+        r = _login(client)
+        assert r.status_code == 200
+
+        from sqlalchemy import text
+        db.session.execute(text("SET LOCAL app.tenant_id = :tid"), {"tid": str(seed_tenants["a"])})
+        last_login = db.session.execute(text("SELECT last_login_at FROM users WHERE id = :uid"), {"uid": str(real_user.id)}).scalar()
+        assert last_login is not None
+
     def test_login_with_wrong_password_rejected(self, client, real_user):
         r = _login(client, password="wrong password")
         assert r.status_code == 401

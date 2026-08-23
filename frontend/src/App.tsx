@@ -1,10 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import SubscriptionExpiredPage from "./pages/SubscriptionExpiredPage";
 import BillingPage from "./pages/BillingPage";
 import UsersManagementPage from "./pages/UsersManagementPage";
 import ProfilePage from "./pages/ProfilePage";
+import SecuritySettingsPage from "./pages/SecuritySettingsPage";
 import RolesPage from "./pages/RolesPage";
 import ApprovalCenterPage from "./pages/ApprovalCenterPage";
 import WorkflowListPage from "./modules/workflow/WorkflowListPage";
@@ -59,6 +62,8 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         {/* Public -- an invitee isn't logged in yet, matching /login and /signup above. */}
         <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
 
@@ -100,6 +105,7 @@ export default function App() {
             <Route path="account/subscription" element={<BillingPage />} />
             <Route path="settings/users" element={<UsersManagementPage />} />
             <Route path="settings/profile" element={<ProfilePage />} />
+            <Route path="settings/security" element={<SecuritySettingsPage />} />
             <Route path="settings/roles" element={<RolesPage />} />
             <Route path="approvals" element={<ApprovalCenterPage />} />
             <Route path="workflows" element={<WorkflowListPage />} />

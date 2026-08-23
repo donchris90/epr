@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import ProfilePage from "./ProfilePage";
 import { apiClient } from "../api/client";
 
@@ -12,6 +13,10 @@ vi.mock("../api/client", () => ({
     put: vi.fn(),
     delete: vi.fn(),
   },
+}));
+
+vi.mock("../lib/auth", () => ({
+  clearTokens: vi.fn(),
 }));
 
 const SAMPLE_PROFILE = {
@@ -27,12 +32,15 @@ function renderPage() {
   const client = new QueryClient();
   return render(
     <QueryClientProvider client={client}>
-      <ProfilePage />
+      <MemoryRouter>
+        <ProfilePage />
+      </MemoryRouter>
     </QueryClientProvider>
   );
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
   vi.mocked(apiClient.get).mockResolvedValue({ data: SAMPLE_PROFILE });
   vi.mocked(apiClient.put).mockResolvedValue({ data: { ...SAMPLE_PROFILE, avatar_url: "https://real-avatar-url.example.com/img.jpg" } });
   vi.mocked(apiClient.delete).mockResolvedValue({ data: { ...SAMPLE_PROFILE, avatar_url: null } });
@@ -96,6 +104,73 @@ describe("ProfilePage", () => {
 
     await waitFor(() => {
       expect(apiClient.delete).toHaveBeenCalledWith("/auth/me/avatar");
+    });
+  });
+});
+
+describe("ProfilePage — change password", () => {
+  it("submits the real change-password request with all three fields", async () => {
+    vi.mocked(apiClient.put).mockResolvedValue({ data: { message: "Password changed successfully." } });
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => screen.getByRole("heading", { name: "Change password" }));
+
+    await user.type(screen.getByLabelText(/current password/i), "originalpassword123");
+    await user.type(screen.getByLabelText(/^new password/i), "brandnewpassword456");
+    await user.type(screen.getByLabelText(/confirm new password/i), "brandnewpassword456");
+    await user.click(screen.getByRole("button", { name: /^change password$/i }));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalledWith("/auth/me/password", {
+        current_password: "originalpassword123",
+        new_password: "brandnewpassword456",
+      });
+    });
+  });
+
+  it("blocks submission client-side when new passwords do not match", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => screen.getByRole("heading", { name: "Change password" }));
+
+    await user.type(screen.getByLabelText(/current password/i), "originalpassword123");
+    await user.type(screen.getByLabelText(/^new password/i), "brandnewpassword456");
+    await user.type(screen.getByLabelText(/confirm new password/i), "somethingelse789");
+    await user.click(screen.getByRole("button", { name: /^change password$/i }));
+
+    expect(screen.getByText(/do not match/i)).toBeInTheDocument();
+    expect(apiClient.put).not.toHaveBeenCalled();
+  });
+
+  it("shows the real backend error for a wrong current password", async () => {
+    vi.mocked(apiClient.put).mockRejectedValue({ response: { data: { title: "Current password is incorrect" } } });
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => screen.getByRole("heading", { name: "Change password" }));
+
+    await user.type(screen.getByLabelText(/current password/i), "wrongpassword");
+    await user.type(screen.getByLabelText(/^new password/i), "brandnewpassword456");
+    await user.type(screen.getByLabelText(/confirm new password/i), "brandnewpassword456");
+    await user.click(screen.getByRole("button", { name: /^change password$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Current password is incorrect")).toBeInTheDocument();
+    });
+  });
+
+  it("shows a real success state mentioning being signed out, and clears tokens", async () => {
+    vi.mocked(apiClient.put).mockResolvedValue({ data: { message: "Password changed successfully." } });
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => screen.getByRole("heading", { name: "Change password" }));
+
+    await user.type(screen.getByLabelText(/current password/i), "originalpassword123");
+    await user.type(screen.getByLabelText(/^new password/i), "brandnewpassword456");
+    await user.type(screen.getByLabelText(/confirm new password/i), "brandnewpassword456");
+    await user.click(screen.getByRole("button", { name: /^change password$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/you'll be signed out shortly/i)).toBeInTheDocument();
     });
   });
 });

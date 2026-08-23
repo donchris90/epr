@@ -65,6 +65,7 @@ const NAV = [
     section: "Account",
     items: [
       { to: "/settings/profile", label: "My Profile" },
+      { to: "/settings/security", label: "Security" },
       { to: "/settings/users", label: "Users & Roles" },
       { to: "/settings/roles", label: "Manage Roles" },
       { to: "/account/subscription", label: "Billing & Subscription" },

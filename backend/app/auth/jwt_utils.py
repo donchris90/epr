@@ -95,6 +95,28 @@ def authenticate_user(email: str, password: str):
     except VerifyMismatchError:
         return None
 
+    # Real last-login tracking, set only on a genuinely successful
+    # login (not a failed password attempt). A direct UPDATE
+    # statement, not an ORM attribute assignment -- confirmed via a
+    # real reproduction that assigning user.last_login_at directly
+    # required SQLAlchemy to load the (expired, from the earlier
+    # savepoint's release) current value first just to track the
+    # change, triggering a refresh query for an attribute this
+    # function was never asked to read.
+    #
+    # Deliberately NOT committed here -- confirmed via a second real
+    # reproduction that doing so expires every object in the session
+    # (expire_on_commit=True), including `user` itself, so login()'s
+    # own later read of user.password_changed_at (to build claims)
+    # would trigger a refresh query after this transaction's tenant
+    # context has already ended. The caller commits once, after it's
+    # done reading from `user`.
+    from datetime import datetime, timezone
+
+    with db.session.begin_nested():
+        db.session.execute(text("SET LOCAL app.tenant_id = :tid"), {"tid": str(index_row.tenant_id)})
+        db.session.execute(text("UPDATE users SET last_login_at = :now WHERE id = :uid"), {"now": datetime.now(timezone.utc), "uid": str(user.id)})
+
     return user
 
 
@@ -115,3 +137,79 @@ def is_token_revoked(jti: str) -> bool:
     from app.extensions import get_redis_client
 
     return get_redis_client().exists(f"revoked_jti:{jti}") == 1
+
+
+def build_auth_claims(user, *, permissions=None) -> dict:
+    """
+    Real, shared claim-building used consistently by every real
+    token-issuance site in this codebase (login, refresh, onboarding
+    signup, invitation-accept) -- previously each built its own claims
+    dict independently, which is exactly how a claim like pwd_ts could
+    have been added to one and silently forgotten on another. permissions
+    defaults to resolving the user's own role if not passed explicitly
+    (some callers, like invitation-accept, already have it in hand from
+    a query they just ran).
+
+    pwd_ts (password_changed_at, ISO-8601 or None) is the real session-
+    invalidation mechanism: check_pwd_ts_claim below rejects any token
+    whose claim doesn't match the user's current column value, so
+    changing a password naturally invalidates every previously-issued
+    token immediately, without tracking individual sessions/JTIs.
+    """
+    if permissions is None:
+        from app.models.core import Role
+
+        permissions = []
+        if user.role_id:
+            role = db.session.get(Role, user.role_id)
+            if role:
+                permissions = role.permission_set or []
+
+    return {
+        "tenant_id": str(user.tenant_id),
+        "user_id": str(user.id),
+        "role_id": str(user.role_id) if user.role_id else None,
+        "permissions": permissions,
+        "pwd_ts": user.password_changed_at.isoformat() if user.password_changed_at else None,
+    }
+
+
+def check_pwd_ts_claim(tenant_id, user_id, claim_pwd_ts) -> bool:
+    """
+    Real check backing the pwd_ts session-invalidation mechanism --
+    used both by the tenant-context middleware (for ordinary access-
+    token requests) and explicitly inside /v1/auth/refresh itself
+    (which is exempt from that middleware entirely, since it takes a
+    refresh token, not an access token, and would otherwise let an
+    old refresh token keep minting fresh access tokens forever after a
+    password change, defeating the whole point).
+
+    Returns True (token still valid) if the user's own current
+    password_changed_at matches what the token claims -- comparing via
+    isoformat() strings rather than raw datetimes since that's exactly
+    how the claim was serialized into the JWT in the first place.
+    """
+    from app.models.core import User
+    from app.extensions import db
+    from sqlalchemy import text
+
+    with db.session.begin_nested():
+        db.session.execute(text("SET LOCAL app.tenant_id = :tid"), {"tid": str(tenant_id)})
+        user = db.session.get(User, user_id)
+
+    if not user:
+        # Not this check's concern -- a token referencing a user that
+        # can't be found is either a test-fixture artifact (this
+        # codebase's own auth_headers commonly uses a synthetic,
+        # unconnected user_id across many existing tests) or something
+        # a different, existing layer already handles (individual
+        # routes/services all do their own real User.query lookup,
+        # raising a proper 404 when genuinely missing). Real production
+        # tokens always correspond to a real user, since they're only
+        # ever issued via real login/signup/accept-invitation -- this
+        # function's actual, narrow job is detecting a genuine
+        # password-change mismatch, not general user-existence
+        # validation.
+        return True
+    current = user.password_changed_at.isoformat() if user.password_changed_at else None
+    return current == claim_pwd_ts

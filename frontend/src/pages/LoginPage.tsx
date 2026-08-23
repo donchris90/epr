@@ -78,6 +78,11 @@ export default function LoginPage() {
               placeholder="••••••••"
             />
           </Field>
+          <p style={{ textAlign: "right", fontSize: 12, marginTop: -8, marginBottom: 14 }}>
+            <Link to="/forgot-password" style={{ color: "var(--sf-steel)" }}>
+              Forgot password?
+            </Link>
+          </p>
           {error && (
             <div style={{ color: "var(--sf-brick)", fontSize: 12, marginBottom: 12 }}>{error}</div>
           )}
