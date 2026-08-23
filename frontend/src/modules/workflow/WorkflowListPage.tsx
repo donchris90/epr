@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { apiClient } from "../../api/client";
 import { useWorkflowDefinitions } from "./hooks";
 import { hasPermission } from "../../lib/permissions";
@@ -22,6 +22,7 @@ const PAGE_SIZE = 20;
  * approximation rather than a real limitation in practice -- but it's
  * a real, worth-noting gap if that assumption ever stops holding. */
 export default function WorkflowListPage() {
+  const navigate = useNavigate();
   const [moduleFilter, setModuleFilter] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"" | "active" | "inactive">("");
@@ -139,6 +140,7 @@ export default function WorkflowListPage() {
                   <Th>Workflow name</Th>
                   <Th>Module / Entity</Th>
                   <Th>Version</Th>
+                  <Th>Steps</Th>
                   <Th>Status</Th>
                   <Th>Created by</Th>
                   <Th>Updated</Th>
@@ -156,15 +158,23 @@ export default function WorkflowListPage() {
                       {d.module_name} / {d.entity_type}
                     </Td>
                     <Td mono>v{d.version}</Td>
+                    <Td mono>{d.steps.length}</Td>
                     <Td>
                       <Badge tone={d.active ? "green" : "neutral"}>{d.active ? "Active" : "Draft"}</Badge>
                     </Td>
                     <Td>{resolveName(d.created_by)}</Td>
                     <Td mono>{new Date(d.updated_at).toLocaleDateString()}</Td>
                     <Td style={{ textAlign: "right" }}>
-                      <Link to={`/workflows/${d.id}`}>
-                        <Button variant="ghost">View</Button>
-                      </Link>
+                      <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                        {canManage && (
+                          <Button variant="ghost" onClick={() => navigate("/workflows/new", { state: { duplicateFrom: d } })}>
+                            Duplicate
+                          </Button>
+                        )}
+                        <Link to={`/workflows/${d.id}`}>
+                          <Button variant="ghost">View</Button>
+                        </Link>
+                      </div>
                     </Td>
                   </tr>
                 ))}

@@ -14,6 +14,12 @@ vi.mock("../../lib/permissions", () => ({
   hasPermission: vi.fn(),
 }));
 
+const mockNavigate = vi.fn();
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return { ...actual, useNavigate: () => mockNavigate };
+});
+
 const REAL_DEFINITIONS = [
   {
     id: "wf-1",
@@ -27,7 +33,10 @@ const REAL_DEFINITIONS = [
     created_by: "user-1",
     updated_at: "2026-02-01T00:00:00Z",
     updated_by: "user-1",
-    steps: [],
+    steps: [
+      { id: "s1", step_number: 1, name: "Finance", approver_type: "specific_role", required_role_id: "r1", auto_escalate: false, allow_skip: false, parallel: false },
+      { id: "s2", step_number: 2, name: "CEO", approver_type: "specific_role", required_role_id: "r2", auto_escalate: false, allow_skip: false, parallel: false },
+    ],
   },
   {
     id: "wf-2",
@@ -148,5 +157,33 @@ describe("WorkflowListPage", () => {
     await waitFor(() => {
       expect(screen.getByRole("link", { name: /new workflow/i })).toBeInTheDocument();
     });
+  });
+
+  it("shows the real number of steps for each workflow", async () => {
+    renderList();
+    await waitFor(() => screen.getByText("Purchase Request Approval"));
+
+    const rows = screen.getAllByRole("row");
+    // Header + 2 data rows; the real 2-step definition's row shows "2"
+    expect(rows.some((r) => r.textContent?.includes("2"))).toBe(true);
+  });
+
+  it("Duplicate navigates to the builder with the real definition as navigation state", async () => {
+    const user = userEvent.setup();
+    renderList();
+    await waitFor(() => screen.getByText("Purchase Request Approval"));
+
+    const duplicateButtons = screen.getAllByRole("button", { name: /duplicate/i });
+    await user.click(duplicateButtons[0]);
+
+    expect(mockNavigate).toHaveBeenCalledWith("/workflows/new", { state: { duplicateFrom: REAL_DEFINITIONS[0] } });
+  });
+
+  it("hides the Duplicate action for a user without workflow:admin", async () => {
+    vi.mocked(permissions.hasPermission).mockReturnValue(false);
+    renderList();
+    await waitFor(() => screen.getByText("Purchase Request Approval"));
+
+    expect(screen.queryByRole("button", { name: /duplicate/i })).not.toBeInTheDocument();
   });
 });

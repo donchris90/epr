@@ -182,3 +182,76 @@ describe("WorkflowBuilderPage — save draft vs publish", () => {
     });
   });
 });
+
+describe("WorkflowBuilderPage — duplicate", () => {
+  it("pre-fills the form from a real definition passed as navigation state", async () => {
+    const duplicateFrom = {
+      id: "wf-original",
+      module_name: "prc",
+      entity_type: "purchase_request",
+      workflow_name: "Purchase Request Approval",
+      description: "Original description",
+      active: true,
+      version: 3,
+      created_at: "2026-01-01T00:00:00Z",
+      created_by: null,
+      updated_at: "2026-01-01T00:00:00Z",
+      updated_by: null,
+      steps: [
+        { id: "orig-step-1", step_number: 1, name: "Finance Approval", approver_type: "specific_role", required_role_id: "role-1", auto_escalate: false, allow_skip: false, parallel: false },
+      ],
+    };
+
+    render(
+      <MemoryRouter initialEntries={[{ pathname: "/workflows/new", state: { duplicateFrom } }]}>
+        <WorkflowBuilderPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Purchase Request Approval (Copy)")).toBeInTheDocument();
+      expect(screen.getByText(/duplicate: purchase request approval/i)).toBeInTheDocument();
+      expect(screen.getByText("Finance Approval")).toBeInTheDocument();
+    });
+  });
+
+  it("duplicated steps are treated as new, unsaved steps -- not linked back to the original definition", async () => {
+    const duplicateFrom = {
+      id: "wf-original",
+      module_name: "prc",
+      entity_type: "purchase_request",
+      workflow_name: "Purchase Request Approval",
+      description: null,
+      active: true,
+      version: 1,
+      created_at: "2026-01-01T00:00:00Z",
+      created_by: null,
+      updated_at: "2026-01-01T00:00:00Z",
+      updated_by: null,
+      steps: [{ id: "orig-step-1", step_number: 1, name: "Finance Approval", approver_type: "specific_role", required_role_id: "role-1", auto_escalate: false, allow_skip: false, parallel: false }],
+    };
+
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={[{ pathname: "/workflows/new", state: { duplicateFrom } }]}>
+        <WorkflowBuilderPage />
+      </MemoryRouter>
+    );
+    await waitFor(() => screen.getByText("Finance Approval"));
+
+    vi.mocked(apiClient.post).mockResolvedValue({
+      data: { id: "wf-new-copy", workflow_name: "Purchase Request Approval (Copy)", module_name: "prc", entity_type: "purchase_request", active: false, version: 1, steps: [] },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Save Draft" }));
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith(
+        "/workflow/definitions",
+        expect.objectContaining({
+          steps: [expect.objectContaining({ name: "Finance Approval", id: undefined })],
+        })
+      );
+    });
+  });
+});

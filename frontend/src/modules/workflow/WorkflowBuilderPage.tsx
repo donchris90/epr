@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ReactFlow, Background, Controls, type Node, type Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { createWorkflowDefinition, activateWorkflowDefinition } from "./hooks";
 import { validateWorkflowDraft } from "./validation";
-import { KNOWN_MODULE_ENTITY_PAIRS, type WorkflowStep } from "./types";
+import { KNOWN_MODULE_ENTITY_PAIRS, type WorkflowDefinition, type WorkflowStep } from "./types";
 import { hasPermission } from "../../lib/permissions";
 import { UserSelect } from "../../components/UserSelect";
 import { RoleSelect } from "../../components/RoleSelect";
@@ -46,19 +46,35 @@ function newStep(stepNumber: number): WorkflowStep {
 export default function WorkflowBuilderPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
+  // Real "Duplicate" support (WorkflowListPage's own Duplicate
+  // action) -- a full WorkflowDefinition passed via navigation state,
+  // not a URL param, since encoding a whole step array into a query
+  // string would be unwieldy. There is no real backend "duplicate"
+  // endpoint (create always makes a new version of the SAME
+  // module/entity pair, not an independent copy) -- this is a
+  // genuine frontend convenience: pre-fill the builder, let the
+  // person adjust anything, then a real, ordinary create call saves
+  // it as its own new definition.
+  const duplicateFrom = (location.state as { duplicateFrom?: WorkflowDefinition } | null)?.duplicateFrom;
 
-  const [workflowName, setWorkflowName] = useState("");
-  const [description, setDescription] = useState("");
-  const [moduleName, setModuleName] = useState(searchParams.get("module_name") ?? "");
-  const [entityType, setEntityType] = useState(searchParams.get("entity_type") ?? "");
+  const [workflowName, setWorkflowName] = useState(duplicateFrom ? `${duplicateFrom.workflow_name} (Copy)` : "");
+  const [description, setDescription] = useState(duplicateFrom?.description ?? "");
+  const [moduleName, setModuleName] = useState(duplicateFrom?.module_name ?? searchParams.get("module_name") ?? "");
+  const [entityType, setEntityType] = useState(duplicateFrom?.entity_type ?? searchParams.get("entity_type") ?? "");
   const [customTrigger, setCustomTrigger] = useState(
     !KNOWN_MODULE_ENTITY_PAIRS.some((p) => p.module_name === moduleName && p.entity_type === entityType)
   );
-  const [steps, setSteps] = useState<WorkflowStep[]>([]);
+  // Real ids stripped -- these are new, unsaved steps once duplicated,
+  // not references back to the original definition's own step rows.
+  const [steps, setSteps] = useState<WorkflowStep[]>(
+    duplicateFrom ? duplicateFrom.steps.map((s) => ({ ...s, id: undefined })) : []
+  );
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
 
   const canManage = hasPermission("workflow:admin");
 
@@ -232,7 +248,7 @@ export default function WorkflowBuilderPage() {
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px" }}>
       <PageHeader
         eyebrow="Workflow Engine"
-        title="New Workflow"
+        title={duplicateFrom ? `Duplicate: ${duplicateFrom.workflow_name}` : "New Workflow"}
         action={
           <div style={{ display: "flex", gap: 8 }}>
             <Button variant="secondary" onClick={handleSaveDraft} disabled={saving}>
@@ -413,20 +429,26 @@ function StepConfigModal({
         </Field>
       )}
 
-      <Field label="Timeout, hours (optional)">
+      <Field label="SLA duration, hours (optional)">
         <Input
           type="number"
           value={step.timeout_hours ?? ""}
           onChange={(e) => onChange({ timeout_hours: e.target.value ? Number(e.target.value) : undefined })}
-          placeholder="No timeout"
+          placeholder="No SLA"
         />
       </Field>
       {step.timeout_hours && (
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginTop: -8, marginBottom: 12 }}>
-          <input type="checkbox" checked={step.auto_escalate} onChange={(e) => onChange({ auto_escalate: e.target.checked })} />
-          Auto-escalate on timeout
-          <span style={{ fontSize: 11, color: "var(--sf-navy-400)" }}>(recorded, not yet enforced by a scheduler)</span>
-        </label>
+        <div style={{ marginTop: -8, marginBottom: 12 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+            <input type="checkbox" checked={step.auto_escalate} onChange={(e) => onChange({ auto_escalate: e.target.checked })} />
+            Escalate after SLA elapses
+          </label>
+          <p style={{ fontSize: 11, color: "var(--sf-navy-400)", marginTop: 4, marginLeft: 24 }}>
+            Recorded, not yet enforced by a scheduler -- no automatic escalation actually happens yet. There's also no
+            real "escalation target" field on the backend today (who it would escalate to); this checkbox only
+            records the intent.
+          </p>
+        </div>
       )}
 
       <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
