@@ -3,7 +3,7 @@ import { apiClient } from "../../api/client";
 
 export function useCreateVendorUser() {
   return useMutation({
-    mutationFn: (payload: { vendor_id: string; email: string }) => apiClient.post("/vnp/vendor-users", payload),
+    mutationFn: (payload: { vendor_id: string; email: string; password: string }) => apiClient.post("/vnp/vendor-users", payload),
   });
 }
 
