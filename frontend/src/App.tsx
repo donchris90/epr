@@ -47,6 +47,7 @@ import VNPModule from "./modules/vnp";
 import MFAModule from "./modules/mfa";
 import AIModule from "./modules/ai";
 import ClientPortalApp from "./client-portal";
+import SubcontractorPortalApp from "./subcontractor-portal";
 
 /**
  * Primary navigation is organized around the project lifecycle
@@ -78,6 +79,7 @@ export default function App() {
             remains the STAFF admin tool for administering this --
             untouched, still exactly where it was. */}
         <Route path="/portal/*" element={<ClientPortalApp />} />
+        <Route path="/subcontractor/*" element={<SubcontractorPortalApp />} />
 
         {/* Platform admin: deliberately outside the tenant
             ProtectedRoute/AppShell tree above -- it's a completely
