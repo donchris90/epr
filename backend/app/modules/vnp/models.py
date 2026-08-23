@@ -54,8 +54,30 @@ class VendorPortalUser(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
     vendor_id = db.Column(UUID(as_uuid=True), nullable=False, index=True)  # prc_vendors.id, loose reference
     email = db.Column(db.String(255), nullable=False)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
+    # Nullable (migration 0049_scp_vnp_auth) -- a portal user created
+    # before a password is set simply cannot log in yet, a real,
+    # visible state. Same Argon2id scheme as users.password_hash.
+    password_hash = db.Column(db.String(255), nullable=True)
 
     __table_args__ = (db.UniqueConstraint("tenant_id", "email", name="uq_vnp_portal_users_tenant_email"),)
+
+
+class VendorPortalEmailIndex(db.Model, UUIDPrimaryKeyMixin):
+    """Deliberately NOT tenant-scoped, deliberately NOT RLS-protected --
+    same reasoning as EmailTenantIndex/ClientPortalEmailIndex: a
+    vendor logging in has no tenant context yet. Allows the same
+    email across multiple tenants (a vendor working with more than
+    one contractor is ordinary) -- login resolves every matching row
+    and tries each tenant's password in turn (see
+    services.py:authenticate_vendor_user)."""
+
+    __tablename__ = "vnp_email_index"
+
+    email = db.Column(db.String(255), nullable=False, index=True)
+    vendor_user_id = db.Column(UUID(as_uuid=True), db.ForeignKey("vnp_portal_users.id"), nullable=False)
+    tenant_id = db.Column(UUID(as_uuid=True), db.ForeignKey("tenants.id"), nullable=False, index=True)
+
+    __table_args__ = (db.UniqueConstraint("email", "tenant_id", name="uq_vnp_email_index_email_tenant"),)
 
 
 class OrderAcknowledgment(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):

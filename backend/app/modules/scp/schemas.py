@@ -10,6 +10,20 @@ from app.modules.sub.models import CLAIM_TYPES
 class SubcontractorPortalUserInputSchema(Schema):
     subcontractor_id = fields.UUID(required=True)
     email = fields.Str(required=True)
+    # load_only + not a model column -- popped off in the route and
+    # passed to services.set_subcontractor_password separately, since
+    # the model stores password_hash, never the plaintext value.
+    password = fields.Str(required=True, load_only=True, validate=validate.Length(min=8))
+
+
+class SubcontractorLoginSchema(Schema):
+    email = fields.Str(required=True)
+    password = fields.Str(required=True)
+
+
+class ChangeSubcontractorPasswordSchema(Schema):
+    current_password = fields.Str(required=True)
+    new_password = fields.Str(required=True, validate=validate.Length(min=8))
 
 
 class SubcontractorPortalUserSchema(Schema):

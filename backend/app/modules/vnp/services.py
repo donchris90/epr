@@ -18,9 +18,73 @@ check.
 """
 from datetime import datetime, timezone
 
+from sqlalchemy import text
+
 from app.extensions import db
 from app.utils.errors import APIError
-from app.modules.vnp.models import VendorPortalUser, OrderAcknowledgment, VendorInvoiceUpload, VendorBankingChangeRequest
+from app.modules.vnp.models import VendorPortalUser, VendorPortalEmailIndex, OrderAcknowledgment, VendorInvoiceUpload, VendorBankingChangeRequest
+
+
+# --- Authentication (vendor portal build) -------------------------------------
+
+def authenticate_vendor_user(email: str, password: str):
+    """Resolves every vnp_email_index row for this email (a vendor
+    working with more than one contractor has one row per tenant) and
+    tries each tenant in turn, verifying the password against that
+    tenant's own VendorPortalUser row. Same real cross-tenant login
+    shape as authenticate_client_user (app/modules/clp/services.py)
+    and staff login both already use."""
+    from app.auth.jwt_utils import verify_password
+    from app.models.core import Tenant
+
+    if not email or not password:
+        return None
+
+    index_rows = VendorPortalEmailIndex.query.filter_by(email=email).all()
+    if not index_rows:
+        return None
+
+    for index_row in index_rows:
+        with db.session.begin_nested():
+            db.session.execute(text("SET LOCAL app.tenant_id = :tid"), {"tid": str(index_row.tenant_id)})
+            user = db.session.get(VendorPortalUser, index_row.vendor_user_id)
+
+        if not user or not user.is_active or not user.password_hash:
+            continue
+
+        tenant = Tenant.query.filter_by(id=index_row.tenant_id).first()
+        if tenant and tenant.is_suspended:
+            continue
+
+        if verify_password(user.password_hash, password):
+            return user
+
+    return None
+
+
+def set_vendor_password(vendor_user: VendorPortalUser, *, password: str):
+    """Called from the staff-facing create flow -- deliberately no
+    vendor-initiated "forgot password" flow yet; see
+    docs/SUBCONTRACTOR_VENDOR_PORTAL_GAPS.md."""
+    from app.auth.jwt_utils import hash_password
+
+    vendor_user.password_hash = hash_password(password)
+    db.session.commit()
+    return vendor_user
+
+
+def change_vendor_password(vendor_user: VendorPortalUser, *, current_password: str, new_password: str):
+    """Self-service change -- requires proving the current password
+    first, distinct from set_vendor_password's staff-initiated create
+    path."""
+    from app.auth.jwt_utils import verify_password, hash_password
+
+    if not vendor_user.password_hash or not verify_password(vendor_user.password_hash, current_password):
+        raise APIError("Current password is incorrect", status=401)
+
+    vendor_user.password_hash = hash_password(new_password)
+    db.session.commit()
+    return vendor_user
 
 
 # --- Defense-in-depth ownership checks ------------------------------------------
@@ -32,6 +96,24 @@ def assert_vendor_owns_purchase_order(tenant_id, *, vendor_user: VendorPortalUse
     if not po or po.vendor_id != vendor_user.vendor_id:
         raise APIError("This purchase order does not belong to your organization", status=403)
     return po
+
+
+def list_purchase_orders_for_vendor(tenant_id, *, vendor_user: VendorPortalUser):
+    """Real, small, genuinely missing capability found while building
+    the vendor portal frontend -- PurchaseOrder.vendor_id already
+    exists and is indexed (backend/app/modules/prc/models.py), so this
+    is a safe, direct, ownership-scoped query, not new business logic.
+    Without this, a vendor has no way to discover which of their own
+    orders exist at all -- only to acknowledge/act on one they already
+    know the id of."""
+    from app.modules.prc.models import PurchaseOrder
+
+    return (
+        PurchaseOrder.query.filter_by(tenant_id=tenant_id, vendor_id=vendor_user.vendor_id)
+        .filter(PurchaseOrder.deleted_at.is_(None))
+        .order_by(PurchaseOrder.created_at.desc())
+        .all()
+    )
 
 
 def assert_vendor_invited_to_rfq(tenant_id, *, vendor_user: VendorPortalUser, rfq_id):

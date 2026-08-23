@@ -72,6 +72,16 @@ PUBLIC_PATHS = {
     "/v1/clp/auth/login",
     "/v1/clp/auth/refresh",
     "/v1/clp/auth/logout",
+    # Subcontractor Portal (SCP) and Vendor Portal (VNP) -- same real
+    # reasoning as CLP's own auth family above: no session/JWT exists
+    # yet at login, or the token being used is a refresh/logout token
+    # rather than an access token.
+    "/v1/scp/auth/login",
+    "/v1/scp/auth/refresh",
+    "/v1/scp/auth/logout",
+    "/v1/vnp/auth/login",
+    "/v1/vnp/auth/refresh",
+    "/v1/vnp/auth/logout",
 }
 
 # Paths a tenant must still be able to reach even when its
@@ -122,19 +132,29 @@ def register_tenant_context(app, db):
         # is falsy for all pre-existing sessions with no change needed
         # anywhere else.
         g.is_client = claims.get("is_client", False)
+        # Subcontractor Portal (SCP) and Vendor Portal (VNP) build:
+        # same real reasoning as is_client above, one shared claim
+        # name since both portals' user_id values are equally "not the
+        # staff User table" from this check's perspective -- a
+        # SubcontractorPortalUser.id and a VendorPortalUser.id are
+        # different models from each other too, but neither has a
+        # pwd_ts mechanism of its own yet (see
+        # docs/SUBCONTRACTOR_VENDOR_PORTAL_GAPS.md), so skipping the
+        # check entirely for either is correct today, not just safe.
+        g.is_portal_user = claims.get("is_portal_user", False)
 
         # Real session-invalidation check, added alongside password
         # reset support -- staff sessions only (this codebase's
-        # separate client-portal password change, built earlier, has
-        # no equivalent mechanism and isn't this task's scope; a
-        # client token's user_id refers to ClientPortalUser, a
-        # different model entirely, so running this same check against
-        # it would be checking the wrong table). A token whose pwd_ts
+        # separate client/subcontractor/vendor portal password changes
+        # have no equivalent mechanism yet and aren't this check's
+        # scope; those portals' user_id values refer to different
+        # models entirely, so running this same check against them
+        # would be checking the wrong table). A token whose pwd_ts
         # claim no longer matches the user's real, current
         # password_changed_at was issued before their most recent
         # password change and must stop working immediately, not just
         # expire naturally over the next 30 days.
-        if tenant_id and g.user_id and not g.is_client:
+        if tenant_id and g.user_id and not g.is_client and not g.is_portal_user:
             from app.auth.jwt_utils import check_pwd_ts_claim
 
             if not check_pwd_ts_claim(tenant_id, g.user_id, claims.get("pwd_ts")):

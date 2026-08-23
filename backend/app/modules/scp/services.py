@@ -15,9 +15,73 @@ consults SubcontractAgreement.subcontractor_id directly.
 """
 from datetime import datetime, timezone
 
+from sqlalchemy import text
+
 from app.extensions import db
 from app.utils.errors import APIError
-from app.modules.scp.models import SubcontractorPortalUser
+from app.modules.scp.models import SubcontractorPortalUser, SubcontractorPortalEmailIndex
+
+
+# --- Authentication (subcontractor portal build) ----------------------------------
+
+def authenticate_subcontractor_user(email: str, password: str):
+    """Resolves every scp_email_index row for this email (a
+    subcontractor working with more than one contractor has one row
+    per tenant) and tries each tenant in turn, verifying the password
+    against that tenant's own SubcontractorPortalUser row. Same real
+    cross-tenant login shape as authenticate_client_user
+    (app/modules/clp/services.py) and staff login both already use."""
+    from app.auth.jwt_utils import verify_password
+    from app.models.core import Tenant
+
+    if not email or not password:
+        return None
+
+    index_rows = SubcontractorPortalEmailIndex.query.filter_by(email=email).all()
+    if not index_rows:
+        return None
+
+    for index_row in index_rows:
+        with db.session.begin_nested():
+            db.session.execute(text("SET LOCAL app.tenant_id = :tid"), {"tid": str(index_row.tenant_id)})
+            user = db.session.get(SubcontractorPortalUser, index_row.portal_user_id)
+
+        if not user or not user.is_active or not user.password_hash:
+            continue
+
+        tenant = Tenant.query.filter_by(id=index_row.tenant_id).first()
+        if tenant and tenant.is_suspended:
+            continue
+
+        if verify_password(user.password_hash, password):
+            return user
+
+    return None
+
+
+def set_subcontractor_password(portal_user: SubcontractorPortalUser, *, password: str):
+    """Called from the staff-facing create flow -- deliberately no
+    subcontractor-initiated "forgot password" flow yet; see
+    docs/SUBCONTRACTOR_VENDOR_PORTAL_GAPS.md."""
+    from app.auth.jwt_utils import hash_password
+
+    portal_user.password_hash = hash_password(password)
+    db.session.commit()
+    return portal_user
+
+
+def change_subcontractor_password(portal_user: SubcontractorPortalUser, *, current_password: str, new_password: str):
+    """Self-service change -- requires proving the current password
+    first, distinct from set_subcontractor_password's staff-initiated
+    create path."""
+    from app.auth.jwt_utils import verify_password, hash_password
+
+    if not portal_user.password_hash or not verify_password(portal_user.password_hash, current_password):
+        raise APIError("Current password is incorrect", status=401)
+
+    portal_user.password_hash = hash_password(new_password)
+    db.session.commit()
+    return portal_user
 
 
 # --- Defense-in-depth ownership checks ------------------------------------------

@@ -45,7 +45,7 @@ class TestSubcontractorPortal:
 
         r = client.post(
             "/v1/scp/portal-users", headers=headers,
-            json={"subcontractor_id": str(subcontractor_id), "email": "rep@testsub.com"},
+            json={"subcontractor_id": str(subcontractor_id), "email": "rep@testsub.com", "password": "a real password"},
         )
         assert r.status_code == 201
         assert r.get_json()["subcontractor_id"] == str(subcontractor_id)
@@ -56,7 +56,7 @@ class TestSubcontractorPortal:
 
         portal_user_id = client.post(
             "/v1/scp/portal-users", headers=headers,
-            json={"subcontractor_id": str(subcontractor_id), "email": "rep@testsub.com"},
+            json={"subcontractor_id": str(subcontractor_id), "email": "rep@testsub.com", "password": "a real password"},
         ).get_json()["id"]
 
         r = client.post(
@@ -74,7 +74,7 @@ class TestSubcontractorPortal:
 
         portal_user_b_id = client.post(
             "/v1/scp/portal-users", headers=headers,
-            json={"subcontractor_id": str(sub_b_id), "email": "rep@subb.com"},
+            json={"subcontractor_id": str(sub_b_id), "email": "rep@subb.com", "password": "a real password"},
         ).get_json()["id"]
 
         r = client.post(
@@ -98,7 +98,7 @@ class TestSubcontractorPortal:
 
         portal_user_id = client.post(
             "/v1/scp/portal-users", headers=headers,
-            json={"subcontractor_id": str(subcontractor_id), "email": "rep@testsub.com"},
+            json={"subcontractor_id": str(subcontractor_id), "email": "rep@testsub.com", "password": "a real password"},
         ).get_json()["id"]
 
         r = client.get(
@@ -115,7 +115,7 @@ class TestSubcontractorPortal:
 
         portal_user_b_id = client.post(
             "/v1/scp/portal-users", headers=headers,
-            json={"subcontractor_id": str(sub_b_id), "email": "rep@subb.com"},
+            json={"subcontractor_id": str(sub_b_id), "email": "rep@subb.com", "password": "a real password"},
         ).get_json()["id"]
 
         r = client.get(
@@ -129,7 +129,7 @@ class TestSubcontractorPortal:
 
         portal_user_id = client.post(
             "/v1/scp/portal-users", headers=headers,
-            json={"subcontractor_id": str(subcontractor_id), "email": "rep@testsub.com"},
+            json={"subcontractor_id": str(subcontractor_id), "email": "rep@testsub.com", "password": "a real password"},
         ).get_json()["id"]
 
         r = client.post(
@@ -149,7 +149,7 @@ class TestSubcontractorPortal:
 
         portal_user_id = client.post(
             "/v1/scp/portal-users", headers=headers,
-            json={"subcontractor_id": str(subcontractor_id), "email": "rep@testsub.com"},
+            json={"subcontractor_id": str(subcontractor_id), "email": "rep@testsub.com", "password": "a real password"},
         ).get_json()["id"]
 
         r = client.post(
@@ -165,7 +165,7 @@ class TestSubcontractorPortal:
 
         portal_user_id = client.post(
             "/v1/scp/portal-users", headers=headers_a,
-            json={"subcontractor_id": str(sub_a_id), "email": "rep@testsub.com"},
+            json={"subcontractor_id": str(sub_a_id), "email": "rep@testsub.com", "password": "a real password"},
         ).get_json()["id"]
 
         r = client.get(f"/v1/scp/portal-users/{portal_user_id}/progress-entries?agreement_id={uuid.uuid4()}", headers=headers_b)
@@ -177,6 +177,6 @@ class TestSubcontractorPortal:
 
         r = client.post(
             "/v1/scp/portal-users", headers=headers,
-            json={"subcontractor_id": str(subcontractor_id), "email": "rep@testsub.com"},
+            json={"subcontractor_id": str(subcontractor_id), "email": "rep@testsub.com", "password": "a real password"},
         )
         assert r.status_code == 403

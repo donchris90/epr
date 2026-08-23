@@ -8,6 +8,20 @@ from marshmallow import Schema, fields, validate
 class VendorPortalUserInputSchema(Schema):
     vendor_id = fields.UUID(required=True)
     email = fields.Str(required=True)
+    # load_only + not a model column -- popped off in the route and
+    # passed to services.set_vendor_password separately, since the
+    # model stores password_hash, never the plaintext value.
+    password = fields.Str(required=True, load_only=True, validate=validate.Length(min=8))
+
+
+class VendorLoginSchema(Schema):
+    email = fields.Str(required=True)
+    password = fields.Str(required=True)
+
+
+class ChangeVendorPasswordSchema(Schema):
+    current_password = fields.Str(required=True)
+    new_password = fields.Str(required=True, validate=validate.Length(min=8))
 
 
 class VendorPortalUserSchema(Schema):
