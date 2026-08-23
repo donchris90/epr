@@ -95,6 +95,24 @@ def assert_subcontractor_owns_agreement(tenant_id, *, portal_user: Subcontractor
     return agreement
 
 
+def list_agreements_for_subcontractor(tenant_id, *, portal_user: SubcontractorPortalUser):
+    """Real, small, genuinely missing capability found while building
+    the subcontractor portal frontend -- the existing GET
+    /v1/sub/agreements (app/modules/sub/routes.py) is staff-only
+    (sub:read) and tenant-wide with no subcontractor_id filter at all,
+    so it's both unreachable by a real portal session and would leak
+    every subcontractor's agreements if it somehow were. This is a
+    safe, direct, ownership-scoped query instead -- the same real
+    reasoning as VNP's list_purchase_orders_for_vendor."""
+    from app.modules.sub.models import SubcontractAgreement
+
+    return (
+        SubcontractAgreement.query.filter_by(tenant_id=tenant_id, subcontractor_id=portal_user.subcontractor_id)
+        .order_by(SubcontractAgreement.created_at.desc())
+        .all()
+    )
+
+
 def assert_subcontractor_owns_certificate(tenant_id, *, portal_user: SubcontractorPortalUser, certificate_id):
     from app.modules.sub.models import PaymentCertificate, SubcontractAgreement
 

@@ -237,3 +237,107 @@ class TestVendorListPurchaseOrders:
 
         r = client.get(f"/v1/vnp/vendor-users/{other_id}/purchase-orders", headers={"Authorization": f"Bearer {token}"})
         assert r.status_code == 403
+
+
+class TestSubcontractorListAgreements:
+    """Real coverage for the real, small gap closed while building
+    this: the existing GET /v1/sub/agreements is staff-only and
+    tenant-wide with no subcontractor filter -- nothing let a
+    subcontractor discover which of their own agreements exist."""
+
+    def test_lists_only_real_agreements_belonging_to_this_subcontractor(self, app, db, client, seed_tenants):
+        from app.modules.sub.models import Subcontractor, SubcontractAgreement
+        from app.modules.scp.models import SubcontractorPortalUser, SubcontractorPortalEmailIndex
+        from app.auth.jwt_utils import hash_password
+
+        _as_tenant(db, seed_tenants["a"])
+        sub = Subcontractor(tenant_id=seed_tenants["a"], name="Real Sub Co", trade_specialty="electrical")
+        other_sub = Subcontractor(tenant_id=seed_tenants["a"], name="Other Sub Co", trade_specialty="plumbing")
+        db.session.add_all([sub, other_sub])
+        db.session.flush()
+        sub_id = sub.id
+        other_sub_id = other_sub.id
+
+        db.session.add(SubcontractAgreement(tenant_id=seed_tenants["a"], subcontractor_id=sub_id, agreement_number=f"SC-A-{sub_id}", value=500000))
+        db.session.add(SubcontractAgreement(tenant_id=seed_tenants["a"], subcontractor_id=other_sub_id, agreement_number=f"SC-B-{other_sub_id}", value=700000))
+        db.session.commit()
+
+        _as_tenant(db, seed_tenants["a"])
+        user = SubcontractorPortalUser(tenant_id=seed_tenants["a"], subcontractor_id=sub_id, email="realsub@example.com", password_hash=hash_password("x"), is_active=True)
+        db.session.add(user)
+        db.session.flush()
+        user_id = user.id
+        db.session.add(SubcontractorPortalEmailIndex(email="realsub@example.com", portal_user_id=user_id, tenant_id=seed_tenants["a"]))
+        db.session.commit()
+
+        r_login = client.post("/v1/scp/auth/login", json={"email": "realsub@example.com", "password": "x"})
+        token = r_login.get_json()["access_token"]
+
+        r = client.get(f"/v1/scp/portal-users/{user_id}/agreements", headers={"Authorization": f"Bearer {token}"})
+        assert r.status_code == 200
+        agreements = r.get_json()["data"]
+        assert len(agreements) == 1
+        assert agreements[0]["agreement_number"] == f"SC-A-{sub_id}"
+
+    def test_real_agreement_detail_for_an_owned_agreement(self, app, db, client, seed_tenants):
+        from app.modules.sub.models import Subcontractor, SubcontractAgreement
+        from app.modules.scp.models import SubcontractorPortalUser, SubcontractorPortalEmailIndex
+        from app.auth.jwt_utils import hash_password
+
+        _as_tenant(db, seed_tenants["a"])
+        sub = Subcontractor(tenant_id=seed_tenants["a"], name="Detail Sub Co", trade_specialty="electrical")
+        db.session.add(sub)
+        db.session.flush()
+        sub_id = sub.id
+        agreement = SubcontractAgreement(tenant_id=seed_tenants["a"], subcontractor_id=sub_id, agreement_number=f"SC-D-{sub_id}", value=250000)
+        db.session.add(agreement)
+        db.session.flush()
+        agreement_id = agreement.id
+        db.session.commit()
+
+        _as_tenant(db, seed_tenants["a"])
+        user = SubcontractorPortalUser(tenant_id=seed_tenants["a"], subcontractor_id=sub_id, email="detailsub@example.com", password_hash=hash_password("x"), is_active=True)
+        db.session.add(user)
+        db.session.flush()
+        user_id = user.id
+        db.session.add(SubcontractorPortalEmailIndex(email="detailsub@example.com", portal_user_id=user_id, tenant_id=seed_tenants["a"]))
+        db.session.commit()
+
+        r_login = client.post("/v1/scp/auth/login", json={"email": "detailsub@example.com", "password": "x"})
+        token = r_login.get_json()["access_token"]
+
+        r = client.get(f"/v1/scp/portal-users/{user_id}/agreements/{agreement_id}", headers={"Authorization": f"Bearer {token}"})
+        assert r.status_code == 200
+        assert r.get_json()["agreement_number"] == f"SC-D-{sub_id}"
+
+    def test_cannot_view_another_subcontractors_agreement_detail(self, app, db, client, seed_tenants):
+        from app.modules.sub.models import Subcontractor, SubcontractAgreement
+        from app.modules.scp.models import SubcontractorPortalUser, SubcontractorPortalEmailIndex
+        from app.auth.jwt_utils import hash_password
+
+        _as_tenant(db, seed_tenants["a"])
+        sub = Subcontractor(tenant_id=seed_tenants["a"], name="Mine Sub Co", trade_specialty="electrical")
+        other_sub = Subcontractor(tenant_id=seed_tenants["a"], name="Theirs Sub Co", trade_specialty="plumbing")
+        db.session.add_all([sub, other_sub])
+        db.session.flush()
+        sub_id = sub.id
+        other_sub_id = other_sub.id
+        other_agreement = SubcontractAgreement(tenant_id=seed_tenants["a"], subcontractor_id=other_sub_id, agreement_number=f"SC-T-{other_sub_id}", value=300000)
+        db.session.add(other_agreement)
+        db.session.flush()
+        other_agreement_id = other_agreement.id
+        db.session.commit()
+
+        _as_tenant(db, seed_tenants["a"])
+        user = SubcontractorPortalUser(tenant_id=seed_tenants["a"], subcontractor_id=sub_id, email="minesub@example.com", password_hash=hash_password("x"), is_active=True)
+        db.session.add(user)
+        db.session.flush()
+        user_id = user.id
+        db.session.add(SubcontractorPortalEmailIndex(email="minesub@example.com", portal_user_id=user_id, tenant_id=seed_tenants["a"]))
+        db.session.commit()
+
+        r_login = client.post("/v1/scp/auth/login", json={"email": "minesub@example.com", "password": "x"})
+        token = r_login.get_json()["access_token"]
+
+        r = client.get(f"/v1/scp/portal-users/{user_id}/agreements/{other_agreement_id}", headers={"Authorization": f"Bearer {token}"})
+        assert r.status_code == 403

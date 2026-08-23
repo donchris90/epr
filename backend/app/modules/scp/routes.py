@@ -188,6 +188,28 @@ def create_portal_user():
     return jsonify(user_schema.dump(user)), 201
 
 
+# --- Agreements (real, small addition -- see services.py's own docstring) --------
+
+@bp.get("/portal-users/<uuid:portal_user_id>/agreements")
+@require_permission("scp:read")
+def list_agreements(portal_user_id):
+    portal_user = _get_portal_user_or_404(portal_user_id)
+    from app.modules.sub.schemas import SubcontractAgreementSchema
+
+    agreements = services.list_agreements_for_subcontractor(g.tenant_id, portal_user=portal_user)
+    return jsonify(envelope(SubcontractAgreementSchema().dump(agreements, many=True)))
+
+
+@bp.get("/portal-users/<uuid:portal_user_id>/agreements/<uuid:agreement_id>")
+@require_permission("scp:read")
+def get_agreement(portal_user_id, agreement_id):
+    portal_user = _get_portal_user_or_404(portal_user_id)
+    from app.modules.sub.schemas import SubcontractAgreementSchema
+
+    agreement = services.assert_subcontractor_owns_agreement(g.tenant_id, portal_user=portal_user, agreement_id=agreement_id)
+    return jsonify(SubcontractAgreementSchema().dump(agreement))
+
+
 # --- Progress submission (SUB-03, portal-facing half) ---------------------------
 
 @bp.post("/portal-users/<uuid:portal_user_id>/progress-entries")
