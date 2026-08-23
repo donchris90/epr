@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { apiClient, getErrorMessage, getErrorStatus, getFieldErrors } from "../api/client";
 import { PageHeader, Button, Card, Table, Th, Td, Badge, EmptyState, Input, Select, Field } from "../components/ui";
 import { LoadingState } from "../components/Loading";
@@ -231,9 +232,10 @@ export default function UsersManagementPage() {
     }
   }
 
-  const seatsText =
-    seats?.seat_limit == null ? `${seats?.seats_used ?? 0} users (unlimited)` : `${seats.seats_used} / ${seats.seat_limit} seats used`;
-  const remainingText = seats?.seat_limit == null ? null : `${seats?.seats_remaining ?? 0} seats remaining`;
+  const activeCount = users?.length ?? 0;
+  const pendingCount = invitations?.length ?? 0;
+  const percentUsed = seats?.seat_limit ? Math.round((seats.seats_used / seats.seat_limit) * 100) : null;
+  const atLimit = seats?.seat_limit != null && seats.seats_remaining != null && seats.seats_remaining <= 0;
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px" }}>
@@ -241,19 +243,57 @@ export default function UsersManagementPage() {
         eyebrow="Settings"
         title="Organization Users"
         action={
-          <Button onClick={() => setShowInvite(true)} disabled={roles.length === 0}>
+          <Button onClick={() => setShowInvite(true)} disabled={roles.length === 0 || atLimit}>
             + Invite User
           </Button>
         }
       />
 
       {seats && (
-        <div style={{ display: "flex", gap: 16, alignItems: "baseline", marginBottom: 20 }}>
-          <span className="sf-mono" style={{ fontSize: 13 }}>
-            {seatsText}
-          </span>
-          {remainingText && <span style={{ fontSize: 13, color: "var(--sf-navy-400)" }}>{remainingText}</span>}
-        </div>
+        <Card style={{ marginBottom: 20 }}>
+          <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: seats.seat_limit != null ? 12 : 0 }}>
+            <div>
+              <div style={{ fontSize: 11, color: "var(--sf-navy-400)", textTransform: "uppercase" }}>Seats included</div>
+              <div className="sf-mono" style={{ fontSize: 20, fontWeight: 700 }}>{seats.seat_limit ?? "Unlimited"}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: "var(--sf-navy-400)", textTransform: "uppercase" }}>Active users</div>
+              <div className="sf-mono" style={{ fontSize: 20, fontWeight: 700 }}>{activeCount}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: "var(--sf-navy-400)", textTransform: "uppercase" }}>Pending invitations</div>
+              <div className="sf-mono" style={{ fontSize: 20, fontWeight: 700 }}>{pendingCount}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: "var(--sf-navy-400)", textTransform: "uppercase" }}>
+                {seats.seat_limit != null ? "Available after pending" : "Seats used"}
+              </div>
+              <div className="sf-mono" style={{ fontSize: 20, fontWeight: 700, color: atLimit ? "var(--sf-brick)" : undefined }}>
+                {seats.seat_limit != null ? seats.seats_remaining ?? 0 : seats.seats_used}
+              </div>
+            </div>
+          </div>
+          {seats.seat_limit != null && percentUsed != null && (
+            <div>
+              <div style={{ height: 8, background: "var(--sf-paper-dim)", borderRadius: 999, overflow: "hidden" }}>
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${Math.min(percentUsed, 100)}%`,
+                    background: atLimit ? "var(--sf-brick)" : percentUsed >= 80 ? "var(--sf-amber)" : "var(--sf-navy-900)",
+                    transition: "width 0.2s",
+                  }}
+                />
+              </div>
+              <div style={{ fontSize: 12, color: "var(--sf-navy-400)", marginTop: 4 }}>{percentUsed}% of seats used</div>
+            </div>
+          )}
+          {atLimit && (
+            <div style={{ marginTop: 12, padding: "10px 12px", background: "var(--sf-brick-dim)", border: "1px solid var(--sf-brick)", borderRadius: "var(--sf-radius)", fontSize: 13 }}>
+              You've used all available seats. <Link to="/account/subscription" style={{ color: "var(--sf-brick)", fontWeight: 600 }}>Upgrade your plan</Link> to invite more people.
+            </div>
+          )}
+        </Card>
       )}
 
       <Card style={{ padding: 0, marginBottom: 20 }}>
