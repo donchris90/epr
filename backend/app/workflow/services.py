@@ -98,13 +98,20 @@ def create_workflow_definition(tenant_id, *, module_name, entity_type, workflow_
     return definition
 
 
-def activate_workflow_definition(definition):
-    """Deactivates any other active definition for the same
+def activate_workflow_definition(definition, *, actor_id=None):
+    """
+    Deactivates any other active definition for the same
     (module_name, entity_type) first -- only one version should be
     live at a time. Instances already in flight under a
     now-deactivated definition are unaffected; they keep referencing
     the same workflow_id and finish under the rules they started
-    with."""
+    with.
+
+    actor_id is passed through to updated_by explicitly -- AuditMixin's
+    updated_by (backend/app/models/base.py) is nullable and never
+    auto-populated by anything, so without this, "who published"
+    would stay null forever regardless of who actually activated it.
+    """
     WorkflowDefinition.query.filter_by(
         tenant_id=definition.tenant_id,
         module_name=definition.module_name,
@@ -113,12 +120,16 @@ def activate_workflow_definition(definition):
     ).update({"active": False})
 
     definition.active = True
+    if actor_id:
+        definition.updated_by = actor_id
     db.session.commit()
     return definition
 
 
-def deactivate_workflow_definition(definition):
+def deactivate_workflow_definition(definition, *, actor_id=None):
     definition.active = False
+    if actor_id:
+        definition.updated_by = actor_id
     db.session.commit()
     return definition
 

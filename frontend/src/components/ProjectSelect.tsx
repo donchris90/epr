@@ -20,13 +20,16 @@ export function ProjectSelect({
   placeholder = "Select a project",
   includeEmptyOption = true,
   required = false,
+  id,
+  ...rest
 }: {
   value: string;
   onChange: (projectId: string) => void;
   placeholder?: string;
   includeEmptyOption?: boolean;
   required?: boolean;
-}) {
+  id?: string;
+} & Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "value" | "onChange" | "id" | "required">) {
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [error, setError] = useState(false);
 
@@ -39,14 +42,14 @@ export function ProjectSelect({
 
   if (error) {
     return (
-      <Select value={value} onChange={(e) => onChange(e.target.value)} disabled>
+      <Select id={id} value={value} onChange={(e) => onChange(e.target.value)} disabled>
         <option value="">Could not load projects</option>
       </Select>
     );
   }
 
   return (
-    <Select value={value} onChange={(e) => onChange(e.target.value)} disabled={projects === null} required={required}>
+    <Select id={id} value={value} onChange={(e) => onChange(e.target.value)} disabled={projects === null} required={required} {...rest}>
       {includeEmptyOption && <option value="">{projects === null ? "Loading projects…" : placeholder}</option>}
       {projects?.map((p) => (
         <option key={p.id} value={p.id}>

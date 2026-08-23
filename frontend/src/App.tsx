@@ -7,6 +7,9 @@ import UsersManagementPage from "./pages/UsersManagementPage";
 import ProfilePage from "./pages/ProfilePage";
 import RolesPage from "./pages/RolesPage";
 import ApprovalCenterPage from "./pages/ApprovalCenterPage";
+import WorkflowListPage from "./modules/workflow/WorkflowListPage";
+import WorkflowDetailPage from "./modules/workflow/WorkflowDetailPage";
+import WorkflowBuilderPage from "./modules/workflow/WorkflowBuilderPage";
 import DocumentLibraryPage from "./pages/DocumentLibraryPage";
 import AcceptInvitationPage from "./pages/AcceptInvitationPage";
 import PlatformAdminLoginPage from "./pages/PlatformAdminLoginPage";
@@ -99,6 +102,9 @@ export default function App() {
             <Route path="settings/profile" element={<ProfilePage />} />
             <Route path="settings/roles" element={<RolesPage />} />
             <Route path="approvals" element={<ApprovalCenterPage />} />
+            <Route path="workflows" element={<WorkflowListPage />} />
+            <Route path="workflows/new" element={<WorkflowBuilderPage />} />
+            <Route path="workflows/:id" element={<WorkflowDetailPage />} />
             <Route path="documents" element={<DocumentLibraryPage />} />
             <Route path="projects/*" element={<ProjectsModule />} />
             <Route path="business-development/*" element={<BDCModule />} />

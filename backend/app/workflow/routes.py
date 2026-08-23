@@ -92,7 +92,7 @@ def activate_definition(definition_id):
     definition = WorkflowDefinition.query.filter_by(id=definition_id, tenant_id=g.tenant_id).first()
     if not definition:
         raise APIError("Workflow definition not found", status=404)
-    definition = services.activate_workflow_definition(definition)
+    definition = services.activate_workflow_definition(definition, actor_id=g.user_id)
     return jsonify(definition_schema.dump(definition))
 
 
@@ -102,7 +102,7 @@ def deactivate_definition(definition_id):
     definition = WorkflowDefinition.query.filter_by(id=definition_id, tenant_id=g.tenant_id).first()
     if not definition:
         raise APIError("Workflow definition not found", status=404)
-    definition = services.deactivate_workflow_definition(definition)
+    definition = services.deactivate_workflow_definition(definition, actor_id=g.user_id)
     return jsonify(definition_schema.dump(definition))
 
 

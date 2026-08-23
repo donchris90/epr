@@ -64,6 +64,56 @@ class TestWorkflowDefinitions:
         })
         assert r.status_code == 403
 
+    def test_zero_steps_is_rejected(self, app, db, client, seed_tenants, auth_headers):
+        """Real regression test for the real gap fixed in this batch:
+        the schema previously accepted an empty steps list (required=True
+        is satisfied by []), producing a genuinely meaningless workflow
+        with nothing to approve at all."""
+        headers = auth_headers("a", permissions=["workflow:admin"])
+        r = client.post("/v1/workflow/definitions", headers=headers, json={
+            "module_name": "prc", "entity_type": "purchase_request", "workflow_name": "Empty", "steps": [],
+        })
+        assert r.status_code == 422
+
+    def test_specific_user_step_without_a_user_id_is_rejected(self, app, db, client, seed_tenants, auth_headers):
+        """Real regression test for the real gap fixed in this batch: a
+        step with approver_type='specific_user' but no specific_user_id
+        was previously accepted -- a step literally no one could approve."""
+        headers = auth_headers("a", permissions=["workflow:admin"])
+        r = client.post("/v1/workflow/definitions", headers=headers, json={
+            "module_name": "prc", "entity_type": "purchase_request", "workflow_name": "Broken",
+            "steps": [{"step_number": 1, "name": "Step 1", "approver_type": "specific_user"}],
+        })
+        assert r.status_code == 422
+
+    def test_specific_role_step_without_a_role_id_is_rejected(self, app, db, client, seed_tenants, auth_headers):
+        headers = auth_headers("a", permissions=["workflow:admin"])
+        r = client.post("/v1/workflow/definitions", headers=headers, json={
+            "module_name": "prc", "entity_type": "purchase_request", "workflow_name": "Broken",
+            "steps": [{"step_number": 1, "name": "Step 1", "approver_type": "specific_role"}],
+        })
+        assert r.status_code == 422
+
+    def test_response_includes_real_audit_fields(self, app, db, client, seed_tenants, auth_headers):
+        """Real regression test for the real gap fixed in this batch:
+        created_by/updated_at/updated_by existed on the model
+        (AuditMixin) but were never exposed in the response schema at
+        all. Also confirms updated_by is genuinely populated on
+        activation, not left null forever."""
+        headers = auth_headers("a", permissions=["workflow:admin"], user_id="11111111-1111-1111-1111-111111111111")
+        r = client.post("/v1/workflow/definitions", headers=headers, json={
+            "module_name": "prc", "entity_type": "purchase_request", "workflow_name": "Audited",
+            "steps": [{"step_number": 1, "name": "Step 1", "approver_type": "specific_user", "specific_user_id": str(uuid.uuid4())}],
+        })
+        body = r.get_json()
+        assert body["created_by"] == "11111111-1111-1111-1111-111111111111"
+        assert body["updated_by"] is None  # never touched since creation
+        assert body["updated_at"] is not None
+
+        definition_id = body["id"]
+        r2 = client.post(f"/v1/workflow/definitions/{definition_id}/activate", headers=headers)
+        assert r2.get_json()["updated_by"] == "11111111-1111-1111-1111-111111111111"
+
 
 class TestWorkflowInstances:
     def _setup_two_step_workflow(self, client, admin_headers, finance_role_id, ceo_role_id):

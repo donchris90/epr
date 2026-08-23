@@ -1,4 +1,4 @@
-from marshmallow import Schema, fields, validate
+from marshmallow import Schema, fields, validate, validates_schema, ValidationError
 
 from app.workflow.models import APPROVER_TYPES, INSTANCE_STATUSES, ACTION_TYPES
 
@@ -17,6 +17,18 @@ class WorkflowStepInputSchema(Schema):
     parallel = fields.Bool(load_default=False)
     reject_to_step = fields.Int(allow_none=True)
 
+    @validates_schema
+    def _require_matching_approver(self, data, **kwargs):
+        # A step with approver_type="specific_user" but no
+        # specific_user_id (or the required_role_id equivalent) is a
+        # step with literally no one able to approve it -- genuinely
+        # broken, previously accepted since both fields were
+        # independently optional.
+        if data.get("approver_type") == "specific_user" and not data.get("specific_user_id"):
+            raise ValidationError("specific_user_id is required when approver_type is 'specific_user'", field_name="specific_user_id")
+        if data.get("approver_type") == "specific_role" and not data.get("required_role_id"):
+            raise ValidationError("required_role_id is required when approver_type is 'specific_role'", field_name="required_role_id")
+
 
 class WorkflowStepSchema(WorkflowStepInputSchema):
     id = fields.UUID(dump_only=True)
@@ -27,7 +39,11 @@ class WorkflowDefinitionInputSchema(Schema):
     entity_type = fields.Str(required=True)
     workflow_name = fields.Str(required=True)
     description = fields.Str(allow_none=True)
-    steps = fields.List(fields.Nested(WorkflowStepInputSchema), required=True)
+    # min=1 -- a workflow with zero steps has nothing to approve at
+    # all; this was previously unvalidated (an empty list satisfied
+    # required=True), a genuine data-integrity gap now closed
+    # server-side, not left to the frontend alone.
+    steps = fields.List(fields.Nested(WorkflowStepInputSchema), required=True, validate=validate.Length(min=1))
 
 
 class WorkflowDefinitionSchema(Schema):
@@ -39,6 +55,15 @@ class WorkflowDefinitionSchema(Schema):
     active = fields.Bool(dump_only=True)
     version = fields.Int(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
+    # Real, existing AuditMixin data (backend/app/models/base.py) --
+    # already captured on every row, just never surfaced here before.
+    # created_by is set explicitly by create_workflow_definition;
+    # updated_by is now set explicitly by activate/deactivate (see
+    # services.py) so "who published" is real, not a guess from
+    # whichever action happened to touch the row last.
+    created_by = fields.UUID(dump_only=True)
+    updated_at = fields.DateTime(dump_only=True)
+    updated_by = fields.UUID(dump_only=True)
     steps = fields.List(fields.Nested(WorkflowStepSchema), dump_only=True)
 
 
