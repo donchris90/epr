@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, EmptyState, Input } from "../../components/ui";
+import { EmployeeSelect } from "../../components/EmployeeSelect";
 import { useTimesheets, useGenerateTimesheet, useDecideTimesheet, useLeaveRequests, useCreateLeaveRequest, useDecideLeaveRequest } from "./hooks";
 
 const STATUS_TONE: Record<string, "neutral" | "amber" | "steel" | "green" | "brick"> = {
@@ -56,7 +57,7 @@ export default function TimesheetsPage() {
       {showTsForm && (
         <Card style={{ marginBottom: 20 }}>
           <form onSubmit={handleGenerate} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr 1fr auto", gap: 8 }}>
-            <Input required placeholder="Employee ID" value={tsForm.employee_id} onChange={(e) => setTsForm({ ...tsForm, employee_id: e.target.value })} />
+            <EmployeeSelect required value={tsForm.employee_id} onChange={(employee_id) => setTsForm({ ...tsForm, employee_id })} placeholder="Employee…" />
             <Input required type="date" value={tsForm.period_start} onChange={(e) => setTsForm({ ...tsForm, period_start: e.target.value })} />
             <Input required type="date" value={tsForm.period_end} onChange={(e) => setTsForm({ ...tsForm, period_end: e.target.value })} />
             <Input required placeholder="Hours/units" value={tsForm.hours_or_units} onChange={(e) => setTsForm({ ...tsForm, hours_or_units: e.target.value })} />
@@ -69,7 +70,7 @@ export default function TimesheetsPage() {
       {showLeaveForm && (
         <Card style={{ marginBottom: 20 }}>
           <form onSubmit={handleLeave} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr auto", gap: 8 }}>
-            <Input required placeholder="Employee ID" value={leaveForm.employee_id} onChange={(e) => setLeaveForm({ ...leaveForm, employee_id: e.target.value })} />
+            <EmployeeSelect required value={leaveForm.employee_id} onChange={(employee_id) => setLeaveForm({ ...leaveForm, employee_id })} placeholder="Employee…" />
             <select
               value={leaveForm.leave_type}
               onChange={(e) => setLeaveForm({ ...leaveForm, leave_type: e.target.value })}

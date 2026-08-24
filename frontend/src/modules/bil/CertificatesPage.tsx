@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, EmptyState, Input, Field } from "../../components/ui";
+import { ContractSelect } from "../../components/ContractSelect";
 import { useCertificates, useCreateCertificate } from "./hooks";
 
 const STATUS_TONE: Record<string, "neutral" | "amber" | "steel" | "green" | "brick"> = {
@@ -52,8 +53,8 @@ export default function CertificatesPage() {
       {showForm && (
         <Card style={{ marginBottom: 20 }}>
           <form onSubmit={handleCreate} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 16 }}>
-            <Field label="Contract ID (optional)">
-              <Input value={form.contract_id} onChange={(e) => setForm({ ...form, contract_id: e.target.value })} />
+            <Field label="Contract (optional)">
+              <ContractSelect value={form.contract_id} onChange={(contract_id) => setForm({ ...form, contract_id })} />
             </Field>
             <Field label="Certificate number">
               <Input required value={form.certificate_number} onChange={(e) => setForm({ ...form, certificate_number: e.target.value })} />

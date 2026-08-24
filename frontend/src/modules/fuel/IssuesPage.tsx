@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, EmptyState, Input } from "../../components/ui";
+import { EquipmentSelect } from "../../components/EquipmentSelect";
 import { useTanks, useCreateIssue, useCountersignIssue, useTheftFlags, useEscalateUnresolvedTheftFlags } from "./hooks";
 
 export default function IssuesPage() {
@@ -49,7 +50,7 @@ export default function IssuesPage() {
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
           </select>
-          <Input required placeholder="Equipment ID" value={form.equipment_id} onChange={(e) => setForm({ ...form, equipment_id: e.target.value })} />
+          <EquipmentSelect required value={form.equipment_id} onChange={(equipment_id) => setForm({ ...form, equipment_id })} placeholder="Equipment…" />
           <Input required placeholder="Litres" value={form.quantity_litres} onChange={(e) => setForm({ ...form, quantity_litres: e.target.value })} />
           <Input required type="datetime-local" value={form.issued_at} onChange={(e) => setForm({ ...form, issued_at: e.target.value })} />
           <Button type="submit" disabled={createIssue.isPending}>Issue</Button>

@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, Input, ErrorBanner } from "../../components/ui";
+import { WarehouseSelect } from "../../components/WarehouseSelect";
+import { MaterialItemSelect } from "../../components/MaterialItemSelect";
 import { getErrorMessage } from "../../api/client";
 import {
-  useWarehouses,
-  useMaterialItems,
   useReceiveStock,
   useIssueStock,
   useReorderLevelsBelowThreshold,
@@ -11,8 +11,6 @@ import {
 } from "./hooks";
 
 export default function StockMovementsPage() {
-  const { data: warehouses } = useWarehouses();
-  const { data: materialItems } = useMaterialItems();
   const { data: belowThreshold } = useReorderLevelsBelowThreshold();
   const { data: expiringBatches } = useExpiringBatches();
 
@@ -57,7 +55,7 @@ export default function StockMovementsPage() {
         <Card>
           <h3 style={{ fontSize: 14, marginBottom: 12 }}>Receive stock</h3>
           <form onSubmit={handleReceive}>
-            <WarehouseAndItemSelect warehouses={warehouses ?? []} materialItems={materialItems ?? []} form={receiveForm} setForm={setReceiveForm} />
+            <WarehouseAndItemSelect form={receiveForm} setForm={setReceiveForm} />
             <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
               <Input required placeholder="Quantity" value={receiveForm.quantity} onChange={(e) => setReceiveForm({ ...receiveForm, quantity: e.target.value })} />
               <Input required placeholder="Unit cost" value={receiveForm.unit_cost} onChange={(e) => setReceiveForm({ ...receiveForm, unit_cost: e.target.value })} />
@@ -71,7 +69,7 @@ export default function StockMovementsPage() {
         <Card>
           <h3 style={{ fontSize: 14, marginBottom: 12 }}>Issue stock</h3>
           <form onSubmit={handleIssue}>
-            <WarehouseAndItemSelect warehouses={warehouses ?? []} materialItems={materialItems ?? []} form={issueForm} setForm={setIssueForm} />
+            <WarehouseAndItemSelect form={issueForm} setForm={setIssueForm} />
             <div style={{ marginTop: 8 }}>
               <Input required placeholder="Quantity" value={issueForm.quantity} onChange={(e) => setIssueForm({ ...issueForm, quantity: e.target.value })} />
             </div>
@@ -125,31 +123,17 @@ export default function StockMovementsPage() {
   );
 }
 
-function WarehouseAndItemSelect({ warehouses, materialItems, form, setForm }: any) {
+function WarehouseAndItemSelect<T extends { warehouse_id: string; material_item_id: string }>({
+  form,
+  setForm,
+}: {
+  form: T;
+  setForm: (form: T) => void;
+}) {
   return (
     <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-      <select
-        required
-        value={form.warehouse_id}
-        onChange={(e) => setForm({ ...form, warehouse_id: e.target.value })}
-        style={{ padding: "8px 10px", border: "1px solid var(--sf-line)", borderRadius: "var(--sf-radius)", fontSize: 13, background: "#fff" }}
-      >
-        <option value="">Warehouse…</option>
-        {warehouses.map((w: any) => (
-          <option key={w.id} value={w.id}>{w.name}</option>
-        ))}
-      </select>
-      <select
-        required
-        value={form.material_item_id}
-        onChange={(e) => setForm({ ...form, material_item_id: e.target.value })}
-        style={{ padding: "8px 10px", border: "1px solid var(--sf-line)", borderRadius: "var(--sf-radius)", fontSize: 13, background: "#fff" }}
-      >
-        <option value="">Material item…</option>
-        {materialItems.map((m: any) => (
-          <option key={m.id} value={m.id}>{m.code} — {m.description}</option>
-        ))}
-      </select>
+      <WarehouseSelect required value={form.warehouse_id} onChange={(warehouse_id) => setForm({ ...form, warehouse_id })} />
+      <MaterialItemSelect required value={form.material_item_id} onChange={(material_item_id) => setForm({ ...form, material_item_id })} />
     </div>
   );
 }

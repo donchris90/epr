@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, EmptyState, Input, Field } from "../../components/ui";
+import { ContractSelect } from "../../components/ContractSelect";
+import { BOQItemSelect } from "../../components/BOQItemSelect";
 import { useVariationOrders, useCreateVariationOrder, useDecideVariationOrder } from "./hooks";
 
 const STATUS_TONE: Record<string, "neutral" | "amber" | "steel" | "green" | "brick"> = {
@@ -62,11 +64,11 @@ export default function VariationOrdersPage() {
         <Card style={{ marginBottom: 20 }}>
           <form onSubmit={handleCreate}>
             <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <Field label="Contract ID">
-                <Input required value={form.contract_id} onChange={(e) => setForm({ ...form, contract_id: e.target.value })} />
+              <Field label="Contract">
+                <ContractSelect required value={form.contract_id} onChange={(contract_id) => setForm({ ...form, contract_id, boq_item_id: "" })} />
               </Field>
-              <Field label="BOQ item ID (optional — blank if a new item)">
-                <Input value={form.boq_item_id} onChange={(e) => setForm({ ...form, boq_item_id: e.target.value })} />
+              <Field label="BOQ item (optional — blank if a new item)">
+                <BOQItemSelect contractId={form.contract_id} value={form.boq_item_id} onChange={(boq_item_id) => setForm({ ...form, boq_item_id })} />
               </Field>
               <Field label="Varied quantity">
                 <Input value={form.varied_quantity} onChange={(e) => setForm({ ...form, varied_quantity: e.target.value })} />

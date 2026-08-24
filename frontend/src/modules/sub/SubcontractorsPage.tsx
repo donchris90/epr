@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, EmptyState, Input, Field } from "../../components/ui";
+import { SubcontractorSelect } from "../../components/SubcontractorSelect";
 import { useSubcontractors, useCreateSubcontractor, useAgreements, useCreateAgreement } from "./hooks";
 
 export default function SubcontractorsPage() {
@@ -61,17 +62,7 @@ export default function SubcontractorsPage() {
       {showAgForm && (
         <Card style={{ marginBottom: 20 }}>
           <form onSubmit={handleCreateAgreement} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr auto", gap: 12 }}>
-            <select
-              required
-              value={agForm.subcontractor_id}
-              onChange={(e) => setAgForm({ ...agForm, subcontractor_id: e.target.value })}
-              style={{ padding: "8px 10px", border: "1px solid var(--sf-line)", borderRadius: "var(--sf-radius)", fontSize: 13, background: "#fff" }}
-            >
-              <option value="">Subcontractor…</option>
-              {(subcontractors ?? []).map((s: any) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
+            <SubcontractorSelect required value={agForm.subcontractor_id} onChange={(subcontractor_id) => setAgForm({ ...agForm, subcontractor_id })} />
             <Input required placeholder="Agreement number" value={agForm.agreement_number} onChange={(e) => setAgForm({ ...agForm, agreement_number: e.target.value })} />
             <Input required placeholder="Value" value={agForm.value} onChange={(e) => setAgForm({ ...agForm, value: e.target.value })} />
             <Input placeholder="Retention %" value={agForm.retention_percentage} onChange={(e) => setAgForm({ ...agForm, retention_percentage: e.target.value })} />
