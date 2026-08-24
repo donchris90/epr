@@ -518,6 +518,15 @@ def create_payroll_run():
     return jsonify(payroll_run_schema.dump(run)), 201
 
 
+@bp.get("/payroll-runs")
+@require_permission("wfm:approve")
+def list_payroll_runs():
+    """Real, previously genuinely missing -- only a single-run GET
+    existed, with no way to see payroll history at all."""
+    runs = PayrollRun.query.filter_by(tenant_id=g.tenant_id).order_by(PayrollRun.period_start.desc()).all()
+    return jsonify(envelope(payroll_run_schema.dump(runs, many=True)))
+
+
 @bp.get("/payroll-runs/<uuid:run_id>")
 @require_permission("wfm:approve")
 def get_payroll_run(run_id):

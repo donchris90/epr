@@ -3,6 +3,7 @@ import EmployeesPage from "./EmployeesPage";
 import EmployeeDetailPage from "./EmployeeDetailPage";
 import TimesheetsPage from "./TimesheetsPage";
 import PayrollPage from "./PayrollPage";
+import PayrollRunDetailPage from "./PayrollRunDetailPage";
 
 const TABS = [
   { to: "/workforce/employees", label: "Employees" },
@@ -37,6 +38,7 @@ export default function WFMModule() {
         <Route path="employees/:employeeId" element={<EmployeeDetailPage />} />
         <Route path="timesheets" element={<TimesheetsPage />} />
         <Route path="payroll" element={<PayrollPage />} />
+        <Route path="payroll/:runId" element={<PayrollRunDetailPage />} />
       </Routes>
     </div>
   );

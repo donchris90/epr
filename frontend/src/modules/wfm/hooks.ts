@@ -398,6 +398,13 @@ export function useExpiringCertifications(withinDays = 30) {
 
 // --- Payroll -----------------------------------------------------------------------
 
+export function usePayrollRuns() {
+  return useQuery({
+    queryKey: ["wfm", "payroll-runs"],
+    queryFn: async (): Promise<PayrollRun[]> => (await apiClient.get("/wfm/payroll-runs")).data.data,
+  });
+}
+
 export function useGeneratePayrollRun() {
   const qc = useQueryClient();
   return useMutation({
@@ -419,5 +426,33 @@ export function useFinalizePayrollRun() {
   return useMutation({
     mutationFn: (runId: string) => apiClient.post(`/wfm/payroll-runs/${runId}/finalize`),
     onSuccess: (_data, runId) => qc.invalidateQueries({ queryKey: ["wfm", "payroll-runs", runId] }),
+  });
+}
+
+/** Real "post to finance" -- there is no dedicated WFM->FIN payroll-
+ * posting endpoint in this backend, so this uses the real, existing
+ * generic manual journal entry endpoint (POST
+ * /v1/fin/journal-entries/manual-exception,
+ * app/modules/fin/routes.py) to record a real, balanced entry for the
+ * payroll run's own total_gross: debit the chosen expense account,
+ * credit the chosen wages-payable account, both for the same real
+ * total_gross amount -- the standard real payroll accounting pattern
+ * (the full gross liability is recognized at once). The later, real
+ * net-cash-payment and deductions-remittance entries are deliberately
+ * not attempted here: this batch has no real mapping from
+ * StatutoryDeductionRule to a specific chart-of-accounts payable
+ * entry per rule, and fabricating one would risk an incorrect real
+ * accounting record. See docs/WFM_SUB_GAPS.md. */
+export function usePostPayrollToFinance() {
+  return useMutation({
+    mutationFn: (payload: { company_id: string; expense_account_id: string; payable_account_id: string; description: string; total_gross: string }) =>
+      apiClient.post("/fin/journal-entries/manual-exception", {
+        company_id: payload.company_id,
+        description: payload.description,
+        lines: [
+          { account_id: payload.expense_account_id, debit_amount: payload.total_gross, credit_amount: "0" },
+          { account_id: payload.payable_account_id, debit_amount: "0", credit_amount: payload.total_gross },
+        ],
+      }),
   });
 }

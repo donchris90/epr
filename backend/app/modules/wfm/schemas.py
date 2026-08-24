@@ -199,6 +199,7 @@ class PayrollLineSchema(Schema):
     deductions_breakdown = fields.Dict(dump_only=True)
     total_deductions = fields.Decimal(dump_only=True, as_string=True)
     net_pay = fields.Decimal(dump_only=True, as_string=True)
+    bank_account_ref = fields.Str(dump_only=True, allow_none=True)
 
 
 class PayrollRunSchema(Schema):

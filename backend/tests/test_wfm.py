@@ -43,6 +43,21 @@ def _seed_timesheet(db, tenant_id, *, employee_id, status="pending_approval", pe
     return ts_id
 
 
+class TestPayrollRunsList:
+    def test_real_list_returns_every_real_run_with_bank_account_ref_exposed(self, app, db, client, seed_tenants, auth_headers):
+        emp_id = _seed_employee(db, seed_tenants["a"])
+        _seed_timesheet(db, seed_tenants["a"], employee_id=emp_id, status="approved", period_start="2026-08-01", period_end="2026-08-31")
+
+        headers = auth_headers("a", permissions=["*"])
+        client.post("/v1/wfm/payroll-runs", headers=headers, json={"period_start": "2026-08-01", "period_end": "2026-08-31"})
+
+        r = client.get("/v1/wfm/payroll-runs", headers=headers)
+        assert r.status_code == 200
+        assert len(r.get_json()["data"]) == 1
+        line = r.get_json()["data"][0]["lines"][0]
+        assert "bank_account_ref" in line
+
+
 class TestPayrollOnlyConsumesApprovedOrLockedTimesheets:
     """The single most important requirement of this batch, tested
     directly and explicitly -- not just implied by other tests."""
