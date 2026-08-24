@@ -66,13 +66,16 @@ function CreateProjectModal({ onClose, onDone }: { onClose: () => void; onDone: 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showNewCompany, setShowNewCompany] = useState(false);
+  const [newCompanyName, setNewCompanyName] = useState("");
+  const [creatingCompany, setCreatingCompany] = useState(false);
 
   const isDirty = name.trim() !== "" || companyId !== "" || clientId !== "" || pmId !== "" || startDate !== "" || endDate !== "";
   useUnsavedChanges(isDirty && !submitting);
 
   useEffect(() => {
     apiClient
-      .get("/fin/companies")
+      .get("/org/companies")
       .then((res) => {
         setCompanies(res.data.data);
         if (res.data.data.length === 1) setCompanyId(res.data.data[0].id);
@@ -118,6 +121,22 @@ function CreateProjectModal({ onClose, onDone }: { onClose: () => void; onDone: 
     }
   }
 
+  async function handleCreateCompany() {
+    setCreatingCompany(true);
+    setError(null);
+    try {
+      const res = await apiClient.post("/org/companies", { name: newCompanyName.trim() });
+      setCompanies((prev) => (Array.isArray(prev) ? [...prev, res.data] : [res.data]));
+      setCompanyId(res.data.id);
+      setNewCompanyName("");
+      setShowNewCompany(false);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setCreatingCompany(false);
+    }
+  }
+
   return (
     <Modal title="Create Project" onClose={onClose} confirmCloseIfDirty={isDirty && !submitting}>
       <Field label="Project name" required error={fieldErrors.name}>
@@ -133,15 +152,44 @@ function CreateProjectModal({ onClose, onDone }: { onClose: () => void; onDone: 
           <Select disabled>
             <option>Could not load companies</option>
           </Select>
+        ) : showNewCompany ? (
+          <div style={{ display: "flex", gap: 8 }}>
+            <Input
+              autoFocus
+              placeholder="New company name"
+              value={newCompanyName}
+              onChange={(e) => setNewCompanyName(e.target.value)}
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={!newCompanyName.trim() || creatingCompany}
+              onClick={handleCreateCompany}
+            >
+              {creatingCompany ? "Creating…" : "Create"}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setShowNewCompany(false)}>
+              Cancel
+            </Button>
+          </div>
         ) : (
-          <Select value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
-            <option value="">Select a company</option>
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <Select value={companyId} onChange={(e) => setCompanyId(e.target.value)} style={{ flex: 1 }}>
+              <option value="">Select a company</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+            <button
+              type="button"
+              onClick={() => setShowNewCompany(true)}
+              style={{ background: "none", border: "none", color: "var(--sf-steel)", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
+            >
+              + New company
+            </button>
+          </div>
         )}
       </Field>
 

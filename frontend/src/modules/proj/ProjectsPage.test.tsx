@@ -27,7 +27,7 @@ function renderPage() {
 beforeEach(() => {
   vi.mocked(apiClient.get).mockImplementation((url: string) => {
     if (url === "/projects") return Promise.resolve({ data: { data: SAMPLE_PROJECTS } });
-    if (url === "/fin/companies") return Promise.resolve({ data: { data: [{ id: "c1", name: "Real Construction Co" }] } });
+    if (url === "/org/companies") return Promise.resolve({ data: { data: [{ id: "c1", name: "Real Construction Co" }] } });
     if (url === "/bdc/clients") return Promise.resolve({ data: { data: [{ id: "cl1", name: "Test Client Ltd" }] } });
     if (url === "/org/members") return Promise.resolve({ data: { users: [{ id: "u1", email: "pm@example.com" }] } });
     return Promise.reject(new Error(`unexpected GET ${url}`));
@@ -90,7 +90,7 @@ describe("ProjectsPage", () => {
   it("shows a real error, not a crash, when a dropdown's backend call fails", async () => {
     vi.mocked(apiClient.get).mockImplementation((url: string) => {
       if (url === "/projects") return Promise.resolve({ data: { data: SAMPLE_PROJECTS } });
-      if (url === "/fin/companies") return Promise.resolve({ data: { data: [{ id: "c1", name: "Real Construction Co" }] } });
+      if (url === "/org/companies") return Promise.resolve({ data: { data: [{ id: "c1", name: "Real Construction Co" }] } });
       if (url === "/bdc/clients") return Promise.reject(new Error("403 Forbidden"));
       if (url === "/org/members") return Promise.resolve({ data: { users: [] } });
       return Promise.reject(new Error(`unexpected GET ${url}`));
@@ -105,6 +105,26 @@ describe("ProjectsPage", () => {
       expect(screen.getByText(/could not load clients/i)).toBeInTheDocument();
       // The rest of the form still works despite this one dropdown failing.
       expect(screen.getByText("Real Construction Co")).toBeInTheDocument();
+    });
+  });
+
+  it("creates a real new company inline via the real /org/companies endpoint, and selects it", async () => {
+    vi.mocked(apiClient.post).mockImplementation((url: string, body?: any) => {
+      if (url === "/org/companies") return Promise.resolve({ data: { id: "c2", name: body.name } });
+      return Promise.resolve({ data: { id: "p2" } });
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => screen.getByText("Lekki Tower"));
+    await user.click(screen.getByRole("button", { name: /new project/i }));
+    await waitFor(() => screen.getByText("Real Construction Co"));
+
+    await user.click(screen.getByRole("button", { name: /\+ new company/i }));
+    await user.type(screen.getByPlaceholderText(/new company name/i), "Ikoyi Estates Ltd");
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith("/org/companies", { name: "Ikoyi Estates Ltd" });
     });
   });
 });

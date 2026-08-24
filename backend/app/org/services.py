@@ -10,7 +10,7 @@ from sqlalchemy import text
 from app.extensions import db
 from app.utils.errors import APIError
 from app.auth.jwt_utils import hash_password
-from app.models.core import User, Role, EmailTenantIndex, InvitationTokenIndex
+from app.models.core import User, Role, Company, EmailTenantIndex, InvitationTokenIndex
 from app.billing.services import get_subscription
 from app.org.models import Invitation, INVITATION_TTL_DAYS
 from app.notifications.tasks import send_email_notification
@@ -58,6 +58,17 @@ def list_org_members(tenant_id):
     users = User.query.filter(User.tenant_id == tenant_id, User.status != "removed").order_by(User.email).all()
     invitations = Invitation.query.filter_by(tenant_id=tenant_id, status="pending").order_by(Invitation.created_at).all()
     return {"users": users, "pending_invitations": invitations}
+
+
+def list_companies(tenant_id):
+    return Company.query.filter_by(tenant_id=tenant_id).order_by(Company.name).all()
+
+
+def create_company(tenant_id, *, name, base_currency="NGN"):
+    company = Company(tenant_id=tenant_id, name=name, base_currency=base_currency)
+    db.session.add(company)
+    db.session.commit()
+    return company
 
 
 def list_roles(tenant_id):

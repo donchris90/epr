@@ -15,6 +15,7 @@ from flask_jwt_extended import create_access_token, create_refresh_token
 
 from app.org import services
 from app.org.schemas import (
+    CompanySchema,
     UserSchema, InvitationSchema, CreateInvitationSchema, AcceptInvitationSchema, ChangeRoleSchema,
     RoleSchema, CreateRoleSchema, UpdateRoleSchema,
 )
@@ -27,6 +28,7 @@ bp = Blueprint("org", __name__, url_prefix="/v1/org")
 user_schema = UserSchema()
 invitation_schema = InvitationSchema()
 role_schema = RoleSchema()
+company_schema = CompanySchema()
 
 
 def _load(schema):
@@ -45,6 +47,30 @@ def list_members():
         "users": user_schema.dump(result["users"], many=True),
         "pending_invitations": invitation_schema.dump(result["pending_invitations"], many=True),
     })
+
+
+@bp.get("/companies")
+@require_permission("org:read")
+def list_companies():
+    """Real, previously genuinely missing -- app.models.core.Company
+    (this endpoint) is the actual foreign-key target of
+    Project.company_id, and had no list/create endpoint anywhere in
+    this backend before this fix. The project-creation form's own
+    Company dropdown was fetching from GET /v1/fin/companies instead
+    -- a real, but entirely different table (fin_companies, FIN-12's
+    own multi-entity accounting concept) -- so every real project
+    creation failed with an unhandled foreign-key violation
+    regardless of what was selected."""
+    companies = services.list_companies(g.tenant_id)
+    return jsonify({"data": company_schema.dump(companies, many=True)})
+
+
+@bp.post("/companies")
+@require_permission("org:manage")
+def create_company():
+    data = _load(CompanySchema())
+    company = services.create_company(g.tenant_id, **data)
+    return jsonify(company_schema.dump(company)), 201
 
 
 @bp.get("/roles")
