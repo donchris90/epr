@@ -21,6 +21,7 @@ from app.modules.sub.models import (
     BackCharge,
     SubcontractRetention,
     SubcontractClaim,
+    PerformanceRating,
     ComplianceDocument,
 )
 from app.modules.sub.schemas import (
@@ -105,6 +106,12 @@ def list_subcontractors():
     return jsonify(envelope(subcontractor_schema.dump(subs, many=True)))
 
 
+@bp.get("/subcontractors/<uuid:subcontractor_id>")
+@require_permission("sub:read")
+def get_subcontractor(subcontractor_id):
+    return jsonify(subcontractor_schema.dump(_get_subcontractor_or_404(subcontractor_id)))
+
+
 # --- Agreements & scope (SUB-01, SUB-02) ---------------------------------------
 
 @bp.post("/agreements")
@@ -123,6 +130,18 @@ def create_agreement():
 def list_agreements():
     agreements = SubcontractAgreement.query.filter_by(tenant_id=g.tenant_id).all()
     return jsonify(envelope(agreement_schema.dump(agreements, many=True)))
+
+
+@bp.get("/agreements/<uuid:agreement_id>")
+@require_permission("sub:read")
+def get_agreement(agreement_id):
+    """Real, previously genuinely missing -- the staff-facing side of
+    this module had no single-agreement detail endpoint at all (only
+    the Subcontractor Portal's own, separately-scoped equivalent
+    existed, built earlier this session for SCP -- see
+    subcontractor-portal/hooks.ts -- which is a different, portal-
+    authenticated endpoint, not this internal one)."""
+    return jsonify(agreement_schema.dump(_get_agreement_or_404(agreement_id)))
 
 
 @bp.post("/agreements/<uuid:agreement_id>/scope-items")
@@ -157,6 +176,14 @@ def submit_progress(agreement_id):
     return jsonify(progress_schema.dump(entry)), 201
 
 
+@bp.get("/agreements/<uuid:agreement_id>/progress-entries")
+@require_permission("sub:read")
+def list_progress_entries(agreement_id):
+    _get_agreement_or_404(agreement_id)
+    entries = SubcontractProgressEntry.query.filter_by(agreement_id=agreement_id, tenant_id=g.tenant_id).all()
+    return jsonify(envelope(progress_schema.dump(entries, many=True)))
+
+
 @bp.post("/measurement-sheets")
 @require_permission("sub:write")
 def create_measurement_sheet():
@@ -166,6 +193,14 @@ def create_measurement_sheet():
     db.session.add(sheet)
     db.session.commit()
     return jsonify(measurement_schema.dump(sheet)), 201
+
+
+@bp.get("/agreements/<uuid:agreement_id>/measurement-sheets")
+@require_permission("sub:read")
+def list_measurement_sheets(agreement_id):
+    _get_agreement_or_404(agreement_id)
+    sheets = MeasurementSheet.query.filter_by(agreement_id=agreement_id, tenant_id=g.tenant_id).all()
+    return jsonify(envelope(measurement_schema.dump(sheets, many=True)))
 
 
 @bp.post("/measurement-sheets/<uuid:sheet_id>/verify")
@@ -212,6 +247,14 @@ def add_back_charge(agreement_id):
     return jsonify(back_charge_schema.dump(charge)), 201
 
 
+@bp.get("/agreements/<uuid:agreement_id>/back-charges")
+@require_permission("sub:read")
+def list_back_charges(agreement_id):
+    _get_agreement_or_404(agreement_id)
+    charges = BackCharge.query.filter_by(agreement_id=agreement_id, tenant_id=g.tenant_id).all()
+    return jsonify(envelope(back_charge_schema.dump(charges, many=True)))
+
+
 # --- Retention (SUB-06, business rule) -------------------------------------------
 
 @bp.post("/agreements/<uuid:agreement_id>/retention")
@@ -223,6 +266,14 @@ def set_retention(agreement_id):
     db.session.add(retention)
     db.session.commit()
     return jsonify(retention_schema.dump(retention)), 201
+
+
+@bp.get("/agreements/<uuid:agreement_id>/retention")
+@require_permission("sub:read")
+def list_retention(agreement_id):
+    _get_agreement_or_404(agreement_id)
+    records = SubcontractRetention.query.filter_by(agreement_id=agreement_id, tenant_id=g.tenant_id).all()
+    return jsonify(envelope(retention_schema.dump(records, many=True)))
 
 
 @bp.post("/retention/<uuid:retention_id>/release")
@@ -251,6 +302,14 @@ def submit_claim(agreement_id):
     return jsonify(claim_schema.dump(claim)), 201
 
 
+@bp.get("/agreements/<uuid:agreement_id>/claims")
+@require_permission("sub:read")
+def list_claims(agreement_id):
+    _get_agreement_or_404(agreement_id)
+    claims = SubcontractClaim.query.filter_by(agreement_id=agreement_id, tenant_id=g.tenant_id).all()
+    return jsonify(envelope(claim_schema.dump(claims, many=True)))
+
+
 @bp.post("/claims/<uuid:claim_id>/review")
 @require_permission("sub:approve")
 def review_claim(claim_id):
@@ -273,6 +332,14 @@ def add_performance_rating(subcontractor_id):
     return jsonify(rating_schema.dump(rating)), 201
 
 
+@bp.get("/subcontractors/<uuid:subcontractor_id>/ratings")
+@require_permission("sub:read")
+def list_performance_ratings(subcontractor_id):
+    _get_subcontractor_or_404(subcontractor_id)
+    ratings = PerformanceRating.query.filter_by(subcontractor_id=subcontractor_id, tenant_id=g.tenant_id).all()
+    return jsonify(envelope(rating_schema.dump(ratings, many=True)))
+
+
 # --- Compliance documents (SUB-09) ------------------------------------------------------
 
 @bp.post("/subcontractors/<uuid:subcontractor_id>/compliance-documents")
@@ -284,3 +351,11 @@ def add_compliance_document(subcontractor_id):
     db.session.add(doc)
     db.session.commit()
     return jsonify(compliance_schema.dump(doc)), 201
+
+
+@bp.get("/subcontractors/<uuid:subcontractor_id>/compliance-documents")
+@require_permission("sub:read")
+def list_compliance_documents(subcontractor_id):
+    _get_subcontractor_or_404(subcontractor_id)
+    docs = ComplianceDocument.query.filter_by(subcontractor_id=subcontractor_id, tenant_id=g.tenant_id).all()
+    return jsonify(envelope(compliance_schema.dump(docs, many=True)))
