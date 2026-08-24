@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PageHeader, Card, Button, Table, Th, Td, Input, Field, ErrorBanner } from "../../components/ui";
+import { PageHeader, Card, Button, Table, Th, Td, Input, Field, ErrorBanner, EmptyState } from "../../components/ui";
 import { ProjectSelect } from "../../components/ProjectSelect";
 import { getErrorMessage } from "../../api/client";
 import { useGenerateIncomeStatement, useProjectCostSummary, useCheckBudgetControl } from "./hooks";
@@ -151,7 +151,7 @@ function ProjectCostSummaryCard() {
           </tbody>
         </Table>
       ) : (
-        projectId && <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No posted costs found for this project.</p>
+        projectId && <EmptyState compact title="No posted costs found for this project." />
       )}
     </Card>
   );

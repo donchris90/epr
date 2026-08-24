@@ -183,7 +183,31 @@ export function ErrorBanner({
   );
 }
 
-export function EmptyState({ title, hint, action }: { title: string; hint?: string; action?: ReactNode }) {
+export function EmptyState({
+  title,
+  hint,
+  action,
+  compact = false,
+}: {
+  title: string;
+  hint?: string;
+  action?: ReactNode;
+  /** For a small, in-card sub-section (e.g. "No BOQ items imported
+   * yet" inside one card of a larger detail page) rather than a
+   * full-page/full-table empty state -- no dashed border or heavy
+   * padding, since the card itself already provides that framing. */
+  compact?: boolean;
+}) {
+  if (compact) {
+    return (
+      <div style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>
+        {title}
+        {hint && <div style={{ marginTop: 4 }}>{hint}</div>}
+        {action && <div style={{ marginTop: 8 }}>{action}</div>}
+      </div>
+    );
+  }
+
   return (
     <div
       style={{

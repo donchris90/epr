@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PageHeader, Card, Button, Table, Th, Td, Badge, Input, Field } from "../../components/ui";
+import { PageHeader, Card, Button, Table, Th, Td, Badge, Input, Field, EmptyState } from "../../components/ui";
 import { useAtRiskProjectsTool, useIdleEquipmentTool, useQueryLogs } from "./hooks";
 
 export default function ToolsPage() {
@@ -38,7 +38,7 @@ export default function ToolsPage() {
               </tbody>
             </Table>
           ) : (
-            <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No at-risk projects found.</p>
+            <EmptyState compact title="No at-risk projects found." />
           )}
         </Card>
 
@@ -62,7 +62,7 @@ export default function ToolsPage() {
               ))}
             </ul>
           ) : (
-            <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>Select a period and run to check.</p>
+            <EmptyState compact title="Select a period and run to check." />
           )}
         </Card>
       </div>
@@ -82,7 +82,7 @@ export default function ToolsPage() {
             </tbody>
           </Table>
         ) : (
-          <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No tool calls logged yet — run a tool above.</p>
+          <EmptyState compact title="No tool calls logged yet — run a tool above." />
         )}
       </Card>
     </div>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PageHeader, Card, Button, Table, Th, Td, Badge, Input, Field } from "../../components/ui";
+import { PageHeader, Card, Button, Table, Th, Td, Badge, Input, Field, EmptyState } from "../../components/ui";
 import { useGeneratePayrollRun, usePayrollRun, useFinalizePayrollRun } from "./hooks";
 
 export default function PayrollPage() {
@@ -61,7 +61,7 @@ export default function PayrollPage() {
               </tbody>
             </Table>
           ) : (
-            <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No lines in this run.</p>
+            <EmptyState compact title="No lines in this run." />
           )}
         </Card>
       )}

@@ -143,7 +143,7 @@ export default function EVMPage() {
               </tbody>
             </Table>
           ) : (
-            <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No risks logged for this project.</p>
+            <EmptyState compact title="No risks logged for this project." />
           )}
         </Card>
       )}

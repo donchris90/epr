@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PageHeader, Card, Button, Table, Th, Td, Badge, Input, ErrorBanner } from "../../components/ui";
+import { PageHeader, Card, Button, Table, Th, Td, Badge, Input, ErrorBanner, EmptyState } from "../../components/ui";
 import { WarehouseSelect } from "../../components/WarehouseSelect";
 import { MaterialItemSelect } from "../../components/MaterialItemSelect";
 import { getErrorMessage } from "../../api/client";
@@ -96,7 +96,7 @@ export default function StockMovementsPage() {
               </tbody>
             </Table>
           ) : (
-            <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>Nothing below its reorder point right now.</p>
+            <EmptyState compact title="Nothing below its reorder point right now." />
           )}
         </Card>
 
@@ -115,7 +115,7 @@ export default function StockMovementsPage() {
               </tbody>
             </Table>
           ) : (
-            <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No batches nearing expiry.</p>
+            <EmptyState compact title="No batches nearing expiry." />
           )}
         </Card>
       </div>

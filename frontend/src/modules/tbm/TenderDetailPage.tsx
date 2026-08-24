@@ -327,7 +327,7 @@ export default function TenderDetailPage() {
                 </tbody>
               </Table>
             ) : (
-              <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No BOQ items imported yet.</p>
+              <EmptyState compact title="No BOQ items imported yet." />
             )}
           </Card>
 
@@ -359,7 +359,7 @@ export default function TenderDetailPage() {
                 </tbody>
               </Table>
             ) : (
-              <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No bid documents recorded yet.</p>
+              <EmptyState compact title="No bid documents recorded yet." />
             )}
           </Card>
 
@@ -412,7 +412,7 @@ export default function TenderDetailPage() {
                 </Button>
               </form>
             ) : (
-              <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No approval steps yet.</p>
+              <EmptyState compact title="No approval steps yet." />
             )}
 
             {(tender.status === "in_approval" || tender.status === "submitted") && (
@@ -532,7 +532,7 @@ export default function TenderDetailPage() {
                   </tbody>
                 </Table>
               ) : (
-                <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No JV partners recorded yet.</p>
+                <EmptyState compact title="No JV partners recorded yet." />
               )}
             </Card>
           )}

@@ -145,7 +145,7 @@ export default function PlantQuarryPage() {
               </tbody>
             </Table>
           ) : (
-            <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No entries yet.</p>
+            <EmptyState compact title="No entries yet." />
           )}
         </Card>
       </div>

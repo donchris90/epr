@@ -1,4 +1,4 @@
-import { PageHeader, Card, Table, Th, Td, Badge } from "../../components/ui";
+import { PageHeader, Card, Table, Th, Td, Badge, EmptyState } from "../../components/ui";
 import { useCompanyRevenue, useActiveProjectsPerformance, useProjectRisks, useARAPAging, useEquipmentUtilization } from "./hooks";
 
 export default function DashboardPage() {
@@ -25,7 +25,7 @@ export default function DashboardPage() {
               </Badge>
             </div>
           ) : (
-            <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No revenue data yet.</p>
+            <EmptyState compact title="No revenue data yet." />
           )}
         </Card>
         </div>
@@ -39,7 +39,7 @@ export default function DashboardPage() {
               <div>Payable: <span className="sf-mono">{aging.total_payable ?? "—"}</span></div>
             </div>
           ) : (
-            <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No aging data yet.</p>
+            <EmptyState compact title="No aging data yet." />
           )}
         </Card>
         </div>
@@ -56,7 +56,7 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No utilization data yet.</p>
+            <EmptyState compact title="No utilization data yet." />
           )}
         </Card>
         </div>

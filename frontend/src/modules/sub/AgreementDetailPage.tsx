@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { PageHeader, Card, Button, Table, Th, Td, Badge, Input, ErrorBanner } from "../../components/ui";
+import { PageHeader, Card, Button, Table, Th, Td, Badge, Input, ErrorBanner, EmptyState } from "../../components/ui";
 import { getErrorMessage } from "../../api/client";
 import {
   useScopeItems,
@@ -149,7 +149,7 @@ export default function AgreementDetailPage() {
             </tbody>
           </Table>
         ) : (
-          <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No certificates issued yet.</p>
+          <EmptyState compact title="No certificates issued yet." />
         )}
       </Card>
     </div>

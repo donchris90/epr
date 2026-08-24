@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PageHeader, Card, Button, Table, Th, Td, Badge, Input } from "../../components/ui";
+import { PageHeader, Card, Button, Table, Th, Td, Badge, Input, EmptyState } from "../../components/ui";
 import { useCompanies, useCreateCompany, useChartOfAccounts, useCreateAccount } from "./hooks";
 
 const ACCOUNT_TYPES = ["asset", "liability", "equity", "revenue", "expense"];
@@ -66,7 +66,7 @@ export default function SetupPage() {
               ))}
             </ul>
           ) : (
-            <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No companies yet.</p>
+            <EmptyState compact title="No companies yet." />
           )}
         </Card>
 
@@ -122,7 +122,7 @@ export default function SetupPage() {
               </tbody>
             </Table>
           ) : (
-            <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No accounts yet.</p>
+            <EmptyState compact title="No accounts yet." />
           )}
         </Card>
       </div>

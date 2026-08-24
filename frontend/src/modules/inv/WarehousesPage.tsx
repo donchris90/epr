@@ -137,7 +137,7 @@ export default function WarehousesPage() {
                   </tbody>
                 </Table>
               ) : (
-                <p style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>No stock recorded in this warehouse yet.</p>
+                <EmptyState compact title="No stock recorded in this warehouse yet." />
               )
             )}
           </Card>
