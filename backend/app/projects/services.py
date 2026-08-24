@@ -33,6 +33,13 @@ def list_projects(tenant_id, *, search=None, status=None):
     return query.order_by(Project.name).all()
 
 
+def _validate_company(tenant_id, company_id):
+    from app.models.core import Company
+
+    if not Company.query.filter_by(id=company_id, tenant_id=tenant_id).first():
+        raise APIError("Company not found", status=404)
+
+
 def _validate_client(tenant_id, client_id):
     if not client_id:
         return
@@ -52,6 +59,7 @@ def _validate_project_manager(tenant_id, project_manager_id):
 
 
 def create_project(tenant_id, *, company_id, name, client_id=None, project_manager_id=None, start_date=None, end_date=None):
+    _validate_company(tenant_id, company_id)
     _validate_client(tenant_id, client_id)
     _validate_project_manager(tenant_id, project_manager_id)
 

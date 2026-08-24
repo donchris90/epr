@@ -63,6 +63,21 @@ class TestCreateProject:
         })
         assert r.status_code == 404
 
+    def test_rejects_a_company_id_that_does_not_exist_with_a_real_404_not_a_raw_500(self, app, db, client, seed_tenants, auth_headers):
+        """Real regression test: create_project previously had no
+        company existence check at all (unlike client_id and
+        project_manager_id, both already validated) -- a stale or
+        invalid company_id crashed with an unhandled foreign-key
+        violation, surfacing as a generic 500 Internal Server Error.
+        Reproduced directly before fixing."""
+        headers = auth_headers("a", permissions=["projects:manage"])
+
+        r = client.post("/v1/projects", headers=headers, json={
+            "company_id": str(uuid.uuid4()), "name": "Bad Project",
+        })
+        assert r.status_code == 404
+        assert r.get_json()["title"] == "Company not found"
+
     def test_requires_the_manage_permission_not_just_read(self, app, db, client, seed_tenants, auth_headers):
         ids = _seed_company_client_pm(db, seed_tenants["a"])
         headers = auth_headers("a", permissions=["projects:read"])
