@@ -103,7 +103,7 @@ export default function SubcontractorsPage() {
                   <Td mono>{a.currency} {a.value}</Td>
                   <Td mono>{a.retention_percentage}%</Td>
                   <Td><Badge tone="neutral">{a.status}</Badge></Td>
-                  <Td><Link to={`agreements/${a.id}`} style={{ fontSize: 12, fontWeight: 600 }}>Open →</Link></Td>
+                  <Td><Link to={`/subcontractors/agreements/${a.id}`} style={{ fontSize: 12, fontWeight: 600 }}>Open →</Link></Td>
                 </tr>
               ))}
             </tbody>
