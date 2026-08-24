@@ -12,6 +12,7 @@ import {
 import { useTenders } from "../tbm/hooks";
 import { useEmployees } from "../wfm/hooks";
 import type { TenderStatus } from "../tbm/types";
+import ExecutiveAlerts from "./ExecutiveAlerts";
 
 const TENDER_STATUS_LABEL: Record<TenderStatus, string> = {
   draft: "Draft",
@@ -95,6 +96,8 @@ export default function DashboardPage() {
   return (
     <div>
       <PageHeader eyebrow="Executive Dashboard" title="Company Overview" />
+
+      <ExecutiveAlerts />
 
       {sectionHeading("Financial")}
       <div className="row g-3">

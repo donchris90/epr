@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "../../api/client";
+import type { WorkflowInstance, WorkflowDefinition } from "../workflow/types";
 
 /** Real types matching backend/app/modules/exd/routes.py's own real
  * response shapes exactly -- checked directly against the actual
@@ -180,5 +181,52 @@ export function useIncidents() {
   return useQuery({
     queryKey: ["exd", "incidents"],
     queryFn: async (): Promise<Incident[]> => (await apiClient.get("/hse/incidents")).data.data,
+  });
+}
+
+// --- Executive Alerts -------------------------------------------------------------
+
+export interface ContractForAlerts {
+  id: string;
+  contract_number: string;
+  status: string;
+  completion_date: string | null;
+}
+
+/** Real contracts (Module 8), for the "Contract expiring" alert --
+ * completion_date is a real, already-existing, already-dumped field
+ * (backend/app/modules/ctm/schemas.py). */
+export function useContractsForAlerts() {
+  return useQuery({
+    queryKey: ["exd", "contracts-for-alerts"],
+    queryFn: async (): Promise<ContractForAlerts[]> => (await apiClient.get("/ctm/contracts")).data.data,
+  });
+}
+
+/** Real, company-wide pending approvals (not just "assigned to me" --
+ * GET /v1/workflow/instances/pending's own scope -- this uses the
+ * general, filterable list instead, the same real endpoint the
+ * Approval Center's own "All / History" view uses) plus their real
+ * workflow definitions, for the "Approval overdue" alert. Reuses the
+ * exact same real SLA computation already built and tested for the
+ * Approval Center (modules/workflow/sla.ts) rather than
+ * reimplementing it. Requires workflow:approve (the real permission
+ * GET /v1/workflow/instances itself requires) -- deliberately not
+ * widened here; a person without it simply won't see this one alert
+ * type, handled gracefully rather than failing the whole page. */
+export function usePendingApprovalsForAlerts() {
+  return useQuery({
+    queryKey: ["exd", "pending-approvals-for-alerts"],
+    queryFn: async (): Promise<WorkflowInstance[]> =>
+      (await apiClient.get("/workflow/instances", { params: { status: "pending" } })).data.data,
+    retry: false,
+  });
+}
+
+export function useWorkflowDefinitionsForAlerts() {
+  return useQuery({
+    queryKey: ["exd", "workflow-definitions-for-alerts"],
+    queryFn: async (): Promise<WorkflowDefinition[]> => (await apiClient.get("/workflow/definitions")).data.data,
+    retry: false,
   });
 }

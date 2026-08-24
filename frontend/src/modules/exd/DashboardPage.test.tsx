@@ -29,6 +29,9 @@ function mockGet(overrides: Record<string, unknown> = {}) {
     "/exd/equipment-utilization": [],
     "/projects": [],
     "/tbm/tenders": [],
+    "/ctm/contracts": [],
+    "/workflow/instances": [],
+    "/workflow/definitions": [],
     "/hse/incidents": [],
     "/wfm/employees": [],
     ...overrides,
@@ -55,6 +58,25 @@ describe("Executive DashboardPage", () => {
       expect(screen.getByText(/1,200,000/)).toBeInTheDocument();
       expect(screen.getByText(/800,000/)).toBeInTheDocument();
     });
+  });
+
+  it("shows no alerts panel at all when there is genuinely nothing to alert on", async () => {
+    mockGet();
+    renderDashboard();
+
+    await waitFor(() => screen.getByText("Financial"));
+    expect(screen.queryByText("Alerts")).not.toBeInTheDocument();
+  });
+
+  it("shows a real, computed alert on the dashboard when real data warrants one", async () => {
+    mockGet({
+      "/exd/active-projects-performance": [{ project_id: "p1", cpi: "0.5", spi: "1.0" }],
+      "/projects": [{ id: "p1", name: "Ikoyi Bridge" }],
+    });
+    renderDashboard();
+
+    expect(await screen.findByText("Alerts")).toBeInTheDocument();
+    expect(screen.getByText(/Ikoyi Bridge is over budget/)).toBeInTheDocument();
   });
 
   it("shows real section headings for every dashboard area", async () => {
