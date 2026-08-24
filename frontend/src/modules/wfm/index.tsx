@@ -1,5 +1,6 @@
 import { NavLink, Route, Routes, Navigate } from "react-router-dom";
 import EmployeesPage from "./EmployeesPage";
+import EmployeeDetailPage from "./EmployeeDetailPage";
 import TimesheetsPage from "./TimesheetsPage";
 import PayrollPage from "./PayrollPage";
 
@@ -33,6 +34,7 @@ export default function WFMModule() {
       <Routes>
         <Route index element={<Navigate to="/workforce/employees" replace />} />
         <Route path="employees" element={<EmployeesPage />} />
+        <Route path="employees/:employeeId" element={<EmployeeDetailPage />} />
         <Route path="timesheets" element={<TimesheetsPage />} />
         <Route path="payroll" element={<PayrollPage />} />
       </Routes>

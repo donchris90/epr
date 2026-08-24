@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, EmptyState, Input, Field } from "../../components/ui";
 import { useEmployees, useCreateEmployee, useCasualWorkers, useCreateCasualWorker, useExpiringCertifications } from "./hooks";
 
@@ -105,9 +106,9 @@ export default function EmployeesPage() {
           <Table>
             <thead><tr><Th>Name</Th><Th>Role</Th><Th>Trade</Th><Th>Type</Th><Th>Status</Th></tr></thead>
             <tbody>
-              {employees.map((e: any) => (
+              {employees.map((e) => (
                 <tr key={e.id}>
-                  <Td>{e.name}</Td>
+                  <Td><Link to={`/workforce/employees/${e.id}`}>{e.name}</Link></Td>
                   <Td>{e.role || "—"}</Td>
                   <Td>{e.trade || "—"}</Td>
                   <Td><Badge tone="neutral">{e.employment_type}</Badge></Td>
@@ -124,7 +125,7 @@ export default function EmployeesPage() {
           <Table>
             <thead><tr><Th>Name</Th><Th>Phone</Th><Th>Daily rate</Th></tr></thead>
             <tbody>
-              {casualWorkers.map((w: any) => (
+              {casualWorkers.map((w) => (
                 <tr key={w.id}>
                   <Td>{w.name}</Td>
                   <Td mono>{w.phone || "—"}</Td>
