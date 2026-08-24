@@ -63,6 +63,11 @@ class IncidentSchema(Schema):
     description = fields.Str(dump_only=True)
     status = fields.Str(dump_only=True)
     corrective_action_id = fields.UUID(dump_only=True)
+    # Real, already-existing model column, previously just not dumped
+    # -- exposed for the executive dashboard's real safety trend,
+    # which had no way to group incidents by period without a date at
+    # all.
+    occurred_at = fields.DateTime(dump_only=True, allow_none=True)
 
 
 class NearMissInputSchema(Schema):

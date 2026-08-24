@@ -1,10 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../api/client";
 
+/** Real type matching backend/app/modules/wfm/schemas.py's own
+ * EmployeeSchema exactly -- checked directly before writing this. */
+export interface Employee {
+  id: string;
+  name: string;
+  employee_number: string | null;
+  role: string | null;
+  trade: string | null;
+  pay_grade: string | null;
+  employment_type: "permanent" | "contract";
+  monthly_rate: string | null;
+  assigned_project_ids: string[] | null;
+  status: string;
+}
+
 export function useEmployees() {
   return useQuery({
     queryKey: ["wfm", "employees"],
-    queryFn: async () => (await apiClient.get("/wfm/employees")).data.data,
+    queryFn: async (): Promise<Employee[]> => (await apiClient.get("/wfm/employees")).data.data,
   });
 }
 
