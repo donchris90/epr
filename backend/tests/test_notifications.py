@@ -75,6 +75,39 @@ class TestNotificationsService:
         r = client.post(f"/v1/notifications/{notif_id}/read", headers=headers_b)
         assert r.status_code == 404
 
+    def test_mark_unread_reverses_a_real_read_notification(self, app, db, client, seed_tenants, auth_headers):
+        from app.notifications import services
+
+        user_id = uuid.uuid4()
+        _as_tenant(db, seed_tenants["a"])
+        n = services.notify(seed_tenants["a"], user_id=user_id, type="test.event", title="Test")
+        db.session.flush()
+        notif_id = n.id
+        db.session.commit()
+
+        headers = auth_headers("a", user_id=user_id)
+        client.post(f"/v1/notifications/{notif_id}/read", headers=headers)
+        assert client.get("/v1/notifications/unread-count", headers=headers).get_json()["unread_count"] == 0
+
+        r = client.post(f"/v1/notifications/{notif_id}/unread", headers=headers)
+        assert r.status_code == 200
+        assert r.get_json()["read_at"] is None
+        assert client.get("/v1/notifications/unread-count", headers=headers).get_json()["unread_count"] == 1
+
+    def test_cannot_mark_another_users_notification_unread(self, app, db, client, seed_tenants, auth_headers):
+        from app.notifications import services
+
+        user_a, user_b = uuid.uuid4(), uuid.uuid4()
+        _as_tenant(db, seed_tenants["a"])
+        n = services.notify(seed_tenants["a"], user_id=user_a, type="test.event", title="For A")
+        db.session.flush()
+        notif_id = n.id
+        db.session.commit()
+
+        headers_b = auth_headers("a", user_id=user_b)
+        r = client.post(f"/v1/notifications/{notif_id}/unread", headers=headers_b)
+        assert r.status_code == 404
+
     def test_cross_tenant_isolation(self, app, db, client, seed_tenants, auth_headers):
         from app.notifications import services
 

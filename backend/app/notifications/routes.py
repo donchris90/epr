@@ -50,6 +50,13 @@ def mark_read(notification_id):
     return jsonify(notification_schema.dump(notification))
 
 
+@bp.post("/<uuid:notification_id>/unread")
+def mark_unread(notification_id):
+    notification = _get_notification_or_404(notification_id)
+    notification = services.mark_unread(notification)
+    return jsonify(notification_schema.dump(notification))
+
+
 @bp.post("/mark-all-read")
 def mark_all_read():
     services.mark_all_read(g.tenant_id, user_id=g.user_id)

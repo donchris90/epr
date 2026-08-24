@@ -108,6 +108,12 @@ def mark_read(notification: Notification):
     return notification
 
 
+def mark_unread(notification: Notification):
+    notification.read_at = None
+    db.session.commit()
+    return notification
+
+
 def mark_all_read(tenant_id, *, user_id):
     now = datetime.now(timezone.utc)
     Notification.query.filter_by(tenant_id=tenant_id, user_id=user_id, read_at=None).update({"read_at": now})

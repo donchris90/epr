@@ -10,6 +10,7 @@ import ProfilePage from "./pages/ProfilePage";
 import SecuritySettingsPage from "./pages/SecuritySettingsPage";
 import RolesPage from "./pages/RolesPage";
 import ApprovalCenterPage from "./pages/ApprovalCenterPage";
+import NotificationCenterPage from "./pages/NotificationCenterPage";
 import WorkflowListPage from "./modules/workflow/WorkflowListPage";
 import WorkflowDetailPage from "./modules/workflow/WorkflowDetailPage";
 import WorkflowBuilderPage from "./modules/workflow/WorkflowBuilderPage";
@@ -112,6 +113,7 @@ export default function App() {
             <Route path="settings/security" element={<SecuritySettingsPage />} />
             <Route path="settings/roles" element={<RolesPage />} />
             <Route path="approvals" element={<ApprovalCenterPage />} />
+            <Route path="notifications" element={<NotificationCenterPage />} />
             <Route path="workflows" element={<WorkflowListPage />} />
             <Route path="workflows/new" element={<WorkflowBuilderPage />} />
             <Route path="workflows/:id" element={<WorkflowDetailPage />} />

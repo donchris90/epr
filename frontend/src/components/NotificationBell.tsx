@@ -181,11 +181,16 @@ export function NotificationBell() {
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderBottom: "1px solid var(--sf-line)" }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: "var(--sf-navy-900)" }}>Notifications</span>
-            {unreadCount > 0 && (
-              <button onClick={handleMarkAllRead} style={{ background: "none", border: "none", color: "var(--sf-steel)", fontSize: 12, cursor: "pointer" }}>
-                Mark all read
-              </button>
-            )}
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <a href="/notifications" style={{ fontSize: 12, color: "var(--sf-steel)" }}>
+                View all
+              </a>
+              {unreadCount > 0 && (
+                <button onClick={handleMarkAllRead} style={{ background: "none", border: "none", color: "var(--sf-steel)", fontSize: 12, cursor: "pointer" }}>
+                  Mark all read
+                </button>
+              )}
+            </div>
           </div>
 
           {notifications === null ? (
