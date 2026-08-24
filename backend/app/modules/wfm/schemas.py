@@ -26,6 +26,29 @@ class EmployeeSchema(Schema):
     status = fields.Str(dump_only=True)
 
 
+class EmployeeUpdateSchema(Schema):
+    """Every field optional -- a real partial update, not a full
+    replace; omitted fields are left untouched (see
+    services.update_employee)."""
+
+    name = fields.Str(allow_none=True)
+    employee_number = fields.Str(allow_none=True)
+    role = fields.Str(allow_none=True)
+    trade = fields.Str(allow_none=True)
+    pay_grade = fields.Str(allow_none=True)
+    employment_type = fields.Str(allow_none=True, validate=validate.OneOf(EMPLOYMENT_TYPES))
+    monthly_rate = fields.Decimal(allow_none=True, as_string=True)
+
+
+class AssignProjectSchema(Schema):
+    project_id = fields.UUID(required=True)
+
+
+class TransferProjectSchema(Schema):
+    from_project_id = fields.UUID(required=True)
+    to_project_id = fields.UUID(required=True)
+
+
 class CasualWorkerSchema(Schema):
     id = fields.UUID(dump_only=True)
     name = fields.Str(required=True)
@@ -44,6 +67,18 @@ class AttendanceRecordSchema(Schema):
     check_in_at = fields.DateTime(allow_none=True)
     check_out_at = fields.DateTime(allow_none=True)
     capture_method = fields.Str(load_default="manual", validate=validate.OneOf(CAPTURE_METHODS))
+
+
+class AttendanceCorrectionSchema(Schema):
+    check_in_at = fields.DateTime(allow_none=True)
+    check_out_at = fields.DateTime(allow_none=True)
+
+
+class MarkAbsentSchema(Schema):
+    project_id = fields.UUID(required=True)
+    attendance_date = fields.Date(required=True)
+    employee_id = fields.UUID(allow_none=True, load_default=None)
+    casual_worker_id = fields.UUID(allow_none=True, load_default=None)
 
 
 class GenerateTimesheetSchema(Schema):
@@ -66,8 +101,19 @@ class TimesheetSchema(Schema):
     activity_id = fields.UUID(dump_only=True)
     period_start = fields.Date(dump_only=True)
     period_end = fields.Date(dump_only=True)
+    pay_basis = fields.Str(dump_only=True)
+    hours_or_units = fields.Decimal(dump_only=True, as_string=True)
+    rate_applied = fields.Decimal(dump_only=True, as_string=True)
     gross_amount = fields.Decimal(dump_only=True, as_string=True)
     status = fields.Str(dump_only=True)
+    approved_by = fields.UUID(dump_only=True, allow_none=True)
+    approved_at = fields.DateTime(dump_only=True, allow_none=True)
+    payroll_run_id = fields.UUID(dump_only=True, allow_none=True)
+
+
+class TimesheetUpdateSchema(Schema):
+    hours_or_units = fields.Decimal(allow_none=True, as_string=True)
+    rate_applied = fields.Decimal(allow_none=True, as_string=True)
 
 
 class LeaveRequestInputSchema(Schema):
@@ -84,7 +130,10 @@ class LeaveRequestSchema(Schema):
     leave_type = fields.Str(dump_only=True)
     start_date = fields.Date(dump_only=True)
     end_date = fields.Date(dump_only=True)
+    reason = fields.Str(dump_only=True, allow_none=True)
     status = fields.Str(dump_only=True)
+    approved_by = fields.UUID(dump_only=True, allow_none=True)
+    approved_at = fields.DateTime(dump_only=True, allow_none=True)
 
 
 class LeaveDecisionSchema(Schema):

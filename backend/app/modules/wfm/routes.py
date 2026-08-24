@@ -26,10 +26,16 @@ from app.modules.wfm.models import (
 )
 from app.modules.wfm.schemas import (
     EmployeeSchema,
+    EmployeeUpdateSchema,
+    AssignProjectSchema,
+    TransferProjectSchema,
     CasualWorkerSchema,
     AttendanceRecordSchema,
+    AttendanceCorrectionSchema,
+    MarkAbsentSchema,
     GenerateTimesheetSchema,
     TimesheetSchema,
+    TimesheetUpdateSchema,
     LeaveRequestInputSchema,
     LeaveRequestSchema,
     LeaveDecisionSchema,
@@ -95,6 +101,56 @@ def list_employees():
     return jsonify(envelope(employee_schema.dump(employees, many=True)))
 
 
+@bp.get("/employees/<uuid:employee_id>")
+@require_permission("wfm:read")
+def get_employee(employee_id):
+    employee = _get_employee_or_404(employee_id)
+    return jsonify(employee_schema.dump(employee))
+
+
+@bp.put("/employees/<uuid:employee_id>")
+@require_permission("wfm:write")
+def update_employee(employee_id):
+    employee = _get_employee_or_404(employee_id)
+    data = _load(EmployeeUpdateSchema())
+    employee = services.update_employee(employee, **data)
+    return jsonify(employee_schema.dump(employee))
+
+
+@bp.post("/employees/<uuid:employee_id>/terminate")
+@require_permission("wfm:approve")
+def terminate_employee(employee_id):
+    employee = _get_employee_or_404(employee_id)
+    employee = services.terminate_employee(employee)
+    return jsonify(employee_schema.dump(employee))
+
+
+@bp.post("/employees/<uuid:employee_id>/reactivate")
+@require_permission("wfm:approve")
+def reactivate_employee(employee_id):
+    employee = _get_employee_or_404(employee_id)
+    employee = services.reactivate_employee(employee)
+    return jsonify(employee_schema.dump(employee))
+
+
+@bp.post("/employees/<uuid:employee_id>/assign-project")
+@require_permission("wfm:write")
+def assign_project(employee_id):
+    employee = _get_employee_or_404(employee_id)
+    data = _load(AssignProjectSchema())
+    employee = services.assign_project(employee, project_id=str(data["project_id"]))
+    return jsonify(employee_schema.dump(employee))
+
+
+@bp.post("/employees/<uuid:employee_id>/transfer-project")
+@require_permission("wfm:write")
+def transfer_project(employee_id):
+    employee = _get_employee_or_404(employee_id)
+    data = _load(TransferProjectSchema())
+    employee = services.transfer_project(employee, from_project_id=str(data["from_project_id"]), to_project_id=str(data["to_project_id"]))
+    return jsonify(employee_schema.dump(employee))
+
+
 @bp.post("/casual-workers")
 @require_permission("wfm:write")
 def onboard_casual_worker():
@@ -131,6 +187,51 @@ def record_attendance():
     return jsonify(attendance_schema.dump(record)), 201
 
 
+@bp.get("/attendance")
+@require_permission("wfm:read")
+def list_attendance():
+    project_id = request.args.get("project_id")
+    employee_id = request.args.get("employee_id")
+    attendance_date = request.args.get("attendance_date")
+    records = services.list_attendance(g.tenant_id, project_id=project_id, employee_id=employee_id, attendance_date=attendance_date)
+    return jsonify(envelope(attendance_schema.dump(records, many=True)))
+
+
+def _get_attendance_or_404(record_id) -> AttendanceRecord:
+    r = AttendanceRecord.query.filter_by(id=record_id, tenant_id=g.tenant_id).first()
+    if not r:
+        raise APIError("Attendance record not found", status=404)
+    return r
+
+
+@bp.put("/attendance/<uuid:record_id>")
+@require_permission("wfm:approve")
+def correct_attendance(record_id):
+    """Business rule: correcting an attendance record (as opposed to
+    the original, self-serve check-in/out capture above) requires
+    wfm:approve -- the same real elevated grant timesheet/leave
+    decisions require, since a correction can materially change
+    someone's recorded hours."""
+    record = _get_attendance_or_404(record_id)
+    data = _load(AttendanceCorrectionSchema())
+    record = services.correct_attendance(record, **data)
+    return jsonify(attendance_schema.dump(record))
+
+
+@bp.post("/attendance/mark-absent")
+@require_permission("wfm:write")
+def mark_absent():
+    data = _load(MarkAbsentSchema())
+    record = services.mark_absent(
+        g.tenant_id,
+        project_id=data["project_id"],
+        attendance_date=data["attendance_date"],
+        employee_id=data.get("employee_id"),
+        casual_worker_id=data.get("casual_worker_id"),
+    )
+    return jsonify(attendance_schema.dump(record)), 201
+
+
 # --- Timesheets (WFM-04) ------------------------------------------------------
 
 @bp.post("/timesheets")
@@ -150,6 +251,52 @@ def list_timesheets():
         query = query.filter_by(status=status)
     timesheets = query.all()
     return jsonify(envelope(timesheet_schema.dump(timesheets, many=True)))
+
+
+def _get_timesheet_or_404(timesheet_id) -> Timesheet:
+    t = Timesheet.query.filter_by(id=timesheet_id, tenant_id=g.tenant_id).first()
+    if not t:
+        raise APIError("Timesheet not found", status=404)
+    return t
+
+
+@bp.get("/timesheets/<uuid:timesheet_id>")
+@require_permission("wfm:read")
+def get_timesheet(timesheet_id):
+    return jsonify(timesheet_schema.dump(_get_timesheet_or_404(timesheet_id)))
+
+
+@bp.put("/timesheets/<uuid:timesheet_id>")
+@require_permission("wfm:write")
+def update_timesheet(timesheet_id):
+    timesheet = _get_timesheet_or_404(timesheet_id)
+    data = _load(TimesheetUpdateSchema())
+    timesheet = services.update_timesheet(timesheet, **data)
+    return jsonify(timesheet_schema.dump(timesheet))
+
+
+@bp.post("/timesheets/<uuid:timesheet_id>/return")
+@require_permission("wfm:approve")
+def return_timesheet(timesheet_id):
+    timesheet = _get_timesheet_or_404(timesheet_id)
+    timesheet = services.return_timesheet_for_correction(timesheet, approver_id=g.user_id)
+    return jsonify(timesheet_schema.dump(timesheet))
+
+
+@bp.post("/timesheets/<uuid:timesheet_id>/resubmit")
+@require_permission("wfm:write")
+def resubmit_timesheet(timesheet_id):
+    timesheet = _get_timesheet_or_404(timesheet_id)
+    timesheet = services.resubmit_timesheet(timesheet)
+    return jsonify(timesheet_schema.dump(timesheet))
+
+
+@bp.post("/timesheets/<uuid:timesheet_id>/lock")
+@require_permission("wfm:approve")
+def lock_timesheet(timesheet_id):
+    timesheet = _get_timesheet_or_404(timesheet_id)
+    timesheet = services.lock_timesheet(timesheet)
+    return jsonify(timesheet_schema.dump(timesheet))
 
 
 @bp.post("/timesheets/<uuid:timesheet_id>/approve")
@@ -200,15 +347,51 @@ def create_leave_request():
     return jsonify(leave_schema.dump(leave)), 201
 
 
-@bp.post("/leave-requests/<uuid:leave_id>/decide")
-@require_permission("wfm:approve")
-def decide_leave_request(leave_id):
+@bp.get("/leave-requests")
+@require_permission("wfm:read")
+def list_leave_requests():
+    employee_id = request.args.get("employee_id")
+    status = request.args.get("status")
+    leaves = services.list_leave_requests(g.tenant_id, employee_id=employee_id, status=status)
+    return jsonify(envelope(leave_schema.dump(leaves, many=True)))
+
+
+def _get_leave_request_or_404(leave_id) -> LeaveRequest:
     leave = LeaveRequest.query.filter_by(id=leave_id, tenant_id=g.tenant_id).first()
     if not leave:
         raise APIError("Leave request not found", status=404)
+    return leave
+
+
+@bp.post("/leave-requests/<uuid:leave_id>/decide")
+@require_permission("wfm:approve")
+def decide_leave_request(leave_id):
+    leave = _get_leave_request_or_404(leave_id)
     data = _load(LeaveDecisionSchema())
     leave = services.decide_leave_request(leave, decision=data["decision"], approver_id=g.user_id)
     return jsonify(leave_schema.dump(leave))
+
+
+@bp.post("/leave-requests/<uuid:leave_id>/cancel")
+@require_permission("wfm:write")
+def cancel_leave_request(leave_id):
+    """Reachable by an ordinary wfm:write session -- deliberately not
+    gated behind wfm:approve like a decision is: cancelling your own
+    (or, for a manager, a team member's) request is a real, lower-
+    stakes action than deciding one, matching how the other real,
+    self-serve WFM actions (create_leave_request, record_attendance)
+    are gated in this same file."""
+    leave = _get_leave_request_or_404(leave_id)
+    leave = services.cancel_leave_request(leave)
+    return jsonify(leave_schema.dump(leave))
+
+
+@bp.get("/employees/<uuid:employee_id>/leave-balance")
+@require_permission("wfm:read")
+def get_leave_balance(employee_id):
+    _get_employee_or_404(employee_id)
+    balance = services.get_leave_balance(g.tenant_id, employee_id=employee_id)
+    return jsonify({"days_taken_this_year_by_type": balance})
 
 
 # --- Training (WFM-06) -----------------------------------------------------------

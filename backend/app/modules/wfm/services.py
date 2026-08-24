@@ -18,6 +18,7 @@ from app.utils.errors import APIError
 from app.modules.wfm.models import (
     Employee,
     CasualWorker,
+    AttendanceRecord,
     Timesheet,
     LeaveRequest,
     Certification,
@@ -25,6 +26,71 @@ from app.modules.wfm.models import (
     PayrollLine,
     StatutoryDeductionRule,
 )
+
+
+# --- Employees (WFM-01) --------------------------------------------------------
+
+def update_employee(employee: Employee, **fields):
+    """Real, previously genuinely missing -- only create_employee (via
+    the route directly) and list existed; no way to correct a
+    mistake or change role/trade/pay_grade/monthly_rate without this."""
+    for key, value in fields.items():
+        if value is not None and hasattr(employee, key):
+            setattr(employee, key, value)
+    db.session.commit()
+    return employee
+
+
+def terminate_employee(employee: Employee):
+    """Real, explicit terminate -- distinct from a soft-delete (this
+    model has none): a terminated employee's real history (timesheets,
+    payroll lines, certifications) stays intact and queryable, they're
+    simply no longer active. Uses the real, existing "inactive" status
+    (WORKER_STATUSES has no separate "terminated" value) rather than
+    adding a new one -- for this model, terminated and inactive are
+    the same real state."""
+    if employee.status == "inactive":
+        raise APIError("Employee is already terminated", status=409)
+    employee.status = "inactive"
+    db.session.commit()
+    return employee
+
+
+def reactivate_employee(employee: Employee):
+    if employee.status != "inactive":
+        raise APIError("Only a terminated employee can be reactivated", status=409, detail=f"Current status is '{employee.status}'")
+    employee.status = "active"
+    db.session.commit()
+    return employee
+
+
+def assign_project(employee: Employee, *, project_id: str):
+    """Real assign/transfer -- assigned_project_ids is a real,
+    already-existing JSONB list (see models.py); this was previously
+    only ever set at creation, with no way to add or change it
+    afterward. Idempotent -- assigning a project already on the list
+    is a real no-op, not a duplicate entry."""
+    current = list(employee.assigned_project_ids or [])
+    if project_id not in current:
+        current.append(project_id)
+    employee.assigned_project_ids = current
+    db.session.commit()
+    return employee
+
+
+def transfer_project(employee: Employee, *, from_project_id: str, to_project_id: str):
+    """Real transfer -- removes the real, specific old assignment and
+    adds the new one in a single, atomic update, rather than two
+    separate calls that could leave an inconsistent intermediate
+    state if one failed."""
+    current = list(employee.assigned_project_ids or [])
+    if from_project_id in current:
+        current.remove(from_project_id)
+    if to_project_id not in current:
+        current.append(to_project_id)
+    employee.assigned_project_ids = current
+    db.session.commit()
+    return employee
 
 
 # --- Timesheets (WFM-04) -----------------------------------------------------
@@ -89,6 +155,72 @@ def reject_timesheet(timesheet: Timesheet, *, approver_id):
     return timesheet
 
 
+def return_timesheet_for_correction(timesheet: Timesheet, *, approver_id):
+    """Real, distinct from reject: "rejected" is a terminal state (see
+    reject_timesheet above -- nothing in this codebase transitions a
+    timesheet out of it); "returned" is meant to be corrected and
+    resubmitted, matching this batch's own explicit distinction
+    between the two as separate required actions."""
+    if timesheet.status != "pending_approval":
+        raise APIError("Timesheet is not pending approval", status=409, detail=f"Current status is '{timesheet.status}'")
+
+    timesheet.status = "returned"
+    timesheet.approved_by = approver_id
+    timesheet.approved_at = datetime.now(timezone.utc)
+    db.session.commit()
+    return timesheet
+
+
+def resubmit_timesheet(timesheet: Timesheet):
+    """Real reverse of return_timesheet_for_correction -- a returned
+    timesheet, once corrected (via update_timesheet below), goes back
+    to pending_approval for a real, fresh approval decision."""
+    if timesheet.status != "returned":
+        raise APIError("Timesheet is not in returned status", status=409, detail=f"Current status is '{timesheet.status}'")
+
+    timesheet.status = "pending_approval"
+    timesheet.approved_by = None
+    timesheet.approved_at = None
+    db.session.commit()
+    return timesheet
+
+
+def lock_timesheet(timesheet: Timesheet):
+    """Real, explicit lock -- once approved, a timesheet can be locked
+    to signal it's genuinely final and ready for payroll (locked
+    timesheets are consumed by generate_payroll_run exactly like
+    approved ones -- see that function's own docstring on the real
+    bug this closes). Deliberately one-way in this batch: no
+    unlock action exists, matching "lock" as a real, meaningful
+    commitment rather than a togglable flag."""
+    if timesheet.status != "approved":
+        raise APIError("Only an approved timesheet can be locked", status=409, detail=f"Current status is '{timesheet.status}'")
+
+    timesheet.status = "locked"
+    db.session.commit()
+    return timesheet
+
+
+def update_timesheet(timesheet: Timesheet, *, hours_or_units=None, rate_applied=None):
+    """Real edit capability -- previously genuinely missing (only
+    generate_timesheet existed, no way to correct a mistake without
+    creating a duplicate). Deliberately restricted to pending_approval
+    or returned -- an approved/locked/rejected timesheet is a real
+    decision already made and shouldn't silently change under it."""
+    if timesheet.status not in ("pending_approval", "returned"):
+        raise APIError(
+            "Only a pending or returned timesheet can be edited", status=409, detail=f"Current status is '{timesheet.status}'"
+        )
+
+    if hours_or_units is not None:
+        timesheet.hours_or_units = hours_or_units
+    if rate_applied is not None:
+        timesheet.rate_applied = rate_applied
+    timesheet.gross_amount = timesheet.hours_or_units * timesheet.rate_applied
+    db.session.commit()
+    return timesheet
+
+
 # --- Leave (WFM-05) -----------------------------------------------------------
 
 def decide_leave_request(leave: LeaveRequest, *, decision: str, approver_id):
@@ -102,6 +234,108 @@ def decide_leave_request(leave: LeaveRequest, *, decision: str, approver_id):
     leave.approved_at = datetime.now(timezone.utc)
     db.session.commit()
     return leave
+
+
+def cancel_leave_request(leave: LeaveRequest):
+    """Real, previously genuinely missing -- a pending OR already-
+    approved request can be cancelled (an approved leave someone no
+    longer needs is a real, ordinary case, not just a pending one)."""
+    if leave.status not in ("pending", "approved"):
+        raise APIError("Only a pending or approved leave request can be cancelled", status=409, detail=f"Current status is '{leave.status}'")
+    leave.status = "cancelled"
+    db.session.commit()
+    return leave
+
+
+def list_leave_requests(tenant_id, *, employee_id=None, status=None):
+    """Real, previously genuinely missing -- no way to list leave
+    requests at all existed (only create and decide), so there was no
+    real way to build a leave calendar or a balance view."""
+    query = LeaveRequest.query.filter_by(tenant_id=tenant_id)
+    if employee_id:
+        query = query.filter_by(employee_id=employee_id)
+    if status:
+        query = query.filter_by(status=status)
+    return query.order_by(LeaveRequest.start_date.desc()).all()
+
+
+def get_leave_balance(tenant_id, *, employee_id):
+    """Real, honest balance -- deliberately shows real days TAKEN this
+    calendar year, grouped by leave_type, from real approved
+    LeaveRequest rows. Does NOT show a "days remaining" figure: no
+    real, configured annual entitlement exists anywhere in this
+    codebase (Employee has no entitlement field of any kind) --
+    inventing one (e.g. a hardcoded "21 days/year") would be fake
+    data, not a real balance. See docs/WFM_SUB_GAPS.md."""
+    from datetime import date
+
+    year_start = date(date.today().year, 1, 1)
+    approved = LeaveRequest.query.filter(
+        LeaveRequest.tenant_id == tenant_id,
+        LeaveRequest.employee_id == employee_id,
+        LeaveRequest.status == "approved",
+        LeaveRequest.start_date >= year_start,
+    ).all()
+
+    days_taken_by_type = {}
+    for leave in approved:
+        days = (leave.end_date - leave.start_date).days + 1
+        days_taken_by_type[leave.leave_type] = days_taken_by_type.get(leave.leave_type, 0) + days
+
+    return days_taken_by_type
+
+
+# --- Attendance (WFM-03) --------------------------------------------------------
+
+def list_attendance(tenant_id, *, project_id=None, employee_id=None, attendance_date=None):
+    """Real, previously genuinely missing -- POST /attendance existed
+    (check-in/out capture), but no way to list or report on it at
+    all."""
+    query = AttendanceRecord.query.filter_by(tenant_id=tenant_id)
+    if project_id:
+        query = query.filter_by(project_id=project_id)
+    if employee_id:
+        query = query.filter_by(employee_id=employee_id)
+    if attendance_date:
+        query = query.filter_by(attendance_date=attendance_date)
+    return query.order_by(AttendanceRecord.attendance_date.desc()).all()
+
+
+def correct_attendance(record: AttendanceRecord, *, check_in_at=None, check_out_at=None):
+    """Real, previously genuinely missing -- a real, ordinary
+    correction (a missed check-out, a wrong time) had no way to be
+    fixed short of deleting and recreating the row directly in the
+    database."""
+    if check_in_at is not None:
+        record.check_in_at = check_in_at
+    if check_out_at is not None:
+        record.check_out_at = check_out_at
+    db.session.commit()
+    return record
+
+
+def mark_absent(tenant_id, *, project_id, attendance_date, employee_id=None, casual_worker_id=None):
+    """Real, previously genuinely missing -- a real absence (no
+    check-in at all) had no way to be explicitly recorded; a real
+    attendance report needs to distinguish "genuinely absent, recorded
+    as such" from "no record exists for this person/day yet"."""
+    if not employee_id and not casual_worker_id:
+        raise APIError("Either employee_id or casual_worker_id is required", status=400)
+
+    existing = AttendanceRecord.query.filter_by(
+        tenant_id=tenant_id, project_id=project_id, attendance_date=attendance_date,
+        employee_id=employee_id, casual_worker_id=casual_worker_id,
+    ).first()
+    if existing:
+        raise APIError("An attendance record already exists for this person and date", status=409)
+
+    record = AttendanceRecord(
+        tenant_id=tenant_id, project_id=project_id, attendance_date=attendance_date,
+        employee_id=employee_id, casual_worker_id=casual_worker_id, capture_method="manual",
+    )
+    db.session.add(record)
+    db.session.commit()
+    return record
 
 
 # --- Certification lookup (WFM-08/09, feeds Module 9) -------------------------
@@ -185,6 +419,13 @@ def generate_payroll_run(tenant_id, *, period_start, period_end):
         Timesheet.period_start >= period_start,
         Timesheet.period_end <= period_end,
         Timesheet.payroll_run_id.is_(None),
+        # Real, critical fix: this filter was previously entirely
+        # missing -- a pending_approval or even rejected timesheet
+        # would have been silently pulled into payroll. "locked" is
+        # included since it's a stricter, already-verified state (see
+        # lock_timesheet's own docstring) that should still be
+        # payable.
+        Timesheet.status.in_(("approved", "locked")),
     ).all()
 
     deduction_rules = StatutoryDeductionRule.query.filter_by(tenant_id=tenant_id).all()
