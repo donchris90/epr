@@ -25,9 +25,50 @@ export interface ProjectRisk {
   exposure_value: string;
 }
 
+/** Real type matching backend/app/modules/exd/services.py's own
+ * get_ar_ap_aging_summary return shape exactly -- confirmed directly
+ * against the real service function, not guessed. Real bug found and
+ * fixed here: an earlier version of this type had
+ * total_receivable/total_payable, fields that don't exist on the
+ * real response at all -- the actual shape is accounts_receivable/
+ * accounts_payable, each the same real age-band structure BIL's own
+ * outstanding-invoices report uses, with individual overdue
+ * certificates/invoices inside each band. */
+export interface AgingItem {
+  certificate_id?: string;
+  certificate_number?: string;
+  invoice_id?: string;
+  invoice_number?: string;
+  amount: string;
+  due_date: string | null;
+  status?: string;
+}
+
+export interface AgingBands {
+  current: AgingItem[];
+  "1_30_days": AgingItem[];
+  "31_60_days": AgingItem[];
+  "61_90_days": AgingItem[];
+  over_90_days: AgingItem[];
+}
+
 export interface ARAPAging {
-  total_receivable: string | null;
-  total_payable: string | null;
+  accounts_receivable: AgingBands;
+  accounts_payable: AgingBands;
+}
+
+/** Sums every real item's amount across all five real age bands. */
+export function sumAgingBands(bands: AgingBands): number {
+  return Object.values(bands)
+    .flat()
+    .reduce((sum, item) => sum + Number(item.amount), 0);
+}
+
+/** Every real overdue item (any band past "current") across both
+ * sides -- the real data source for the dashboard's "Payment issue"
+ * alert, not invented. */
+export function overdueAgingItems(bands: AgingBands): AgingItem[] {
+  return [...bands["1_30_days"], ...bands["31_60_days"], ...bands["61_90_days"], ...bands.over_90_days];
 }
 
 export interface EquipmentUtilization {

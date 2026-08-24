@@ -7,6 +7,7 @@ import {
   useEquipmentUtilization,
   useProjectNames,
   useIncidents,
+  sumAgingBands,
 } from "./hooks";
 import { useTenders } from "../tbm/hooks";
 import { useEmployees } from "../wfm/hooks";
@@ -123,8 +124,8 @@ export default function DashboardPage() {
             {metricLabel("Receivables / Payables")}
             {aging ? (
               <div style={{ fontSize: 13, display: "grid", gap: 4 }}>
-                <div>Receivable: <span className="sf-mono">{aging.total_receivable ? formatMoney(aging.total_receivable) : "—"}</span></div>
-                <div>Payable: <span className="sf-mono">{aging.total_payable ? formatMoney(aging.total_payable) : "—"}</span></div>
+                <div>Receivable: <span className="sf-mono">{formatMoney(sumAgingBands(aging.accounts_receivable))}</span></div>
+                <div>Payable: <span className="sf-mono">{formatMoney(sumAgingBands(aging.accounts_payable))}</span></div>
               </div>
             ) : (
               <EmptyState compact title="No aging data yet." />

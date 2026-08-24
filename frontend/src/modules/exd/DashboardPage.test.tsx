@@ -22,7 +22,10 @@ function mockGet(overrides: Record<string, unknown> = {}) {
     "/exd/company-revenue": { actual_revenue: "5000000", budget_amount: "4500000", variance: "500000", variance_pct: "11.1", drill_down_journal_entries: [] },
     "/exd/active-projects-performance": [],
     "/exd/project-risks": [],
-    "/exd/ar-ap-aging": { total_receivable: "1200000", total_payable: "800000" },
+    "/exd/ar-ap-aging": {
+      accounts_receivable: { current: [{ certificate_id: "c1", certificate_number: "PC-1", amount: "1200000", due_date: null, status: "certified" }], "1_30_days": [], "31_60_days": [], "61_90_days": [], over_90_days: [] },
+      accounts_payable: { current: [{ invoice_id: "i1", invoice_number: "AP-1", amount: "800000", due_date: null }], "1_30_days": [], "31_60_days": [], "61_90_days": [], over_90_days: [] },
+    },
     "/exd/equipment-utilization": [],
     "/projects": [],
     "/tbm/tenders": [],
@@ -44,6 +47,16 @@ beforeEach(() => {
 });
 
 describe("Executive DashboardPage", () => {
+  it("computes a real receivables/payables total from the real age-band structure, not a nonexistent total field", async () => {
+    mockGet();
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByText(/1,200,000/)).toBeInTheDocument();
+      expect(screen.getByText(/800,000/)).toBeInTheDocument();
+    });
+  });
+
   it("shows real section headings for every dashboard area", async () => {
     mockGet();
     renderDashboard();
