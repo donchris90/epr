@@ -2,6 +2,34 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { clientPortalClient } from "./api/client";
 import { getClientAccessToken } from "./lib/auth";
 
+/** Real types matching backend/app/modules/clp/services.py's own
+ * get_client_progress_summary and get_client_site_media return
+ * shapes exactly -- checked directly against the actual service
+ * functions before writing these, not guessed. */
+export interface ClientProgressSummary {
+  overall_percent_complete: number | null;
+  activity_count: number;
+  critical_activity_count: number;
+}
+
+export interface ClientDiarySummary {
+  diary_id: string;
+  diary_date: string;
+  narrative: string | null;
+}
+
+export interface ClientSiteMediaItem {
+  media_id: string;
+  media_type: string;
+  captured_at: string | null;
+  download_url: string | null;
+}
+
+export interface ClientSiteMedia {
+  diary_summaries: ClientDiarySummary[];
+  media: ClientSiteMediaItem[];
+}
+
 // --- Auth ------------------------------------------------------------------
 
 export function useClientLogin() {
@@ -48,7 +76,7 @@ export function useClientProject(projectId?: string) {
 export function useClientProgress(projectId?: string) {
   return useQuery({
     queryKey: ["cp", "projects", projectId, "progress"],
-    queryFn: async () =>
+    queryFn: async (): Promise<ClientProgressSummary> =>
       (await clientPortalClient.get(`/clp/client-users/${meId()}/projects/${projectId}/progress`)).data,
     enabled: !!projectId,
   });
@@ -66,7 +94,7 @@ export function useClientSchedule(projectId?: string) {
 export function useClientSiteMedia(projectId?: string) {
   return useQuery({
     queryKey: ["cp", "projects", projectId, "site-media"],
-    queryFn: async () =>
+    queryFn: async (): Promise<ClientSiteMedia> =>
       (await clientPortalClient.get(`/clp/client-users/${meId()}/projects/${projectId}/site-media`)).data,
     enabled: !!projectId,
   });

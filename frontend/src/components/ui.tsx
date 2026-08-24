@@ -274,6 +274,25 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   );
 }
 
+export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <textarea
+      rows={4}
+      {...props}
+      style={{
+        padding: "9px 12px",
+        border: "1px solid var(--sf-line)",
+        borderRadius: "var(--sf-radius)",
+        fontSize: 13,
+        fontFamily: "inherit",
+        width: "100%",
+        resize: "vertical",
+        ...props.style,
+      }}
+    />
+  );
+}
+
 /** Standardized form field: label + control + optional hint/error.
  * When `error` is set, the control (if it's a single Input/Select
  * element) is automatically wired with aria-invalid and

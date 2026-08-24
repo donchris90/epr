@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { Card, Badge, Button, Select } from "../../../components/ui";
+import { Card, Badge, Button, Select, Textarea } from "../../../components/ui";
 import { useClientRequests, useSubmitClientRequest } from "../../hooks";
 import { QueryState } from "../../components/QueryState";
 
@@ -54,27 +54,22 @@ export default function IssuesTab() {
         <h3 style={{ fontSize: 14, marginBottom: 10 }}>Raise an issue or ask a question</h3>
         <form onSubmit={handleSubmit}>
           <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-            <Select value={requestType} onChange={(e) => setRequestType(e.target.value as any)} style={{ maxWidth: 200 }}>
+            <Select
+              value={requestType}
+              onChange={(e) => setRequestType(e.target.value === "service_request" ? "service_request" : "rfi")}
+              style={{ maxWidth: 200 }}
+            >
               <option value="rfi">Request for information</option>
               <option value="service_request">Service request</option>
             </Select>
           </div>
-          <textarea
+          <Textarea
             required
             placeholder="Describe your question or issue…"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            style={{
-              width: "100%",
-              padding: "9px 12px",
-              border: "1px solid var(--sf-line)",
-              borderRadius: "var(--sf-radius)",
-              fontSize: 13,
-              fontFamily: "inherit",
-              marginBottom: 10,
-              resize: "vertical",
-            }}
+            style={{ marginBottom: 10 }}
           />
           {error && <div style={{ color: "var(--sf-brick)", fontSize: 12, marginBottom: 10 }}>{error}</div>}
           <Button type="submit" disabled={submit.isPending}>

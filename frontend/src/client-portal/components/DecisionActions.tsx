@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button } from "../../components/ui";
+import { Button, Textarea } from "../../components/ui";
 
 /** Shared approve/reject control for a pending certificate or
  * variation order row (CLP-03 / CLP-05) -- an inline expanding notes
@@ -47,22 +47,13 @@ export function DecisionActions({
 
   return (
     <div style={{ minWidth: 240 }}>
-      <textarea
+      <Textarea
         autoFocus
         placeholder={mode === "approve" ? "Optional note (visible to your project team)" : "Reason for rejecting (recommended)"}
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
         rows={2}
-        style={{
-          width: "100%",
-          padding: "8px 10px",
-          border: "1px solid var(--sf-line)",
-          borderRadius: "var(--sf-radius)",
-          fontSize: 13,
-          fontFamily: "inherit",
-          marginBottom: 6,
-          resize: "vertical",
-        }}
+        style={{ marginBottom: 6 }}
       />
       {error && <div style={{ color: "var(--sf-brick)", fontSize: 12, marginBottom: 6 }}>{error}</div>}
       <div style={{ display: "flex", gap: 6 }}>

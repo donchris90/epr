@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { PageHeader, Card, Button, Table, Th, Td, Badge, EmptyState, Input, Field } from "../../components/ui";
+import { PageHeader, Card, Button, Table, Th, Td, Badge, EmptyState, Input, Field, Textarea } from "../../components/ui";
 import { ProjectSelect } from "../../components/ProjectSelect";
 import { useDiaries, useCreateDiary } from "./hooks";
 
@@ -73,20 +73,11 @@ export default function DiariesPage() {
               </Field>
             </div>
             <Field label="Narrative (optional)">
-              <textarea
+              <Textarea
                 value={form.narrative}
                 onChange={(e) => setForm({ ...form, narrative: e.target.value })}
                 placeholder="Summary of today's activity on site…"
                 rows={3}
-                style={{
-                  width: "100%",
-                  padding: "8px 10px",
-                  border: "1px solid var(--sf-line)",
-                  borderRadius: "var(--sf-radius)",
-                  fontSize: 13,
-                  fontFamily: "inherit",
-                  resize: "vertical",
-                }}
               />
             </Field>
             <Button type="submit" disabled={createDiary.isPending}>

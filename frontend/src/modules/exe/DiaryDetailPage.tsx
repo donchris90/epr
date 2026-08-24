@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { PageHeader, Card, Button, Badge, Input, Field, Table, Th, Td } from "../../components/ui";
+import { PageHeader, Card, Button, Badge, Input, Field, Table, Th, Td, Textarea } from "../../components/ui";
 import {
   useDiary,
   useUpdateDiary,
@@ -146,19 +146,12 @@ export default function DiaryDetailPage() {
         <div>
           <Card style={{ marginBottom: 20 }}>
             <h3 style={{ fontSize: 14, marginBottom: 12 }}>Narrative</h3>
-            <textarea
+            <Textarea
               disabled={isLocked}
               value={narrativeValue}
               onChange={(e) => setNarrative(e.target.value)}
               rows={5}
               style={{
-                width: "100%",
-                padding: "8px 10px",
-                border: "1px solid var(--sf-line)",
-                borderRadius: "var(--sf-radius)",
-                fontSize: 13,
-                fontFamily: "inherit",
-                resize: "vertical",
                 background: isLocked ? "var(--sf-paper-dim)" : "#fff",
                 color: isLocked ? "var(--sf-navy-600)" : "inherit",
               }}
