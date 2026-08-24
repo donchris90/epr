@@ -61,7 +61,7 @@ export default function TimesheetsPage() {
             <Input required type="date" value={tsForm.period_start} onChange={(e) => setTsForm({ ...tsForm, period_start: e.target.value })} />
             <Input required type="date" value={tsForm.period_end} onChange={(e) => setTsForm({ ...tsForm, period_end: e.target.value })} />
             <Input required placeholder="Hours/units" value={tsForm.hours_or_units} onChange={(e) => setTsForm({ ...tsForm, hours_or_units: e.target.value })} />
-            <Input required placeholder="Rate" value={tsForm.rate_applied} onChange={(e) => setTsForm({ ...tsForm, rate_applied: e.target.value })} />
+            <Input required type="number" step="0.01" placeholder="Rate" value={tsForm.rate_applied} onChange={(e) => setTsForm({ ...tsForm, rate_applied: e.target.value })} />
             <Button type="submit" disabled={generateTimesheet.isPending}>Generate</Button>
           </form>
         </Card>

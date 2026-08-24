@@ -1,6 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../api/client";
 
+/** Real type matching backend/app/modules/bil/schemas.py's own
+ * VariationOrderSchema exactly -- checked directly before writing
+ * this, not guessed. */
+export interface VariationOrder {
+  id: string;
+  contract_id: string;
+  boq_item_id: string | null;
+  varied_quantity: string;
+  status: string;
+}
+
 // --- Progress certificates (BIL-01, BIL-09) -------------------------------------
 
 export function useCertificates(status?: string) {
@@ -77,7 +88,7 @@ export function useApproveCertificate(certificateId?: string) {
 export function useVariationOrders(status?: string) {
   return useQuery({
     queryKey: ["bil", "variation-orders", status],
-    queryFn: async () => (await apiClient.get("/bil/variation-orders", { params: status ? { status } : {} })).data.data,
+    queryFn: async (): Promise<VariationOrder[]> => (await apiClient.get("/bil/variation-orders", { params: status ? { status } : {} })).data.data,
   });
 }
 

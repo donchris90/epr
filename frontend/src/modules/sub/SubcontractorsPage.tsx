@@ -64,7 +64,7 @@ export default function SubcontractorsPage() {
           <form onSubmit={handleCreateAgreement} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr auto", gap: 12 }}>
             <SubcontractorSelect required value={agForm.subcontractor_id} onChange={(subcontractor_id) => setAgForm({ ...agForm, subcontractor_id })} />
             <Input required placeholder="Agreement number" value={agForm.agreement_number} onChange={(e) => setAgForm({ ...agForm, agreement_number: e.target.value })} />
-            <Input required placeholder="Value" value={agForm.value} onChange={(e) => setAgForm({ ...agForm, value: e.target.value })} />
+            <Input required type="number" step="0.01" placeholder="Value" value={agForm.value} onChange={(e) => setAgForm({ ...agForm, value: e.target.value })} />
             <Input placeholder="Retention %" value={agForm.retention_percentage} onChange={(e) => setAgForm({ ...agForm, retention_percentage: e.target.value })} />
             <Button type="submit" disabled={createAgreement.isPending} style={{ height: 38, alignSelf: "end" }}>Add</Button>
           </form>

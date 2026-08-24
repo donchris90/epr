@@ -72,7 +72,7 @@ export default function EquipmentDetailPage() {
             <form onSubmit={handleAddUtilization} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 8 }}>
               <Input required type="date" value={utilForm.record_date} onChange={(e) => setUtilForm({ ...utilForm, record_date: e.target.value })} />
               <Input placeholder="Hours scheduled" value={utilForm.hours_scheduled} onChange={(e) => setUtilForm({ ...utilForm, hours_scheduled: e.target.value })} />
-              <Input required placeholder="Hours operated" value={utilForm.hours_operated} onChange={(e) => setUtilForm({ ...utilForm, hours_operated: e.target.value })} />
+              <Input required type="number" step="0.01" placeholder="Hours operated" value={utilForm.hours_operated} onChange={(e) => setUtilForm({ ...utilForm, hours_operated: e.target.value })} />
               <Button type="submit" disabled={addUtilization.isPending}>Record</Button>
             </form>
           </Card>

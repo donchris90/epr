@@ -125,7 +125,7 @@ export default function EVMPage() {
             <form onSubmit={handleAddRisk} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 8, marginBottom: 12 }}>
               <Input required placeholder="Description" value={riskForm.description} onChange={(e) => setRiskForm({ ...riskForm, description: e.target.value })} />
               <Input required placeholder="Probability (0-1)" value={riskForm.probability} onChange={(e) => setRiskForm({ ...riskForm, probability: e.target.value })} />
-              <Input required placeholder="Impact value" value={riskForm.impact_value} onChange={(e) => setRiskForm({ ...riskForm, impact_value: e.target.value })} />
+              <Input required type="number" step="0.01" placeholder="Impact value" value={riskForm.impact_value} onChange={(e) => setRiskForm({ ...riskForm, impact_value: e.target.value })} />
               <Button type="submit" disabled={createRisk.isPending}>Add</Button>
             </form>
           )}

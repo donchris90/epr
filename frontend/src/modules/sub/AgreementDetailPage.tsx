@@ -78,7 +78,7 @@ export default function AgreementDetailPage() {
           <form onSubmit={handleAddScope} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 8, marginTop: 12 }}>
             <Input required placeholder="Description" value={scopeForm.description} onChange={(e) => setScopeForm({ ...scopeForm, description: e.target.value })} />
             <Input placeholder="Qty" value={scopeForm.quantity} onChange={(e) => setScopeForm({ ...scopeForm, quantity: e.target.value })} />
-            <Input placeholder="Rate" value={scopeForm.rate} onChange={(e) => setScopeForm({ ...scopeForm, rate: e.target.value })} />
+            <Input type="number" step="0.01" placeholder="Rate" value={scopeForm.rate} onChange={(e) => setScopeForm({ ...scopeForm, rate: e.target.value })} />
             <Button type="submit" disabled={addScopeItem.isPending}>Add</Button>
           </form>
         </Card>

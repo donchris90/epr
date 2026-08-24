@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, Input, ErrorBanner } from "../../components/ui";
+import { BOQItemSelect } from "../../components/BOQItemSelect";
+import { Combobox } from "../../components/Combobox";
 import { getErrorMessage } from "../../api/client";
 import {
   useCertificate,
@@ -9,6 +11,7 @@ import {
   useSubmitCertificate,
   useApproveCertificate,
   useRecordPayment,
+  useVariationOrders,
 } from "./hooks";
 
 const STATUS_TONE: Record<string, "neutral" | "amber" | "steel" | "green" | "brick"> = {
@@ -32,6 +35,7 @@ export default function CertificateDetailPage() {
   const addLine = useAddCertificateLine(certificateId);
   const [lineForm, setLineForm] = useState({ boq_item_id: "", certified_quantity: "", rate: "", contracted_quantity: "", variation_order_id: "" });
   const [lineError, setLineError] = useState<string | null>(null);
+  const { data: approvedVOs } = useVariationOrders("approved");
 
   const applyRetention = useApplyRetention(certificateId);
   const [retentionPct, setRetentionPct] = useState("10");
@@ -114,36 +118,45 @@ export default function CertificateDetailPage() {
                 )}
                 <form onSubmit={handleAddLine} style={{ marginTop: 12 }}>
                   <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
-                    <Input
-                      required
-                      placeholder="BOQ item UUID"
+                    <BOQItemSelect
+                      contractId={cert.contract_id ?? ""}
                       value={lineForm.boq_item_id}
-                      onChange={(e) => setLineForm({ ...lineForm, boq_item_id: e.target.value })}
+                      onChange={(boq_item_id) => setLineForm({ ...lineForm, boq_item_id })}
                     />
                     <Input
                       required
+                      type="number"
+                      step="0.01"
                       placeholder="Certified qty"
                       value={lineForm.certified_quantity}
                       onChange={(e) => setLineForm({ ...lineForm, certified_quantity: e.target.value })}
                     />
                     <Input
                       required
+                      type="number"
+                      step="0.01"
                       placeholder="Rate"
                       value={lineForm.rate}
                       onChange={(e) => setLineForm({ ...lineForm, rate: e.target.value })}
                     />
                     <Input
                       required
+                      type="number"
+                      step="0.01"
                       placeholder="Contracted qty"
                       value={lineForm.contracted_quantity}
                       onChange={(e) => setLineForm({ ...lineForm, contracted_quantity: e.target.value })}
                     />
                   </div>
                   <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
-                    <Input
-                      placeholder="Variation order UUID (optional — must be approved)"
+                    <Combobox
                       value={lineForm.variation_order_id}
-                      onChange={(e) => setLineForm({ ...lineForm, variation_order_id: e.target.value })}
+                      onChange={(variation_order_id) => setLineForm({ ...lineForm, variation_order_id })}
+                      options={(approvedVOs ?? [])
+                        .filter((vo) => vo.contract_id === cert.contract_id)
+                        .map((vo) => ({ id: vo.id, label: `${vo.varied_quantity} units`, sublabel: vo.status }))}
+                      placeholder="Variation order (optional — must be approved)"
+                      aria-label="Variation order"
                     />
                     <Button type="submit" disabled={addLine.isPending}>
                       {addLine.isPending ? "Adding…" : "Add line"}
@@ -167,7 +180,7 @@ export default function CertificateDetailPage() {
               </div>
               {cert.payment_tracking.status !== "paid" && (
                 <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
-                  <Input placeholder="Amount received" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} />
+                  <Input type="number" step="0.01" placeholder="Amount received" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} />
                   <Button
                     disabled={!paidAmount || recordPayment.isPending}
                     onClick={() => recordPayment.mutate({ trackingId: cert.payment_tracking.id, paid_amount: paidAmount })}

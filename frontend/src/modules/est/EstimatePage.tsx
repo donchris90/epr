@@ -349,7 +349,7 @@ function LaborRatesTab() {
       <form onSubmit={submit} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto", gap: 8, marginBottom: 16 }}>
         <Input required placeholder="Trade" value={form.trade} onChange={(e) => setForm({ ...form, trade: e.target.value })} />
         <Input placeholder="Grade" value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} />
-        <Input required placeholder="Hourly rate" value={form.hourly_rate} onChange={(e) => setForm({ ...form, hourly_rate: e.target.value })} />
+        <Input required type="number" step="0.01" placeholder="Hourly rate" value={form.hourly_rate} onChange={(e) => setForm({ ...form, hourly_rate: e.target.value })} />
         <Input placeholder="Statutory on-cost %" value={form.statutory_oncost_pct} onChange={(e) => setForm({ ...form, statutory_oncost_pct: e.target.value })} />
         <Button type="submit" variant="secondary" disabled={create.isPending}>
           Add
@@ -814,7 +814,7 @@ export default function EstimatePage() {
                   <option value="percentage">% of items total</option>
                   <option value="fixed">Fixed amount</option>
                 </Select>
-                <Input placeholder="Value" value={contingencyForm.value} onChange={(e) => setContingencyForm({ ...contingencyForm, value: e.target.value })} />
+                <Input type="number" step="0.01" placeholder="Value" value={contingencyForm.value} onChange={(e) => setContingencyForm({ ...contingencyForm, value: e.target.value })} />
                 <Input placeholder="Description (optional)" value={contingencyForm.description} onChange={(e) => setContingencyForm({ ...contingencyForm, description: e.target.value })} />
                 <Button type="submit" variant="secondary" disabled={addContingency.isPending}>
                   Add
