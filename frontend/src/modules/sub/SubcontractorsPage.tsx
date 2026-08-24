@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, EmptyState, Input, Field } from "../../components/ui";
 import { SubcontractorSelect } from "../../components/SubcontractorSelect";
-import { useSubcontractors, useCreateSubcontractor, useAgreements, useCreateAgreement } from "./hooks";
+import { useSubcontractors, useCreateSubcontractor, useAgreements, useCreateAgreement, type Subcontractor, type SubcontractAgreement } from "./hooks";
 
 export default function SubcontractorsPage() {
   const { data: subcontractors, isLoading } = useSubcontractors();
@@ -80,7 +80,7 @@ export default function SubcontractorsPage() {
           <Table>
             <thead><tr><Th>Name</Th><Th>Trade</Th><Th>Status</Th></tr></thead>
             <tbody>
-              {subcontractors.map((s: any) => (
+              {subcontractors.map((s: Subcontractor) => (
                 <tr key={s.id}>
                   <Td>{s.name}</Td>
                   <Td>{s.trade_specialty || "—"}</Td>
@@ -97,7 +97,7 @@ export default function SubcontractorsPage() {
           <Table>
             <thead><tr><Th>Number</Th><Th>Value</Th><Th>Retention</Th><Th>Status</Th><Th></Th></tr></thead>
             <tbody>
-              {agreements.map((a: any) => (
+              {agreements.map((a: SubcontractAgreement) => (
                 <tr key={a.id}>
                   <Td mono>{a.agreement_number}</Td>
                   <Td mono>{a.currency} {a.value}</Td>
