@@ -83,4 +83,82 @@ describe("DataTable", () => {
     await user.click(screen.getByRole("checkbox", { name: "Amount" }));
     expect(screen.queryByRole("button", { name: /sort by amount/i })).not.toBeInTheDocument();
   });
+
+  describe("CSV export", () => {
+    function mockDownload() {
+      const createObjectURL = vi.fn((_obj: Blob | MediaSource) => "blob:mock-url");
+      const revokeObjectURL = vi.fn();
+      vi.stubGlobal("URL", { ...URL, createObjectURL, revokeObjectURL });
+      const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+      return { createObjectURL, revokeObjectURL, clickSpy };
+    }
+
+    it("does not show an export button when exportFilename is omitted", () => {
+      render(<DataTable columns={columns} rows={ROWS} getRowId={(r) => r.id} />);
+      expect(screen.queryByRole("button", { name: /export csv/i })).not.toBeInTheDocument();
+    });
+
+    it("does not show an export button when there are no rows to export", () => {
+      render(<DataTable columns={columns} rows={[]} getRowId={(r) => r.id} exportFilename="my-export" />);
+      expect(screen.queryByRole("button", { name: /export csv/i })).not.toBeInTheDocument();
+    });
+
+    it("exports the real, currently visible rows as a correctly-formatted CSV, using exportValue over the raw render output", async () => {
+      const { createObjectURL, clickSpy } = mockDownload();
+      const user = userEvent.setup();
+      const exportColumns = [
+        { key: "name", header: "Name", render: (r: Row) => <strong>{r.name}</strong>, exportValue: (r: Row) => r.name },
+        { key: "amount", header: "Amount", render: (r: Row) => `$${r.amount}`, exportValue: (r: Row) => r.amount },
+      ];
+      render(<DataTable columns={exportColumns} rows={ROWS} getRowId={(r) => r.id} exportFilename="my-report" />);
+
+      await user.click(screen.getByRole("button", { name: /export csv/i }));
+
+      expect(createObjectURL).toHaveBeenCalledTimes(1);
+      const blob = createObjectURL.mock.calls[0][0] as Blob;
+      const text = await blob.text();
+      expect(text).toBe("Name,Amount\r\nBravo,30\r\nAlpha,10\r\nCharlie,20");
+      expect(clickSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("downloads the real file using the given exportFilename", async () => {
+      mockDownload();
+      const user = userEvent.setup();
+      const createElementSpy = vi.spyOn(document, "createElement");
+      render(<DataTable columns={columns} rows={ROWS} getRowId={(r) => r.id} exportFilename="vendors-2026" />);
+
+      await user.click(screen.getByRole("button", { name: /export csv/i }));
+
+      const anchor = createElementSpy.mock.results.find((r) => r.value instanceof HTMLAnchorElement)?.value as HTMLAnchorElement;
+      expect(anchor.download).toBe("vendors-2026.csv");
+    });
+
+    it("correctly escapes a real value containing a comma", async () => {
+      const { createObjectURL } = mockDownload();
+      const user = userEvent.setup();
+      const commaRows = [{ id: "x", name: "Smith, John", amount: 5 }];
+      render(<DataTable columns={columns} rows={commaRows} getRowId={(r) => r.id} exportFilename="test" />);
+
+      await user.click(screen.getByRole("button", { name: /export csv/i }));
+
+      const blob = createObjectURL.mock.calls[0][0] as Blob;
+      const text = await blob.text();
+      expect(text).toBe('Name,Amount\r\n"Smith, John",5');
+    });
+
+    it("only exports the real, currently filtered rows -- not every row", async () => {
+      const { createObjectURL } = mockDownload();
+      const user = userEvent.setup();
+      render(
+        <DataTable columns={columns} rows={ROWS} getRowId={(r) => r.id} searchFields={(r) => [r.name]} exportFilename="filtered" />
+      );
+
+      await user.type(screen.getByPlaceholderText("Search…"), "Alpha");
+      await user.click(screen.getByRole("button", { name: /export csv/i }));
+
+      const blob = createObjectURL.mock.calls[0][0] as Blob;
+      const text = await blob.text();
+      expect(text).toBe("Name,Amount\r\nAlpha,10");
+    });
+  });
 });

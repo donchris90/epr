@@ -147,6 +147,7 @@ export default function PurchaseOrdersPage() {
               columns={columns}
               rows={pos}
               getRowId={(po) => po.id}
+              exportFilename="purchase-orders"
               searchFields={(po) => [po.po_number, vendorsById[po.vendor_id]?.name, po.status]}
               searchPlaceholder="Search purchase orders…"
               emptyTitle="No purchase orders match your search"

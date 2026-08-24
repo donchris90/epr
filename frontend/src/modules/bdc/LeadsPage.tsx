@@ -120,6 +120,7 @@ export default function LeadsPage() {
               ]}
               rows={leads}
               getRowId={(l) => l.id}
+              exportFilename="leads"
               searchFields={(l) => [l.name, l.source]}
               searchPlaceholder="Search leads…"
               emptyTitle="No leads match your search"

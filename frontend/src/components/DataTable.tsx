@@ -13,6 +13,10 @@ export interface DataTableColumn<T> {
   align?: "left" | "right";
   /** Only for the sr-only per-column caption on truly numeric columns; visual alignment still comes from `align`. */
   numeric?: boolean;
+  /** Plain-text value for this column, used only for CSV export -- `render` returns a
+   * ReactNode, which can't be serialized to a cell string directly. Omit to fall back
+   * to sortValue's own value, or an empty cell if neither is provided. */
+  exportValue?: (row: T) => string | number | null | undefined;
 }
 
 export interface BulkAction<T> {
@@ -44,6 +48,7 @@ export function DataTable<T>({
   emptyHint,
   emptyAction,
   filters,
+  exportFilename,
 }: {
   columns: DataTableColumn<T>[];
   rows: T[];
@@ -59,6 +64,12 @@ export function DataTable<T>({
   emptyAction?: ReactNode;
   /** Caller-supplied filter controls (Selects, date pickers, ...), rendered in the toolbar next to search. */
   filters?: ReactNode;
+  /** Omit to disable CSV export entirely -- not every table needs it. When set, an
+   * "Export CSV" button downloads the currently filtered/sorted rows (every column,
+   * regardless of show/hide state, so the exported file is always complete) as
+   * `${exportFilename}.csv`, generated client-side since there's no backend export
+   * endpoint to call. */
+  exportFilename?: string;
 }) {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -132,6 +143,31 @@ export function DataTable<T>({
     });
   }
 
+  function csvCell(value: string | number | null | undefined): string {
+    const s = String(value ?? "");
+    // Real RFC 4180 escaping -- a value containing a comma, quote, or
+    // newline must be wrapped in quotes, with any internal quote
+    // doubled. Without this, a name like `Smith, John` or a
+    // description containing a literal quote would silently corrupt
+    // the file's column structure when opened in a spreadsheet.
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }
+
+  function handleExport() {
+    const headerRow = columns.map((c) => csvCell(c.header)).join(",");
+    const dataRows = sorted.map((row) =>
+      columns.map((c) => csvCell((c.exportValue ?? c.sortValue)?.(row))).join(",")
+    );
+    const csv = [headerRow, ...dataRows].join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${exportFilename}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12, alignItems: "center" }}>
@@ -146,6 +182,11 @@ export function DataTable<T>({
           </div>
         )}
         {filters}
+        {exportFilename && sorted.length > 0 && (
+          <Button variant="secondary" onClick={handleExport}>
+            Export CSV
+          </Button>
+        )}
         <div style={{ position: "relative", marginLeft: "auto" }}>
           <Button variant="secondary" onClick={() => setColMenuOpen((v) => !v)} aria-expanded={colMenuOpen} aria-haspopup="true">
             Columns

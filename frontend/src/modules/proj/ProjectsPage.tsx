@@ -273,6 +273,7 @@ export default function ProjectsPage() {
             ]}
             rows={projects}
             getRowId={(p) => p.id}
+            exportFilename="projects"
             emptyTitle="No projects yet"
             emptyHint="Create your first project to get started."
             emptyAction={<Button onClick={() => setShowCreate(true)}>+ New Project</Button>}

@@ -5,6 +5,7 @@ import { DataTable } from "../../components/DataTable";
 import { QueryState } from "../../components/QueryState";
 import { Modal } from "../../components/Modal";
 import { useTenders, useCreateTender } from "./hooks";
+import type { Tender } from "./types";
 import { useToast } from "../../lib/toast";
 import { getErrorMessage, getFieldErrors } from "../../api/client";
 import { useUnsavedChanges } from "../../lib/useUnsavedChanges";
@@ -76,9 +77,9 @@ export default function TendersPage() {
 
   const columns = useMemo(
     () => [
-      { key: "reference", header: "Reference", render: (t: any) => t.reference_number, sortValue: (t: any) => t.reference_number },
-      { key: "status", header: "Status", render: (t: any) => <Badge tone={statusTone(t.status)}>{t.status}</Badge>, sortValue: (t: any) => t.status },
-      { key: "due", header: "Due date", render: (t: any) => <span className="sf-mono">{t.due_date || "—"}</span>, sortValue: (t: any) => t.due_date ?? "" },
+      { key: "reference", header: "Reference", render: (t: Tender) => t.reference_number, sortValue: (t: Tender) => t.reference_number },
+      { key: "status", header: "Status", render: (t: Tender) => <Badge tone={statusTone(t.status)}>{t.status}</Badge>, sortValue: (t: Tender) => t.status },
+      { key: "due", header: "Due date", render: (t: Tender) => <span className="sf-mono">{t.submission_deadline || "—"}</span>, sortValue: (t: Tender) => t.submission_deadline ?? "" },
     ],
     []
   );
@@ -96,13 +97,14 @@ export default function TendersPage() {
           emptyHint="Create a tender once an opportunity is ready to bid."
           emptyAction={<Button onClick={() => setShowCreate(true)}>+ New Tender</Button>}
         >
-          {(tenders: any[]) => (
+          {(tenders: Tender[]) => (
             <DataTable
               columns={columns}
               rows={tenders}
               getRowId={(t) => t.id}
               searchFields={(t) => [t.reference_number, t.status]}
               searchPlaceholder="Search tenders…"
+              exportFilename="tenders"
               emptyTitle="No tenders match your search"
               rowActions={(t) => (
                 <Link to={`/tenders/${t.id}`}>

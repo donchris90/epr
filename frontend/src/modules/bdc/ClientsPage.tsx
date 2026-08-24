@@ -105,6 +105,7 @@ export default function ClientsPage() {
               ]}
               rows={clients}
               getRowId={(c) => c.id}
+              exportFilename="clients"
               searchFields={(c) => [c.name, c.billing_email]}
               searchPlaceholder="Search clients…"
               emptyTitle="No clients match your search"
