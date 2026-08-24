@@ -1,6 +1,7 @@
 """
 Real global search across permitted entity types -- Projects,
-Clients, Vendors, Contracts. Base path: /v1/search
+Clients, Vendors, Contracts, Employees, Documents, Purchase Orders.
+Base path: /v1/search
 
 RBAC-aware per entity type, not just per-endpoint: a caller without
 bdc:read genuinely never sees a client in results, even if they can
@@ -86,6 +87,55 @@ def search(tenant_id, *, query, permissions):
             results.append({
                 "type": "contract", "id": str(c.id), "label": c.contract_number, "status": c.status,
                 "url": f"/contracts/{c.id}",
+            })
+
+    if has_wildcard or "wfm:read" in permissions:
+        from app.modules.wfm.models import Employee
+
+        employees = (
+            Employee.query.filter(Employee.tenant_id == tenant_id, Employee.name.ilike(f"%{query}%"))
+            .order_by(Employee.name)
+            .limit(MAX_RESULTS_PER_TYPE)
+            .all()
+        )
+        for e in employees:
+            results.append({
+                "type": "employee", "id": str(e.id), "label": e.name, "status": e.status,
+                "url": "/workforce/timesheets",
+            })
+
+    if has_wildcard or "documents:read" in permissions:
+        from app.models.core import Document
+
+        documents = (
+            Document.query.filter(
+                Document.tenant_id == tenant_id, Document.status == "uploaded", Document.original_filename.ilike(f"%{query}%")
+            )
+            .order_by(Document.original_filename)
+            .limit(MAX_RESULTS_PER_TYPE)
+            .all()
+        )
+        for d in documents:
+            results.append({
+                "type": "document", "id": str(d.id), "label": d.original_filename, "status": None,
+                "url": "/documents",
+            })
+
+    if has_wildcard or "prc:read" in permissions:
+        from app.modules.prc.models import PurchaseOrder
+
+        purchase_orders = (
+            PurchaseOrder.query.filter(
+                PurchaseOrder.tenant_id == tenant_id, PurchaseOrder.deleted_at.is_(None), PurchaseOrder.po_number.ilike(f"%{query}%")
+            )
+            .order_by(PurchaseOrder.po_number)
+            .limit(MAX_RESULTS_PER_TYPE)
+            .all()
+        )
+        for po in purchase_orders:
+            results.append({
+                "type": "purchase_order", "id": str(po.id), "label": po.po_number, "status": po.status,
+                "url": "/procurement/purchase-orders",
             })
 
     return results

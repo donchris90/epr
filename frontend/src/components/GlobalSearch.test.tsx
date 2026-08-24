@@ -53,8 +53,8 @@ describe("GlobalSearch", () => {
     await waitFor(() => {
       expect(screen.getByText("Lekki Tower")).toBeInTheDocument();
       expect(screen.getByText("Lekki Estate Ltd")).toBeInTheDocument();
-      expect(screen.getByText("Project")).toBeInTheDocument();
-      expect(screen.getByText("Client")).toBeInTheDocument();
+      expect(screen.getAllByText("Project").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Client").length).toBeGreaterThan(0);
     });
     expect(apiClient.get).toHaveBeenCalledWith("/search", { params: { q: "Lekki" } });
   });
@@ -108,5 +108,120 @@ describe("GlobalSearch", () => {
     await user.click(screen.getByRole("button", { name: /search/i }));
 
     expect(screen.getByPlaceholderText(/search projects/i)).toBeInTheDocument();
+  });
+
+  describe("keyboard navigation", () => {
+    it("navigates results with arrow keys and selects the real active one with Enter", async () => {
+      const user = userEvent.setup();
+      renderInline();
+
+      const input = screen.getByPlaceholderText(/search projects/i);
+      await user.type(input, "Lekki");
+      await waitFor(() => screen.getByText("Lekki Tower"));
+
+      await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+
+      expect(mockNavigate).toHaveBeenCalledWith("/business-development/clients");
+    });
+
+    it("closes the dropdown on Escape without navigating", async () => {
+      const user = userEvent.setup();
+      renderInline();
+
+      const input = screen.getByPlaceholderText(/search projects/i);
+      await user.type(input, "Lekki");
+      await waitFor(() => screen.getByText("Lekki Tower"));
+
+      await user.keyboard("{Escape}");
+
+      await waitFor(() => {
+        expect(screen.queryByText("Lekki Tower")).not.toBeInTheDocument();
+      });
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("module filtering", () => {
+    it("shows real filter chips only when more than one real result type is present", async () => {
+      const user = userEvent.setup();
+      renderInline();
+
+      await user.type(screen.getByPlaceholderText(/search projects/i), "Lekki");
+      await waitFor(() => screen.getByText("Lekki Tower"));
+
+      expect(screen.getByRole("button", { name: "All" })).toBeInTheDocument();
+    });
+
+    it("filters to only the real selected type when a filter chip is clicked", async () => {
+      const user = userEvent.setup();
+      renderInline();
+
+      await user.type(screen.getByPlaceholderText(/search projects/i), "Lekki");
+      await waitFor(() => screen.getByText("Lekki Tower"));
+
+      await user.click(screen.getByRole("button", { name: "Client" }));
+
+      expect(screen.queryByText("Lekki Tower")).not.toBeInTheDocument();
+      expect(screen.getByText("Lekki Estate Ltd")).toBeInTheDocument();
+    });
+
+    it("does not show filter chips when there is only one real result type", async () => {
+      vi.mocked(apiClient.get).mockResolvedValue({ data: { data: [SAMPLE_RESULTS[0]] } });
+      const user = userEvent.setup();
+      renderInline();
+
+      await user.type(screen.getByPlaceholderText(/search projects/i), "Lekki");
+      await waitFor(() => screen.getByText("Lekki Tower"));
+
+      expect(screen.queryByRole("button", { name: "All" })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("recent searches", () => {
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    it("saves a real completed search to recent searches", async () => {
+      const user = userEvent.setup();
+      renderInline();
+
+      await user.type(screen.getByPlaceholderText(/search projects/i), "Lekki");
+      await waitFor(() => screen.getByText("Lekki Tower"));
+
+      expect(JSON.parse(localStorage.getItem("sf_recent_searches") ?? "[]")).toContain("Lekki");
+    });
+
+    it("shows real recent searches in the icon variant when the input is focused but empty", async () => {
+      localStorage.setItem("sf_recent_searches", JSON.stringify(["Konga", "Dangote"]));
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <GlobalSearch variant="icon" />
+        </MemoryRouter>
+      );
+
+      await user.click(screen.getByRole("button", { name: /search/i }));
+
+      expect(screen.getByText("Konga")).toBeInTheDocument();
+      expect(screen.getByText("Dangote")).toBeInTheDocument();
+    });
+
+    it("clicking a real recent search re-runs it", async () => {
+      localStorage.setItem("sf_recent_searches", JSON.stringify(["Lekki"]));
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <GlobalSearch variant="icon" />
+        </MemoryRouter>
+      );
+
+      await user.click(screen.getByRole("button", { name: /search/i }));
+      await user.click(screen.getByText("Lekki"));
+
+      await waitFor(() => {
+        expect(apiClient.get).toHaveBeenCalledWith("/search", { params: { q: "Lekki" } });
+      });
+    });
   });
 });
