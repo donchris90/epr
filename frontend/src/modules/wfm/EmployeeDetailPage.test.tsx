@@ -123,6 +123,37 @@ describe("EmployeeDetailPage", () => {
     expect(await screen.findByText("No attendance records yet.")).toBeInTheDocument();
   });
 
+  it("corrects a real attendance record via the real, newly-wired endpoint", async () => {
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === "/wfm/employees/emp-1") return Promise.resolve({ data: EMPLOYEE });
+      if (url === "/wfm/attendance") {
+        return Promise.resolve({
+          data: { data: [{ id: "att-1", project_id: "proj-1", employee_id: "emp-1", casual_worker_id: null, attendance_date: "2026-08-24", check_in_at: null, check_out_at: null, capture_method: "manual" }] },
+        });
+      }
+      if (url === "/wfm/timesheets") return Promise.resolve({ data: { data: [] } });
+      if (url === "/wfm/leave-requests") return Promise.resolve({ data: { data: [] } });
+      if (url === "/wfm/employees/emp-1/leave-balance") return Promise.resolve({ data: { days_taken_this_year_by_type: {} } });
+      return Promise.reject(new Error(`unexpected GET ${url}`));
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Chidi Okafor");
+
+    await user.click(screen.getByRole("button", { name: "Attendance" }));
+    await user.click(await screen.findByRole("button", { name: /^correct$/i }));
+
+    const inputs = screen.getAllByDisplayValue("");
+    const datetimeInputs = inputs.filter((el) => (el as HTMLInputElement).type === "datetime-local");
+    await user.type(datetimeInputs[0], "2026-08-24T07:00");
+
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalledWith("/wfm/attendance/att-1", expect.objectContaining({ check_in_at: "2026-08-24T07:00" }));
+    });
+  });
+
   it("shows a real, honest empty state when there is no leave taken this year", async () => {
     const user = userEvent.setup();
     renderPage();

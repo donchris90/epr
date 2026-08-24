@@ -11,6 +11,7 @@ import {
   useTransferProject,
   useAttendance,
   useMarkAbsent,
+  useCorrectAttendance,
   useTimesheets,
   useLeaveRequests,
   useCreateLeaveRequest,
@@ -222,13 +223,38 @@ function ProjectAssignmentsTab({ employee }: { employee: import("./hooks").Emplo
 function AttendanceTab({ employee }: { employee: import("./hooks").Employee }) {
   const { data: records } = useAttendance({ employeeId: employee.id });
   const markAbsent = useMarkAbsent();
+  const correctAttendance = useCorrectAttendance();
   const [form, setForm] = useState({ project_id: "", attendance_date: new Date().toISOString().slice(0, 10) });
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ check_in_at: "", check_out_at: "" });
 
   async function handleMarkAbsent() {
     setError(null);
     try {
       await markAbsent.mutateAsync({ ...form, employee_id: employee.id });
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  }
+
+  function startEdit(recordId: string, checkIn: string | null, checkOut: string | null) {
+    setEditingId(recordId);
+    setEditForm({
+      check_in_at: checkIn ? checkIn.slice(0, 16) : "",
+      check_out_at: checkOut ? checkOut.slice(0, 16) : "",
+    });
+  }
+
+  async function handleSaveCorrection(recordId: string) {
+    setError(null);
+    try {
+      await correctAttendance.mutateAsync({
+        recordId,
+        check_in_at: editForm.check_in_at || undefined,
+        check_out_at: editForm.check_out_at || undefined,
+      });
+      setEditingId(null);
     } catch (err) {
       setError(getErrorMessage(err));
     }
@@ -250,16 +276,38 @@ function AttendanceTab({ employee }: { employee: import("./hooks").Employee }) {
           <EmptyState compact title="No attendance records yet." />
         ) : (
           <Table>
-            <thead><tr><Th>Date</Th><Th>Check in</Th><Th>Check out</Th><Th>Method</Th></tr></thead>
+            <thead><tr><Th>Date</Th><Th>Check in</Th><Th>Check out</Th><Th>Method</Th><Th /></tr></thead>
             <tbody>
-              {records.map((r) => (
-                <tr key={r.id}>
-                  <Td mono>{r.attendance_date}</Td>
-                  <Td mono>{r.check_in_at ? new Date(r.check_in_at).toLocaleTimeString() : "—"}</Td>
-                  <Td mono>{r.check_out_at ? new Date(r.check_out_at).toLocaleTimeString() : "—"}</Td>
-                  <Td>{r.capture_method}</Td>
-                </tr>
-              ))}
+              {records.map((r) =>
+                editingId === r.id ? (
+                  <tr key={r.id}>
+                    <Td mono>{r.attendance_date}</Td>
+                    <Td><Input type="datetime-local" value={editForm.check_in_at} onChange={(e) => setEditForm({ ...editForm, check_in_at: e.target.value })} /></Td>
+                    <Td><Input type="datetime-local" value={editForm.check_out_at} onChange={(e) => setEditForm({ ...editForm, check_out_at: e.target.value })} /></Td>
+                    <Td>{r.capture_method}</Td>
+                    <Td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                      <button onClick={() => handleSaveCorrection(r.id)} disabled={correctAttendance.isPending} style={{ background: "none", border: "none", color: "var(--sf-green)", cursor: "pointer", marginRight: 8 }}>
+                        Save
+                      </button>
+                      <button onClick={() => setEditingId(null)} style={{ background: "none", border: "none", color: "var(--sf-navy-400)", cursor: "pointer" }}>
+                        Cancel
+                      </button>
+                    </Td>
+                  </tr>
+                ) : (
+                  <tr key={r.id}>
+                    <Td mono>{r.attendance_date}</Td>
+                    <Td mono>{r.check_in_at ? new Date(r.check_in_at).toLocaleTimeString() : "—"}</Td>
+                    <Td mono>{r.check_out_at ? new Date(r.check_out_at).toLocaleTimeString() : "—"}</Td>
+                    <Td>{r.capture_method}</Td>
+                    <Td style={{ textAlign: "right" }}>
+                      <button onClick={() => startEdit(r.id, r.check_in_at, r.check_out_at)} style={{ background: "none", border: "none", color: "var(--sf-steel)", cursor: "pointer" }}>
+                        Correct
+                      </button>
+                    </Td>
+                  </tr>
+                )
+              )}
             </tbody>
           </Table>
         )}
