@@ -22,6 +22,8 @@ from app.modules.inv.models import (
     ItemCode,
     BatchNumber,
     SerialNumber,
+    WasteRecord,
+    MaterialReturn,
     StockCount,
     StockCountLine,
 )
@@ -188,6 +190,22 @@ def create_reservation():
     return jsonify(reservation_schema.dump(reservation)), 201
 
 
+@bp.get("/stock/reservations")
+@require_permission("inv:read")
+def list_reservations():
+    """Real, previously genuinely missing -- reservations could be
+    created and released, but never listed."""
+    warehouse_id = request.args.get("warehouse_id")
+    status = request.args.get("status")
+    query = StockReservation.query.filter_by(tenant_id=g.tenant_id)
+    if warehouse_id:
+        query = query.filter_by(warehouse_id=warehouse_id)
+    if status:
+        query = query.filter_by(status=status)
+    reservations = query.all()
+    return jsonify(envelope(reservation_schema.dump(reservations, many=True)))
+
+
 @bp.post("/stock/reservations/<uuid:reservation_id>/release")
 @require_permission("inv:write")
 def release_reservation(reservation_id):
@@ -206,6 +224,17 @@ def initiate_transfer():
     data = _load(transfer_schema)
     transfer = services.initiate_transfer(g.tenant_id, dispatched_by=g.user_id, **data)
     return jsonify(transfer_schema.dump(transfer)), 201
+
+
+@bp.get("/stock-transfers")
+@require_permission("inv:read")
+def list_transfers():
+    status = request.args.get("status")
+    query = StockTransfer.query.filter_by(tenant_id=g.tenant_id)
+    if status:
+        query = query.filter_by(status=status)
+    transfers = query.all()
+    return jsonify(envelope(transfer_schema.dump(transfers, many=True)))
 
 
 @bp.post("/stock-transfers/<uuid:transfer_id>/confirm-receipt")
@@ -260,6 +289,17 @@ def create_item_code():
     return jsonify(item_code_schema.dump(code)), 201
 
 
+@bp.get("/item-codes")
+@require_permission("inv:read")
+def list_item_codes():
+    material_item_id = request.args.get("material_item_id")
+    query = ItemCode.query.filter_by(tenant_id=g.tenant_id)
+    if material_item_id:
+        query = query.filter_by(material_item_id=material_item_id)
+    codes = query.all()
+    return jsonify(envelope(item_code_schema.dump(codes, many=True)))
+
+
 @bp.post("/batch-numbers")
 @require_permission("inv:write")
 def create_batch_number():
@@ -268,6 +308,20 @@ def create_batch_number():
     db.session.add(batch)
     db.session.commit()
     return jsonify(batch_schema.dump(batch)), 201
+
+
+@bp.get("/batch-numbers")
+@require_permission("inv:read")
+def list_batch_numbers():
+    material_item_id = request.args.get("material_item_id")
+    warehouse_id = request.args.get("warehouse_id")
+    query = BatchNumber.query.filter_by(tenant_id=g.tenant_id)
+    if material_item_id:
+        query = query.filter_by(material_item_id=material_item_id)
+    if warehouse_id:
+        query = query.filter_by(warehouse_id=warehouse_id)
+    batches = query.all()
+    return jsonify(envelope(batch_schema.dump(batches, many=True)))
 
 
 @bp.get("/batch-numbers/expiring")
@@ -296,6 +350,20 @@ def create_serial_number():
     return jsonify(serial_schema.dump(serial)), 201
 
 
+@bp.get("/serial-numbers")
+@require_permission("inv:read")
+def list_serial_numbers():
+    material_item_id = request.args.get("material_item_id")
+    status = request.args.get("status")
+    query = SerialNumber.query.filter_by(tenant_id=g.tenant_id)
+    if material_item_id:
+        query = query.filter_by(material_item_id=material_item_id)
+    if status:
+        query = query.filter_by(status=status)
+    serials = query.all()
+    return jsonify(envelope(serial_schema.dump(serials, many=True)))
+
+
 # --- Waste (INV-08, business rule) --------------------------------------------------
 
 @bp.post("/waste-records")
@@ -305,6 +373,17 @@ def record_waste():
     _get_warehouse_or_404(data["warehouse_id"])
     record = services.record_waste(g.tenant_id, **data)
     return jsonify(waste_schema.dump(record)), 201
+
+
+@bp.get("/waste-records")
+@require_permission("inv:read")
+def list_waste_records():
+    warehouse_id = request.args.get("warehouse_id")
+    query = WasteRecord.query.filter_by(tenant_id=g.tenant_id)
+    if warehouse_id:
+        query = query.filter_by(warehouse_id=warehouse_id)
+    records = query.all()
+    return jsonify(envelope(waste_schema.dump(records, many=True)))
 
 
 # --- Material returns (INV-09) ---------------------------------------------------------
@@ -325,6 +404,17 @@ def return_to_vendor():
     return jsonify(material_return_schema.dump(ret)), 201
 
 
+@bp.get("/material-returns")
+@require_permission("inv:read")
+def list_material_returns():
+    return_type = request.args.get("return_type")
+    query = MaterialReturn.query.filter_by(tenant_id=g.tenant_id)
+    if return_type:
+        query = query.filter_by(return_type=return_type)
+    returns = query.all()
+    return jsonify(envelope(material_return_schema.dump(returns, many=True)))
+
+
 # --- Stock counts (INV-10) ---------------------------------------------------------------
 
 @bp.post("/stock-counts")
@@ -334,6 +424,29 @@ def start_stock_count():
     _get_warehouse_or_404(data["warehouse_id"])
     count = services.start_stock_count(g.tenant_id, counted_by=g.user_id, **data)
     return jsonify(stock_count_schema.dump(count)), 201
+
+
+@bp.get("/stock-counts")
+@require_permission("inv:read")
+def list_stock_counts():
+    warehouse_id = request.args.get("warehouse_id")
+    status = request.args.get("status")
+    query = StockCount.query.filter_by(tenant_id=g.tenant_id)
+    if warehouse_id:
+        query = query.filter_by(warehouse_id=warehouse_id)
+    if status:
+        query = query.filter_by(status=status)
+    counts = query.all()
+    return jsonify(envelope(stock_count_schema.dump(counts, many=True)))
+
+
+@bp.get("/stock-counts/<uuid:count_id>")
+@require_permission("inv:read")
+def get_stock_count(count_id):
+    count = StockCount.query.filter_by(id=count_id, tenant_id=g.tenant_id).first()
+    if not count:
+        raise APIError("Stock count not found", status=404)
+    return jsonify(stock_count_schema.dump(count))
 
 
 @bp.post("/stock-count-lines/<uuid:line_id>/record")
