@@ -166,6 +166,17 @@ def create_material_approval():
     return jsonify(material_approval_schema.dump(approval)), 201
 
 
+@bp.get("/material-approvals")
+@require_permission("qms:read")
+def list_material_approvals():
+    status = request.args.get("status")
+    query = MaterialApproval.query.filter_by(tenant_id=g.tenant_id)
+    if status:
+        query = query.filter_by(status=status)
+    approvals = query.all()
+    return jsonify(envelope(material_approval_schema.dump(approvals, many=True)))
+
+
 @bp.post("/material-approvals/<uuid:approval_id>/decide")
 @require_permission("qms:approve")
 def decide_material_approval(approval_id):
@@ -196,6 +207,17 @@ def create_lab_result():
     db.session.add(result)
     db.session.commit()
     return jsonify(lab_result_schema.dump(result)), 201
+
+
+@bp.get("/lab-results")
+@require_permission("qms:read")
+def list_lab_results():
+    test_type = request.args.get("test_type")
+    query = LabResult.query.filter_by(tenant_id=g.tenant_id)
+    if test_type:
+        query = query.filter_by(test_type=test_type)
+    results = query.all()
+    return jsonify(envelope(lab_result_schema.dump(results, many=True)))
 
 
 @bp.post("/lab-results/<uuid:result_id>/record-outcome")
@@ -265,6 +287,20 @@ def create_corrective_action():
     return jsonify(corrective_action_schema.dump(action)), 201
 
 
+@bp.get("/corrective-actions")
+@require_permission("qms:read")
+def list_corrective_actions():
+    ncr_id = request.args.get("ncr_id")
+    status = request.args.get("status")
+    query = CorrectiveAction.query.filter_by(tenant_id=g.tenant_id)
+    if ncr_id:
+        query = query.filter_by(ncr_id=ncr_id)
+    if status:
+        query = query.filter_by(status=status)
+    actions = query.all()
+    return jsonify(envelope(corrective_action_schema.dump(actions, many=True)))
+
+
 @bp.post("/corrective-actions/<uuid:action_id>/complete")
 @require_permission("qms:write")
 def complete_corrective_action(action_id):
@@ -299,6 +335,20 @@ def create_punch_list_item():
     return jsonify(punch_list_schema.dump(item)), 201
 
 
+@bp.get("/punch-list-items")
+@require_permission("qms:read")
+def list_punch_list_items():
+    project_id = request.args.get("project_id")
+    status = request.args.get("status")
+    query = PunchListItem.query.filter_by(tenant_id=g.tenant_id)
+    if project_id:
+        query = query.filter_by(project_id=project_id)
+    if status:
+        query = query.filter_by(status=status)
+    items = query.all()
+    return jsonify(envelope(punch_list_schema.dump(items, many=True)))
+
+
 @bp.post("/punch-list-items/<uuid:item_id>/close")
 @require_permission("qms:write")
 def close_punch_list_item(item_id):
@@ -328,6 +378,20 @@ def create_snag_list_item():
     db.session.add(item)
     db.session.commit()
     return jsonify(snag_list_schema.dump(item)), 201
+
+
+@bp.get("/snag-list-items")
+@require_permission("qms:read")
+def list_snag_list_items():
+    project_id = request.args.get("project_id")
+    status = request.args.get("status")
+    query = SnagListItem.query.filter_by(tenant_id=g.tenant_id)
+    if project_id:
+        query = query.filter_by(project_id=project_id)
+    if status:
+        query = query.filter_by(status=status)
+    items = query.all()
+    return jsonify(envelope(snag_list_schema.dump(items, many=True)))
 
 
 @bp.post("/snag-list-items/<uuid:item_id>/close")
