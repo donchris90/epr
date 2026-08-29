@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, EmptyState, Input, Field, ErrorBanner } from "../../components/ui";
 import { getErrorMessage } from "../../api/client";
-import { useNCRs, useCreateNCR, useDispositionNCR, useCloseNCR, useCreateCorrectiveAction } from "./hooks";
+import { useNCRs, useCreateNCR, useDispositionNCR, useCloseNCR, useCreateCorrectiveAction, type NCR } from "./hooks";
 
 const STATUS_TONE: Record<string, "neutral" | "amber" | "steel" | "green" | "brick"> = {
   open: "amber",
@@ -72,7 +72,7 @@ export default function NCRsPage() {
           <Table>
             <thead><tr><Th>Description</Th><Th>Disposition</Th><Th>Status</Th><Th>Actions</Th></tr></thead>
             <tbody>
-              {ncrs.map((n: any) => (
+              {ncrs.map((n: NCR) => (
                 <tr key={n.id}>
                   <Td>{n.description}</Td>
                   <Td>{n.disposition || "—"}</Td>
@@ -101,7 +101,7 @@ export default function NCRsPage() {
                           />
                           <button
                             disabled={!actionDesc[n.id]}
-                            onClick={() => createAction.mutate({ source: "ncr", source_reference_id: n.id, description: actionDesc[n.id] })}
+                            onClick={() => createAction.mutate({ source: "ncr", ncr_id: n.id, description: actionDesc[n.id] })}
                             style={{ background: "none", border: "none", color: "var(--sf-steel)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
                           >
                             Log action
