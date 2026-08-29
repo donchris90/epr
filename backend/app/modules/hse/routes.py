@@ -214,6 +214,17 @@ def record_near_miss():
     return jsonify(near_miss_schema.dump(near_miss)), 201
 
 
+@bp.get("/near-misses")
+@require_permission("hse:read")
+def list_near_misses():
+    project_id = request.args.get("project_id")
+    query = NearMiss.query.filter_by(tenant_id=g.tenant_id)
+    if project_id:
+        query = query.filter_by(project_id=project_id)
+    near_misses = query.all()
+    return jsonify(envelope(near_miss_schema.dump(near_misses, many=True)))
+
+
 # --- Toolbox talks (HSE-04) -------------------------------------------------------
 
 @bp.post("/toolbox-talks")
@@ -224,6 +235,17 @@ def create_toolbox_talk():
     db.session.add(talk)
     db.session.commit()
     return jsonify(talk_schema.dump(talk)), 201
+
+
+@bp.get("/toolbox-talks")
+@require_permission("hse:read")
+def list_toolbox_talks():
+    project_id = request.args.get("project_id")
+    query = ToolboxTalk.query.filter_by(tenant_id=g.tenant_id)
+    if project_id:
+        query = query.filter_by(project_id=project_id)
+    talks = query.all()
+    return jsonify(envelope(talk_schema.dump(talks, many=True)))
 
 
 @bp.post("/toolbox-talks/<uuid:talk_id>/attendees")
@@ -269,6 +291,17 @@ def create_ppe_record():
     return jsonify(ppe_schema.dump(record)), 201
 
 
+@bp.get("/ppe-records")
+@require_permission("hse:read")
+def list_ppe_records():
+    employee_id = request.args.get("employee_id")
+    query = PPERecord.query.filter_by(tenant_id=g.tenant_id)
+    if employee_id:
+        query = query.filter_by(employee_id=employee_id)
+    records = query.all()
+    return jsonify(envelope(ppe_schema.dump(records, many=True)))
+
+
 # --- Safety audits (HSE-06) -------------------------------------------------------
 
 @bp.post("/safety-audits")
@@ -279,6 +312,17 @@ def create_safety_audit():
     db.session.add(audit)
     db.session.commit()
     return jsonify(audit_schema.dump(audit)), 201
+
+
+@bp.get("/safety-audits")
+@require_permission("hse:read")
+def list_safety_audits():
+    project_id = request.args.get("project_id")
+    query = SafetyAudit.query.filter_by(tenant_id=g.tenant_id)
+    if project_id:
+        query = query.filter_by(project_id=project_id)
+    audits = query.all()
+    return jsonify(envelope(audit_schema.dump(audits, many=True)))
 
 
 # --- Environmental monitoring (HSE-08) ----------------------------------------------
@@ -297,6 +341,20 @@ def create_environmental_record():
     return jsonify(env_schema.dump(record)), 201
 
 
+@bp.get("/environmental-monitoring")
+@require_permission("hse:read")
+def list_environmental_records():
+    project_id = request.args.get("project_id")
+    monitoring_type = request.args.get("monitoring_type")
+    query = EnvironmentalMonitoringRecord.query.filter_by(tenant_id=g.tenant_id)
+    if project_id:
+        query = query.filter_by(project_id=project_id)
+    if monitoring_type:
+        query = query.filter_by(monitoring_type=monitoring_type)
+    records = query.all()
+    return jsonify(envelope(env_schema.dump(records, many=True)))
+
+
 # --- Waste disposal (HSE-09) ----------------------------------------------------------
 
 @bp.post("/waste-disposal")
@@ -307,6 +365,17 @@ def create_waste_disposal_record():
     db.session.add(record)
     db.session.commit()
     return jsonify(waste_schema.dump(record)), 201
+
+
+@bp.get("/waste-disposal")
+@require_permission("hse:read")
+def list_waste_disposal_records():
+    project_id = request.args.get("project_id")
+    query = WasteDisposalRecord.query.filter_by(tenant_id=g.tenant_id)
+    if project_id:
+        query = query.filter_by(project_id=project_id)
+    records = query.all()
+    return jsonify(envelope(waste_schema.dump(records, many=True)))
 
 
 # --- Emergency response plans (HSE-10) ------------------------------------------------
