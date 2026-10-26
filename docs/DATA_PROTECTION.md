@@ -61,16 +61,39 @@ Built (staff-operated, `Data Requests` in the app; permissions
    logged on the request (ids only, never the erased data). Records are
    anonymised, not deleted, because other business records reference them.
 
+4. **Public intake form** (`/privacy-request/<tenant id>`, no sign-in). Each
+   company links to its own form (the Data Requests page shows the exact link
+   to share). Requests arrive as `source = public`, are rate limited (5/hour
+   per client), honeypotted and de-duplicated (same email + type within 24h
+   is not stored twice, and the reply looks identical). The requester gets an
+   email with a confirmation link; until they confirm, the request shows as
+   "Public - unverified" and **export and erasure are blocked** (a stranger
+   must not be able to get someone's data exported or erased by typing their
+   email). A suspended or unknown tenant id returns 404.
+5. **Data export** (`GET /v1/dsar/requests/<id>/export`, access and
+   portability requests only): a JSON file of allow-listed fields from the
+   same tables the search covers (never password hashes). The export is logged
+   on the request (no personal data in the log) and moves it to in progress.
+6. **Requester notification.** Closing a request (completed or rejected)
+   emails the requester the outcome, with staff's notes unless it is an
+   unverified public request. Staff can untick "Email the requester". Mail
+   failures never fail the update; `requester_notified_at` records success.
+
 Not built:
-- **Public intake.** Requests are logged by staff (e.g. from the privacy
-  contact mailbox); there is no public form, since a request must be tied to
-  a tenant first.
 - **Correction** is a manual edit in the owning module; the request log only
   tracks it.
 - **Erasing internal staff users** and BDC client organisations is handled
   outside this tool (organisation user removal / manual review).
-- **Access/portability export** (a downloadable copy of a person's data).
-- **Notifying the requester**; the outcome is recorded but not emailed.
+- **Export coverage** is the structured contact fields only: no free text, no
+  permanent employees (no email/phone stored), no documents or activity
+  history. The export is a download for staff to send; it is not emailed or
+  self-served by the requester.
+- **Identity checks** beyond email confirmation (e.g. ID verification) are
+  left to staff. Confirmation links last 30 days and are single-purpose.
+- **Public form link** uses the tenant id; it is not secret. Anyone with it
+  can file a request (bounded by the controls above).
+- The platform's own Privacy Policy text was not changed; each company should
+  link its form from its own policy (wording is for counsel).
 
 ## Backup & Disaster Recovery
 

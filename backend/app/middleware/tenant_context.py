@@ -90,6 +90,10 @@ PUBLIC_PATHS = {
     "/v1/vnp/auth/logout",
 }
 
+# Public, unauthenticated route families whose paths carry an id
+# (the tenant) and so can't be listed exactly above.
+PUBLIC_PREFIXES = ("/v1/public/privacy/",)
+
 # Paths a tenant must still be able to reach even when its
 # subscription isn't active -- otherwise a tenant that just went
 # inactive could never see its own billing page or plans to actually
@@ -117,7 +121,7 @@ def register_tenant_context(app, db):
         if request.method == "OPTIONS":
             return
 
-        if request.path in PUBLIC_PATHS or request.path.endswith("/health"):
+        if request.path in PUBLIC_PATHS or request.path.endswith("/health") or request.path.startswith(PUBLIC_PREFIXES):
             return
 
         # Verify JWT and extract tenant_id claim (optional=True lets

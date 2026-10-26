@@ -144,6 +144,8 @@ def create_app(config_name: str = None) -> Flask:
     # --- DSAR search blueprint (SRS Section 6 / data-protection tooling) ---
     from app.dsar.routes import bp as dsar_bp
     app.register_blueprint(dsar_bp)
+    from app.dsar.public_routes import bp as dsar_public_bp
+    app.register_blueprint(dsar_public_bp)
 
     # --- Workflow Engine (Module 26, generic cross-module approval engine) ---
     from app.workflow.routes import bp as workflow_bp

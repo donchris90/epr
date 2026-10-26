@@ -79,7 +79,7 @@ describe("DataRequestsPage", () => {
     render(<DataRequestsPage />);
     await user.click(await screen.findByText("Jane Doe"));
     await screen.findByText("BDC contact: Jane Doe");
-    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("BDC contact: Jane Doe")).not.toBeInTheDocument();
   });
 
   it("closes a request with notes", async () => {
@@ -91,7 +91,79 @@ describe("DataRequestsPage", () => {
     await user.type(await screen.findByLabelText(/Outcome notes/), "Sent export");
     await user.click(screen.getByRole("button", { name: "Mark completed" }));
     await waitFor(() =>
-      expect(apiClient.patch).toHaveBeenCalledWith("/dsar/requests/r1", { status: "completed", resolution_notes: "Sent export" })
+      expect(apiClient.patch).toHaveBeenCalledWith("/dsar/requests/r1", { status: "completed", resolution_notes: "Sent export", notify_requester: true })
     );
+  });
+
+  it("lets staff opt out of emailing the requester", async () => {
+    const user = userEvent.setup();
+    mockGets([REQ({ request_type: "access" })]);
+    vi.mocked(apiClient.patch).mockResolvedValue({ data: REQ() } as any);
+    render(<DataRequestsPage />);
+    await user.click(await screen.findByText("Jane Doe"));
+    await user.click(await screen.findByLabelText("Email the requester the outcome"));
+    await user.click(screen.getByRole("button", { name: "Mark completed" }));
+    await waitFor(() =>
+      expect(apiClient.patch).toHaveBeenCalledWith("/dsar/requests/r1", { status: "completed", resolution_notes: null, notify_requester: false })
+    );
+  });
+
+  it("downloads a data export for an access request", async () => {
+    const user = userEvent.setup();
+    const click = vi.fn();
+    const create = vi.spyOn(document, "createElement");
+    (URL as any).createObjectURL = vi.fn(() => "blob:x");
+    (URL as any).revokeObjectURL = vi.fn();
+    vi.mocked(apiClient.get).mockImplementation((url: string) =>
+      Promise.resolve({ data: url === "/dsar/requests" ? { data: [REQ({ request_type: "access" })] } : url.endsWith("/export") ? { total_records: 1, records: {} } : HITS } as any)
+    );
+    render(<DataRequestsPage />);
+    await user.click(await screen.findByText("Jane Doe"));
+    create.mockImplementation(((tag: string) => {
+      const el = document.createElementNS("http://www.w3.org/1999/xhtml", tag) as any;
+      if (tag === "a") el.click = click;
+      return el;
+    }) as any);
+    await user.click(await screen.findByRole("button", { name: "Download data export" }));
+    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith("/dsar/requests/r1/export"));
+    await waitFor(() => expect(click).toHaveBeenCalled());
+    create.mockRestore();
+  });
+
+  it("does not offer export on an erasure request", async () => {
+    const user = userEvent.setup();
+    mockGets([REQ()]);
+    render(<DataRequestsPage />);
+    await user.click(await screen.findByText("Jane Doe"));
+    await screen.findByText("BDC contact: Jane Doe");
+    expect(screen.queryByRole("button", { name: "Download data export" })).toBeNull();
+  });
+
+  it("flags an unverified public request and disables its export", async () => {
+    const user = userEvent.setup();
+    mockGets([REQ({ request_type: "access", source: "public", email_verified: false })]);
+    render(<DataRequestsPage />);
+    expect(await screen.findByText("Public · unverified")).toBeInTheDocument();
+    await user.click(screen.getByText("Jane Doe"));
+    expect(await screen.findByRole("note")).toHaveTextContent(/hasn't confirmed their email/);
+    expect(screen.getByRole("button", { name: "Download data export" })).toBeDisabled();
+  });
+
+  it("shows a verified public request as verified and enables export", async () => {
+    const user = userEvent.setup();
+    mockGets([REQ({ request_type: "access", source: "public", email_verified: true })]);
+    render(<DataRequestsPage />);
+    expect(await screen.findByText("Public · verified")).toBeInTheDocument();
+    await user.click(screen.getByText("Jane Doe"));
+    expect(await screen.findByRole("button", { name: "Download data export" })).toBeEnabled();
+  });
+
+  it("shows the shareable public form link for this tenant", async () => {
+    const payload = btoa(JSON.stringify({ tenant_id: "t-123" }));
+    localStorage.setItem("access_token", `h.${payload}.s`);
+    mockGets([]);
+    render(<DataRequestsPage />);
+    expect(await screen.findByTestId("public-form-link")).toHaveTextContent("/privacy-request/t-123");
+    localStorage.removeItem("access_token");
   });
 });

@@ -35,7 +35,15 @@ class DSARRequest(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
     resolution_notes = db.Column(db.Text, nullable=True)
     actions = db.Column(JSONB, nullable=False, default=list)
 
+    # "public" = filed through the public form (identity not yet proven until
+    # the requester confirms their email); "staff" = logged by staff.
+    source = db.Column(db.String(8), nullable=False, default="staff", server_default="staff")
+    verification_token_hash = db.Column(db.String(64), nullable=True)
+    email_verified_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    requester_notified_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
     __table_args__ = (
         db.CheckConstraint(f"request_type IN {REQUEST_TYPES}", name="ck_dsar_requests_type"),
+        db.CheckConstraint("source IN ('staff', 'public')", name="ck_dsar_requests_source"),
         db.CheckConstraint(f"status IN {REQUEST_STATUSES}", name="ck_dsar_requests_status"),
     )
