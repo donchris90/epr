@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { vendorPortalClient, getVendorPortalErrorMessage } from "./api/client";
 import { getPortalUserId, setPortalTokens, clearPortalSession } from "./lib/auth";
-import type { PurchaseOrder, OrderAcknowledgment, Quotation, InvoiceUpload, PortalUser } from "./types";
+import type { PurchaseOrder, OrderAcknowledgment, Quotation, InvoiceUpload, PortalUser, BankingDetails, BankingChangeRequest } from "./types";
 
 /** Real login, backed by POST /v1/vnp/auth/login (built earlier this
  * session -- previously genuinely missing from the backend entirely,
@@ -127,5 +127,35 @@ export async function uploadInvoice(input: {
 }): Promise<InvoiceUpload> {
   const userId = getPortalUserId();
   const res = await vendorPortalClient.post(`/vnp/vendor-users/${userId}/invoices`, input);
+  return res.data;
+}
+
+// --- Banking details change requests (VNP-05) ----------------------------------
+// A submission only STAGES a request; finance approval is what applies it
+// to the live vendor record (see backend vnp services.approve_banking_change).
+
+export function useBankingChangeRequests() {
+  const [requests, setRequests] = useState<BankingChangeRequest[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function reload() {
+    const userId = getPortalUserId();
+    if (!userId) return;
+    vendorPortalClient
+      .get(`/vnp/vendor-users/${userId}/banking-change-requests`)
+      .then((res) => setRequests(res.data.data))
+      .catch((err) => setError(getVendorPortalErrorMessage(err)));
+  }
+
+  useEffect(reload, []);
+
+  return { requests, error, reload };
+}
+
+export async function submitBankingChange(details: BankingDetails): Promise<BankingChangeRequest> {
+  const userId = getPortalUserId();
+  const res = await vendorPortalClient.post(`/vnp/vendor-users/${userId}/banking-change-requests`, {
+    proposed_banking_details: details,
+  });
   return res.data;
 }
