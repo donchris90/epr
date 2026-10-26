@@ -265,6 +265,14 @@ def approve_banking_change(request: VendorBankingChangeRequest, *, approved_by):
     request.status = "approved"
     request.reviewed_by = approved_by
     request.reviewed_at = datetime.now(timezone.utc)
+
+    from app.notifications.portal import notify_vendor_users
+
+    notify_vendor_users(
+        request.tenant_id, vendor_id=request.vendor_id, type="vnp.banking_change_approved",
+        title="Your banking details change was approved",
+        data={"entity_type": "banking_change", "entity_id": str(request.id)},
+    )
     db.session.commit()
     return request
 
@@ -279,5 +287,13 @@ def reject_banking_change(request: VendorBankingChangeRequest, *, reviewed_by, r
     request.reviewed_by = reviewed_by
     request.reviewed_at = datetime.now(timezone.utc)
     request.rejection_reason = reason
+
+    from app.notifications.portal import notify_vendor_users
+
+    notify_vendor_users(
+        request.tenant_id, vendor_id=request.vendor_id, type="vnp.banking_change_rejected",
+        title="Your banking details change was rejected", body=reason,
+        data={"entity_type": "banking_change", "entity_id": str(request.id)},
+    )
     db.session.commit()
     return request

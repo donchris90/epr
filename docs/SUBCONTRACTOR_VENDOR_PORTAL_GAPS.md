@@ -53,21 +53,14 @@ Portal sessions issued before this change have no `portal_kind` claim;
 they keep working until their next refresh, which re-checks them.
 Remaining: the Client Portal (CLP) still has no equivalent.
 
-**No notification bell in either portal.** Confirmed directly against
-`backend/app/modules/scp/services.py` and
-`backend/app/modules/vnp/services.py` that neither module calls
-`notify()` anywhere at all -- unlike the workflow engine, which does
-(see `docs/WORKFLOW_APPROVAL_GAPS.md`). A bell would always show zero
-and imply a feature that doesn't exist; omitted rather than faked.
-
-```
-BACKEND GAP:
-Endpoint: none -- would need real notify() calls added to the
-  relevant service functions (submit_progress_as_subcontractor,
-  acknowledge_order, upload_vendor_invoice, etc.)
-Why frontend requires it: without a real trigger somewhere in the
-  backend, there is nothing genuine for a bell to ever display.
-```
+**Notification bell -- now built for both portals.** Staff decisions now call
+`notify()` for the affected portal users (`app/notifications/portal.py`):
+claim approved/rejected/under review and payment certificate issued
+(subcontractor); banking-details change approved/rejected (vendor). The
+portals read them through the ordinary `/v1/notifications` routes with the
+portal token, via a shared bell and a full list page. Remaining: no
+notifications yet for PO issued, RFQ invitation, progress verification or
+retention release; no email copy (in-app only).
 
 **No Documents page in either portal.** For SCP: confirmed zero
 document capability exists anywhere in the module -- no
