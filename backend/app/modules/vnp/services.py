@@ -148,8 +148,11 @@ def list_rfq_invitations_for_vendor(tenant_id, *, vendor_user: VendorPortalUser)
                 "response_deadline": rfq.response_deadline,
                 "rfq_status": rfq.status,
                 "invitation_status": inv.status,
+                "decline_reason": inv.decline_reason,
                 "quote": quote,
-                "can_quote": quote is None and _rfq_accepts_quotes(rfq, now),
+                "can_quote": quote is None and inv.status != "declined" and _rfq_accepts_quotes(rfq, now),
+                "can_revise": quote is not None and _rfq_accepts_quotes(rfq, now),
+                "can_decline": quote is None and inv.status == "invited" and _rfq_accepts_quotes(rfq, now),
             }
         )
     return out
@@ -220,6 +223,9 @@ def submit_quote_as_vendor(tenant_id, *, vendor_user: VendorPortalUser, rfq_id, 
     if rfq is None or not _rfq_accepts_quotes(rfq):
         raise APIError("This RFQ is closed or past its response deadline", status=409)
 
+    if invitation.status == "declined":
+        raise APIError("Your organization declined this RFQ", status=409)
+
     existing = RFQQuotation.query.filter_by(tenant_id=tenant_id, rfq_id=rfq_id, vendor_id=vendor_user.vendor_id).first()
     if existing:
         raise APIError("Your organization has already submitted a quote for this RFQ", status=409)
@@ -237,6 +243,87 @@ def submit_quote_as_vendor(tenant_id, *, vendor_user: VendorPortalUser, rfq_id, 
     invitation.status = "responded"
     db.session.commit()
     return quotation
+
+
+def _notify_procurement(tenant_id, *, type, title, body, rfq_id):
+    from app.notifications.services import notify_users_with_permission
+
+    notify_users_with_permission(
+        tenant_id,
+        permission="prc:write",
+        type=type,
+        title=title,
+        body=body,
+        data={"entity_type": "rfq", "entity_id": str(rfq_id)},
+    )
+
+
+def revise_quote_as_vendor(tenant_id, *, vendor_user: VendorPortalUser, rfq_id, price, lead_time_days=None, payment_terms=None):
+    """A vendor may change their own quote until the RFQ closes or its
+    deadline passes. The change is counted and timestamped so procurement
+    can see it was revised; the previous figures are not kept."""
+    assert_vendor_invited_to_rfq(tenant_id, vendor_user=vendor_user, rfq_id=rfq_id)
+
+    from app.modules.prc.models import RFQ, RFQQuotation
+
+    rfq = RFQ.query.filter_by(id=rfq_id, tenant_id=tenant_id).first()
+    if rfq is None or not _rfq_accepts_quotes(rfq):
+        raise APIError("This RFQ is closed or past its response deadline", status=409)
+
+    quote = RFQQuotation.query.filter_by(tenant_id=tenant_id, rfq_id=rfq_id, vendor_id=vendor_user.vendor_id).first()
+    if quote is None:
+        raise APIError("Your organization has not submitted a quote for this RFQ yet", status=404)
+
+    quote.price = price
+    quote.lead_time_days = lead_time_days
+    quote.payment_terms = payment_terms
+    quote.revised_at = datetime.now(timezone.utc)
+    quote.revision_count = (quote.revision_count or 0) + 1
+
+    _notify_procurement(
+        tenant_id,
+        type="prc.rfq_quote_revised",
+        title=f"A vendor revised their quote: {rfq.title}",
+        body=f"Revision {quote.revision_count}.",
+        rfq_id=rfq.id,
+    )
+    db.session.commit()
+    return quote
+
+
+def decline_rfq_as_vendor(tenant_id, *, vendor_user: VendorPortalUser, rfq_id, reason=None):
+    """The vendor tells procurement they will not quote. Allowed only
+    while no quote exists and the RFQ is still open; final (the vendor
+    cannot quote afterwards)."""
+    invitation = assert_vendor_invited_to_rfq(tenant_id, vendor_user=vendor_user, rfq_id=rfq_id)
+
+    from app.modules.prc.models import RFQ, RFQQuotation
+
+    rfq = RFQ.query.filter_by(id=rfq_id, tenant_id=tenant_id).first()
+    if rfq is None or not _rfq_accepts_quotes(rfq):
+        raise APIError("This RFQ is closed or past its response deadline", status=409)
+    if invitation.status == "declined":
+        raise APIError("Your organization already declined this RFQ", status=409)
+    if RFQQuotation.query.filter_by(tenant_id=tenant_id, rfq_id=rfq_id, vendor_id=vendor_user.vendor_id).first():
+        raise APIError("Your organization has already submitted a quote for this RFQ", status=409)
+
+    invitation.status = "declined"
+    invitation.decline_reason = (reason or "").strip() or None
+    invitation.declined_at = datetime.now(timezone.utc)
+
+    from app.modules.prc.models import Vendor
+
+    vendor = Vendor.query.filter_by(id=vendor_user.vendor_id, tenant_id=tenant_id).first()
+    name = vendor.name if vendor else "A vendor"
+    _notify_procurement(
+        tenant_id,
+        type="prc.rfq_declined",
+        title=f"{name} declined to quote: {rfq.title}",
+        body=invitation.decline_reason,
+        rfq_id=rfq.id,
+    )
+    db.session.commit()
+    return invitation
 
 
 # --- Invoice upload (VNP-03, VNP-04) ----------------------------------------------

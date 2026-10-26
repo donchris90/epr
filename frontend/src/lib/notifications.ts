@@ -35,6 +35,7 @@ export function deepLinkFor(data: Record<string, unknown> | null): string | null
     contract_amendment: `/contracts`,
     budget_revision: `/finance`,
     banking_change_request: `/vendor-portal`,
+    rfq: `/procurement`,
     permit_to_work: `/hse`,
   };
   return routes[entityType] ?? null;
@@ -59,6 +60,7 @@ export function categoryFor(type: string): NotificationCategory {
     clp: "projects",
     scp: "projects",
     vnp: "projects",
+    prc: "projects",
     proj: "projects",
     pc: "projects",
     fin: "finance",

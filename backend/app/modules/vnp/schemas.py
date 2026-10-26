@@ -50,6 +50,16 @@ class SubmitQuoteSchema(Schema):
     payment_terms = fields.Str(allow_none=True)
 
 
+class ReviseQuoteSchema(Schema):
+    price = fields.Decimal(required=True, as_string=True)
+    lead_time_days = fields.Int(allow_none=True)
+    payment_terms = fields.Str(allow_none=True)
+
+
+class DeclineRfqSchema(Schema):
+    reason = fields.Str(allow_none=True, load_default=None, validate=validate.Length(max=1000))
+
+
 class QuotationSchema(Schema):
     id = fields.UUID(dump_only=True)
     rfq_id = fields.UUID(dump_only=True)
@@ -57,6 +67,8 @@ class QuotationSchema(Schema):
     lead_time_days = fields.Int(dump_only=True)
     payment_terms = fields.Str(dump_only=True)
     submitted_at = fields.DateTime(dump_only=True)
+    revised_at = fields.DateTime(dump_only=True, allow_none=True)
+    revision_count = fields.Int(dump_only=True)
 
 
 class RFQInvitationSchema(Schema):
@@ -67,8 +79,11 @@ class RFQInvitationSchema(Schema):
     response_deadline = fields.DateTime(dump_only=True, allow_none=True)
     rfq_status = fields.Str(dump_only=True)
     invitation_status = fields.Str(dump_only=True)
+    decline_reason = fields.Str(dump_only=True, allow_none=True)
     quote = fields.Nested(QuotationSchema, dump_only=True, allow_none=True)
     can_quote = fields.Bool(dump_only=True)
+    can_revise = fields.Bool(dump_only=True)
+    can_decline = fields.Bool(dump_only=True)
 
 
 class UploadInvoiceSchema(Schema):

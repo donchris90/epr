@@ -67,6 +67,7 @@ _PREFIX_TO_CATEGORY = {
     "clp": "projects",
     "scp": "projects",
     "vnp": "projects",
+    "prc": "projects",
     "proj": "projects",
     "pc": "projects",
     "fin": "finance",

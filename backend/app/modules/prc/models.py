@@ -99,6 +99,8 @@ class RFQInvitation(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
     rfq_id = db.Column(UUID(as_uuid=True), db.ForeignKey("prc_rfqs.id"), nullable=False, index=True)
     vendor_id = db.Column(UUID(as_uuid=True), db.ForeignKey("prc_vendors.id"), nullable=False, index=True)
     status = db.Column(db.String(16), nullable=False, default="invited")
+    decline_reason = db.Column(db.Text, nullable=True)
+    declined_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
     rfq = relationship("RFQ", back_populates="invitations")
 
@@ -121,6 +123,8 @@ class RFQQuotation(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
     lead_time_days = db.Column(db.Integer, nullable=True)
     payment_terms = db.Column(db.String(255), nullable=True)
     submitted_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    revised_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    revision_count = db.Column(db.Integer, nullable=False, default=0, server_default="0")
 
     rfq = relationship("RFQ", back_populates="quotations")
 
