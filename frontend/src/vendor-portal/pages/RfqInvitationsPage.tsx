@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { PageHeader, Card, Button, Input, Field, Badge } from "../../components/ui";
-import { useRfqInvitations, submitQuote } from "../hooks";
+import { useRfqInvitations, submitQuote, reviseQuote, declineRfq } from "../hooks";
 import { getVendorPortalErrorMessage } from "../api/client";
-import type { RfqInvitation } from "../types";
+import type { Quotation, RfqInvitation } from "../types";
 
-function QuoteForm({ rfqId, onDone }: { rfqId: string; onDone: () => void }) {
-  const [price, setPrice] = useState("");
-  const [lead, setLead] = useState("");
-  const [terms, setTerms] = useState("");
+function QuoteForm({ rfqId, onDone, existing }: { rfqId: string; onDone: () => void; existing?: Quotation }) {
+  const revising = !!existing;
+  const [price, setPrice] = useState(existing ? String(Number(existing.price)) : "");
+  const [lead, setLead] = useState(existing?.lead_time_days != null ? String(existing.lead_time_days) : "");
+  const [terms, setTerms] = useState(existing?.payment_terms ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -16,12 +17,20 @@ function QuoteForm({ rfqId, onDone }: { rfqId: string; onDone: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      await submitQuote({
-        rfq_id: rfqId,
-        price,
-        lead_time_days: lead ? Number(lead) : undefined,
-        payment_terms: terms || undefined,
-      });
+      if (revising) {
+        await reviseQuote(rfqId, {
+          price,
+          lead_time_days: lead ? Number(lead) : null,
+          payment_terms: terms || null,
+        });
+      } else {
+        await submitQuote({
+          rfq_id: rfqId,
+          price,
+          lead_time_days: lead ? Number(lead) : undefined,
+          payment_terms: terms || undefined,
+        });
+      }
       onDone();
     } catch (err) {
       setError(getVendorPortalErrorMessage(err));
@@ -42,16 +51,54 @@ function QuoteForm({ rfqId, onDone }: { rfqId: string; onDone: () => void }) {
       </Field>
       {error && <div style={{ color: "var(--sf-brick)", fontSize: 12, marginBottom: 8 }}>{error}</div>}
       <p style={{ fontSize: 12, color: "var(--sf-navy-400)", marginBottom: 8 }}>
-        A quote can't be changed once submitted.
+        {revising
+          ? "You can revise your quote until the RFQ closes. The buyer is told when you do."
+          : "You can still revise your quote until the RFQ closes."}
       </p>
       <Button type="submit" disabled={busy}>
-        {busy ? "Submitting…" : "Submit quote"}
+        {busy ? "Saving…" : revising ? "Save revised quote" : "Submit quote"}
       </Button>
     </form>
   );
 }
 
+function DeclineForm({ rfqId, onDone, onCancel }: { rfqId: string; onDone: () => void; onCancel: () => void }) {
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await declineRfq(rfqId, reason.trim());
+      onDone();
+    } catch (err) {
+      setError(getVendorPortalErrorMessage(err));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} style={{ marginTop: 12 }}>
+      <Field label="Reason (optional)">
+        <Input value={reason} maxLength={1000} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Out of capacity" />
+      </Field>
+      {error && <div style={{ color: "var(--sf-brick)", fontSize: 12, marginBottom: 8 }}>{error}</div>}
+      <p style={{ fontSize: 12, color: "var(--sf-navy-400)", marginBottom: 8 }}>
+        Declining is final: you won't be able to quote on this RFQ afterwards.
+      </p>
+      <div style={{ display: "flex", gap: 8 }}>
+        <Button type="submit" variant="danger" disabled={busy}>{busy ? "Declining…" : "Confirm decline"}</Button>
+        <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
+      </div>
+    </form>
+  );
+}
+
 function stateOf(i: RfqInvitation): { label: string; tone: "green" | "amber" | "neutral" } {
+  if (i.invitation_status === "declined") return { label: "Declined", tone: "neutral" };
   if (i.quote) return { label: "Quote submitted", tone: "green" };
   if (i.can_quote) return { label: "Open for quotes", tone: "amber" };
   return { label: "Closed", tone: "neutral" };
@@ -60,6 +107,15 @@ function stateOf(i: RfqInvitation): { label: string; tone: "green" | "amber" | "
 export default function RfqInvitationsPage() {
   const { items, error, loading, reload } = useRfqInvitations();
   const [openId, setOpenId] = useState<string | null>(null);
+  const [mode, setMode] = useState<"quote" | "revise" | "decline">("quote");
+  const open = (id: string, m: "quote" | "revise" | "decline") => {
+    setOpenId(id);
+    setMode(m);
+  };
+  const done = () => {
+    setOpenId(null);
+    reload();
+  };
 
   return (
     <div>
@@ -94,22 +150,26 @@ export default function RfqInvitationsPage() {
                   Your quote: <strong>{Number(i.quote.price).toLocaleString()}</strong>
                   {i.quote.lead_time_days != null && ` · ${i.quote.lead_time_days} days`}
                   {i.quote.payment_terms && ` · ${i.quote.payment_terms}`}
+                  {!!i.quote.revision_count && ` · revised ${i.quote.revision_count}×`}
                 </p>
               )}
-              {i.can_quote &&
-                (openId === i.rfq_id ? (
-                  <QuoteForm
-                    rfqId={i.rfq_id}
-                    onDone={() => {
-                      setOpenId(null);
-                      reload();
-                    }}
-                  />
-                ) : (
-                  <Button style={{ marginTop: 10 }} onClick={() => setOpenId(i.rfq_id)}>
-                    Submit a quote
-                  </Button>
-                ))}
+              {i.invitation_status === "declined" && (
+                <p style={{ fontSize: 13, marginTop: 8 }}>
+                  You declined this request{i.decline_reason ? `: ${i.decline_reason}` : "."}
+                </p>
+              )}
+              {openId === i.rfq_id && mode === "quote" && <QuoteForm rfqId={i.rfq_id} onDone={done} />}
+              {openId === i.rfq_id && mode === "revise" && i.quote && <QuoteForm rfqId={i.rfq_id} existing={i.quote} onDone={done} />}
+              {openId === i.rfq_id && mode === "decline" && (
+                <DeclineForm rfqId={i.rfq_id} onDone={done} onCancel={() => setOpenId(null)} />
+              )}
+              {openId !== i.rfq_id && (
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  {i.can_quote && <Button onClick={() => open(i.rfq_id, "quote")}>Submit a quote</Button>}
+                  {i.can_revise && <Button variant="secondary" onClick={() => open(i.rfq_id, "revise")}>Revise quote</Button>}
+                  {i.can_decline && <Button variant="ghost" onClick={() => open(i.rfq_id, "decline")}>Decline</Button>}
+                </div>
+              )}
             </Card>
           );
         })

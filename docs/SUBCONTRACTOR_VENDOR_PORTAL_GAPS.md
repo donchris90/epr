@@ -59,8 +59,24 @@ claim approved/rejected/under review and payment certificate issued
 (subcontractor); banking-details change approved/rejected (vendor). The
 portals read them through the ordinary `/v1/notifications` routes with the
 portal token, via a shared bell and a full list page. Remaining: no
-notifications yet for PO issued, RFQ invitation, progress verification or
-retention release; no email copy (in-app only).
+notifications yet for PO issued, progress verification or retention release;
+no email copy of portal notifications (in-app only), except the RFQ invitation
+email below.
+
+**RFQ decline, quote revision and invitation email.** A vendor can decline an
+invitation (optional reason, final: no quote afterwards; only while no quote
+exists and the RFQ is open) and revise a submitted quote until the RFQ closes
+or its deadline passes (migration 0061; `decline_reason`, `declined_at`,
+`revised_at`, `revision_count`). Both tell staff holding `prc:write` through
+the in-app bell (`prc.rfq_declined`, `prc.rfq_quote_revised`; `prc` maps to the
+Projects category on backend and frontend). Inviting a vendor also queues a
+plain email to each active vendor portal user (`email_vendor_users`; portal
+users have no staff row so the normal email channel can't reach them). Limits:
+revisions keep only the latest figures (no history of prior prices); the
+invitation email ignores notification preferences because portal users have
+none; there is no staff screen that lists declines yet (the bell link goes to
+Procurement); the email link uses `VENDOR_PORTAL_URL` if set, else
+`FRONTEND_URL`.
 
 **Documents pages -- now built for both portals.** Portal tokens still do not
 hold `documents:write`. Instead, each portal has its own scoped routes

@@ -2,7 +2,7 @@
 Module 7 — Procurement (Code: PRC)
 SRS Section 4.7 — Flask Blueprint. Base path: /v1/prc
 """
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 from marshmallow import ValidationError
 
 from app.extensions import db
@@ -174,6 +174,21 @@ def invite_vendor(rfq_id):
         data={"entity_type": "rfq", "entity_id": str(rfq.id)},
     )
     db.session.commit()
+
+    # Email copy, after the commit so nothing is sent for a rolled-back invite.
+    from app.notifications.portal import email_vendor_users
+
+    portal_url = (current_app.config.get("VENDOR_PORTAL_URL") or current_app.config.get("FRONTEND_URL") or "").rstrip("/")
+    email_vendor_users(
+        g.tenant_id,
+        vendor_id=data["vendor_id"],
+        subject=f"You have been invited to quote: {rfq.title}",
+        body=(
+            f"You have been invited to submit a quotation for \"{rfq.title}\".\n"
+            + (f"Please respond by {deadline}.\n" if deadline else "")
+            + (f"\nSign in to the vendor portal: {portal_url}/vendor/rfqs\n" if portal_url else "")
+        ),
+    )
     return jsonify(invitation_schema.dump(invitation)), 201
 
 

@@ -35,6 +35,8 @@ from app.modules.vnp.schemas import (
     AcknowledgeOrderSchema,
     OrderAcknowledgmentSchema,
     SubmitQuoteSchema,
+    ReviseQuoteSchema,
+    DeclineRfqSchema,
     QuotationSchema,
     RFQInvitationSchema,
     UploadInvoiceSchema,
@@ -270,6 +272,24 @@ def submit_quote(vendor_user_id):
     data = _load(SubmitQuoteSchema())
     quotation = services.submit_quote_as_vendor(g.tenant_id, vendor_user=vendor_user, **data)
     return jsonify(quote_schema.dump(quotation)), 201
+
+
+@bp.put("/vendor-users/<uuid:vendor_user_id>/quotes/<uuid:rfq_id>")
+@require_permission("vnp:write")
+def revise_quote(vendor_user_id, rfq_id):
+    vendor_user = _get_vendor_user_or_404(vendor_user_id)
+    data = _load(ReviseQuoteSchema())
+    quotation = services.revise_quote_as_vendor(g.tenant_id, vendor_user=vendor_user, rfq_id=rfq_id, **data)
+    return jsonify(quote_schema.dump(quotation))
+
+
+@bp.post("/vendor-users/<uuid:vendor_user_id>/rfq-invitations/<uuid:rfq_id>/decline")
+@require_permission("vnp:write")
+def decline_rfq(vendor_user_id, rfq_id):
+    vendor_user = _get_vendor_user_or_404(vendor_user_id)
+    data = _load(DeclineRfqSchema())
+    inv = services.decline_rfq_as_vendor(g.tenant_id, vendor_user=vendor_user, rfq_id=rfq_id, reason=data.get("reason"))
+    return jsonify({"rfq_id": str(inv.rfq_id), "invitation_status": inv.status, "decline_reason": inv.decline_reason})
 
 
 # --- Invoice upload & payment tracking (VNP-03, VNP-04) --------------------------------

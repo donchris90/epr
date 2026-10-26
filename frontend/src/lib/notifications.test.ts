@@ -54,6 +54,11 @@ describe("categoryFor", () => {
     expect(categoryFor("clp.request_resolved")).toBe("projects");
   });
 
+  it("maps prc.* (RFQ declined / quote revised) to projects, matching the backend", () => {
+    expect(categoryFor("prc.rfq_declined")).toBe("projects");
+    expect(deepLinkFor({ entity_type: "rfq", entity_id: "r1" })).toBe("/procurement");
+  });
+
   it("maps the real hse.* prefix to hse", () => {
     expect(categoryFor("hse.incident_raised")).toBe("hse");
   });

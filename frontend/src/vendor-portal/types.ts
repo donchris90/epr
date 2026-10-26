@@ -37,6 +37,8 @@ export interface Quotation {
   lead_time_days?: number | null;
   payment_terms?: string | null;
   submitted_at?: string | null;
+  revised_at?: string | null;
+  revision_count?: number;
 }
 
 export interface RfqInvitation {
@@ -47,8 +49,11 @@ export interface RfqInvitation {
   response_deadline: string | null;
   rfq_status: string;
   invitation_status: string;
+  decline_reason?: string | null;
   quote: Quotation | null;
   can_quote: boolean;
+  can_revise?: boolean;
+  can_decline?: boolean;
 }
 
 export interface InvoiceUpload {

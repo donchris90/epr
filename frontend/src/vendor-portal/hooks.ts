@@ -120,6 +120,17 @@ export async function submitQuote(input: { rfq_id: string; price: string; lead_t
   return res.data;
 }
 
+export async function reviseQuote(rfqId: string, input: { price: string; lead_time_days?: number | null; payment_terms?: string | null }): Promise<Quotation> {
+  const userId = getPortalUserId();
+  const res = await vendorPortalClient.put(`/vnp/vendor-users/${userId}/quotes/${rfqId}`, input);
+  return res.data;
+}
+
+export async function declineRfq(rfqId: string, reason?: string): Promise<void> {
+  const userId = getPortalUserId();
+  await vendorPortalClient.post(`/vnp/vendor-users/${userId}/rfq-invitations/${rfqId}/decline`, { reason: reason || null });
+}
+
 export function useInvoices() {
   const [invoices, setInvoices] = useState<InvoiceUpload[] | null>(null);
   const [error, setError] = useState<string | null>(null);
