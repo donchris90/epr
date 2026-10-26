@@ -62,79 +62,34 @@ portal token, via a shared bell and a full list page. Remaining: no
 notifications yet for PO issued, RFQ invitation, progress verification or
 retention release; no email copy (in-app only).
 
-**No Documents page in either portal.** For SCP: confirmed zero
-document capability exists anywhere in the module -- no
-document-upload, document-list, or document-attachment field on any
-SCP schema at all. For VNP: `UploadInvoiceSchema` does accept an
-`invoice_document_id`, suggesting the intent was for an invoice to
-carry a real attached file -- but confirmed directly that
-`POST /v1/documents/upload-request` requires the `documents:write`
-permission, which a vendor-portal token does not and should not have
-(that permission is tenant-wide, far broader than "attach this one
-invoice's own file"). Invoice submission in this build collects
-number/amount/PO reference only; the document-attachment field is
-real on the schema but genuinely unreachable safely today.
+**Documents pages -- now built for both portals.** Portal tokens still do not
+hold `documents:write`. Instead, each portal has its own scoped routes
+(`/v1/scp/portal-users/<id>/documents/...` and
+`/v1/vnp/vendor-users/<id>/documents/...`: upload-request, confirm, list,
+download) backed by `app/documents/portal.py`, which reuses the staff S3
+flow. Documents are stamped with the owning organisation
+(`documents.portal_owner_type` / `portal_owner_id`, migration 0059). A portal
+user sees and downloads only their own organisation's uploaded documents
+(colleagues share); anything else is a 404, and staff documents are
+unreachable. Allowed types: PDF, PNG, JPEG, Word, Excel, CSV; per-portal
+document-type lists; 20 MB ceiling, checked on confirm from storage's own
+size and the object is deleted if over. Vendors can attach an uploaded
+document to an invoice (`invoice_document_id` is now ownership-checked: it
+must be one of the vendor organisation's finished uploads).
 
-```
-BACKEND GAP (SCP):
-Endpoint: none exists for subcontractor-facing documents at all
-Expected model change: a real document-category concept scoped to
-  SCP, or a genuinely safe way to reuse the existing documents
-  module without granting a portal token tenant-wide document access
-Why frontend requires it: the task's own brief asks for a documents
-  section; there is nothing real to build it against today.
-
-BACKEND GAP (VNP):
-Endpoint: a narrower permission than documents:write -- e.g.
-  documents:write:own-uploads, or a dedicated
-  POST /v1/vnp/vendor-users/<id>/invoices/<id>/attach-document route
-  that internally uses staff-level document creation but is scoped
-  to only the calling vendor's own invoice
-Why frontend requires it: invoice_document_id already exists on the
-  real schema, so the backend's own intent is clear -- what's
-  missing is a safe way for a vendor-portal token to actually
-  populate it without a much broader permission grant than the task
-  it's meant to support.
-```
-
-**No "outstanding submissions" or cross-agreement/cross-order
-aggregation on either dashboard.** Neither portal has a real backend
-endpoint that computes "3 progress entries awaiting review" or
-similar summaries -- each dashboard shows the real, per-agreement or
-per-order data the backend actually returns, not a synthesized
-rollup.
-
-**No payment-status information on the vendor side beyond an
-invoice's own internal review status.** `InvoiceUpload.status`
-reflects the portal's own review workflow (pending/approved/rejected/
-paid, per the real `status` field), not integration with an actual
-payment/banking rail -- there is no real "payment processed on
-[date]" data anywhere in this backend to show honestly.
-
-**RFQ invitations and quote submission -- now built.** `GET
-/v1/vnp/vendor-users/<id>/rfq-invitations` lists only the RFQs this vendor
-was invited to, each with the vendor's own quote (never another vendor's)
-and a `can_quote` flag. The vendor portal has an RFQs page that lists them
-and takes a quote (price, lead time, payment terms). Two rules were added to
-`POST .../quotes`, which previously had neither: it now refuses (409) an RFQ
-that is closed or past its response deadline, and it marks the invitation
-`responded`. Not built: declining an invitation (the `declined` status exists
-but nothing sets it), revising or withdrawing a submitted quote (one quote
-per vendor per RFQ, final), attaching a document to a quote, and
-invitation emails. A vendor is now notified in the portal (`vnp.rfq_invited`,
-linking to the RFQs page) when staff invite them; inviting the same vendor
-twice returns 409 instead of a database error.
-
-**Banking change requests -- vendor UI now built.** My Account has a "Bank
-details" card: the vendor submits bank name, account name and account number,
-sees the status of past requests (account numbers shown masked, rejection
-reason shown) and can't stack a second request while one is pending. A
-request only stages the change; finance approval (`vnp:finance_approve`,
-staff-only) still applies it, and the vendor is notified of the decision. New
-endpoint: `GET /v1/vnp/vendor-users/<id>/banking-change-requests` (own
-requests only). Not built: the finance-side review screen in the staff app.
-
-## What was deliberately not built as a fake feature
+Limits:
+- The browser uploads straight to the bucket, so the bucket's CORS rules
+  must allow `PUT` from the frontend origins (see the Render notes in the
+  README); without that, uploads fail in the browser even though the API is
+  fine.
+- Content type is checked from the declared type, not by sniffing file
+  contents, and there is no virus scanning.
+- No delete or replace by the portal user; staff can delete through the
+  normal documents API.
+- Staff have no screen that lists portal uploads by organisation yet (the
+  link exists in the data; the staff documents list does not filter on it).
+- SCP invoices/claims have no document attachment field, so subcontractor
+  uploads are standalone for now.
 
 Matching this session's own established pattern for every prior
 portal build: no notification bell where nothing populates one, no
@@ -156,5 +111,13 @@ in History, so a bad approval can be audited. Staff list endpoint:
 Limits: the previous details are only recorded for approvals made after this
 deploy; there is no one-click "revert", a reviewer must have the vendor submit
 a new change; the proposed account number is shown in full to
-`vnp:finance_approve` holders (the vendor-facing view stays masked); and there
-is no notification to finance when a request arrives.
+`vnp:finance_approve` holders (the vendor-facing view stays masked); and
+finance is now alerted when a request arrives (see below).
+
+Finance alert: submitting a banking change notifies every active staff user in
+the tenant whose role holds `vnp:finance_approve` (or `*`), as
+`fin.banking_change_submitted` (Finance category), linking to the Vendor
+Portal admin page. Uses the new `notify_users_with_permission` helper in
+`app/notifications/services.py`, reusable for other "tell the approvers"
+cases. Notification preferences apply, so a user can mute the Finance
+category. Limit: it is in-app only; no email is sent.

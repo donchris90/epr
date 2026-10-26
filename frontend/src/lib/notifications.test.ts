@@ -23,6 +23,10 @@ describe("timeAgo", () => {
 });
 
 describe("deepLinkFor", () => {
+  it("links a banking change request to the vendor portal admin page", () => {
+    expect(deepLinkFor({ entity_type: "banking_change_request", entity_id: "r1" })).toBe("/vendor-portal");
+  });
+
   it("returns a real, known route for a real, recognized entity type", () => {
     expect(deepLinkFor({ entity_type: "purchase_order", entity_id: "po-1" })).toBe("/procurement/orders/po-1");
   });

@@ -247,6 +247,17 @@ def upload_vendor_invoice(
     if bool(purchase_order_id) == bool(subcontract_certificate_id):
         raise APIError("Exactly one of purchase_order_id or subcontract_certificate_id is required", status=400)
 
+    if invoice_document_id:
+        # An attached file must be one this vendor's organisation uploaded
+        # through the portal and that actually finished uploading.
+        from app.documents import portal as doc_portal
+
+        doc = doc_portal.get_owned(
+            tenant_id, owner_type="vnp", owner_id=vendor_user.vendor_id, document_id=invoice_document_id
+        )
+        if doc.status != "uploaded":
+            raise APIError("The attached document has not finished uploading", status=409)
+
     if purchase_order_id:
         assert_vendor_owns_purchase_order(tenant_id, vendor_user=vendor_user, purchase_order_id=purchase_order_id)
     else:
@@ -291,6 +302,23 @@ def submit_banking_change(tenant_id, *, vendor_user: VendorPortalUser, proposed_
         submitted_at=datetime.now(timezone.utc),
     )
     db.session.add(request)
+    db.session.flush()
+
+    # Tell the people who can act on it. "fin." prefix so it lands in
+    # the Finance category of the notification centre. Same transaction
+    # as the request itself.
+    from app.modules.prc.models import Vendor
+    from app.notifications.services import notify_users_with_permission
+
+    vendor = Vendor.query.filter_by(id=vendor_user.vendor_id, tenant_id=tenant_id).first()
+    notify_users_with_permission(
+        tenant_id,
+        permission="vnp:finance_approve",
+        type="fin.banking_change_submitted",
+        title=f"Banking change awaiting review: {vendor.name if vendor else 'a vendor'}",
+        body="Compare the proposed details with those on file before approving.",
+        data={"entity_type": "banking_change_request", "entity_id": str(request.id)},
+    )
     db.session.commit()
     return request
 

@@ -355,3 +355,55 @@ def list_banking_change_requests():
         item["current_banking_details"] = row["current_banking_details"]
         out.append(item)
     return jsonify(envelope(out))
+
+
+# --- Documents (portal) ---------------------------------------------------------------
+
+@bp.post("/vendor-users/<uuid:vendor_user_id>/documents/upload-request")
+@require_permission("vnp:write")
+def request_document_upload(vendor_user_id):
+    user = _get_vendor_user_or_404(vendor_user_id)
+    from app.documents import portal as doc_portal
+    from app.documents.schemas import PortalUploadRequestSchema, UploadRequestResponseSchema
+
+    data = _load(PortalUploadRequestSchema())
+    document, upload_url = doc_portal.create_upload(
+        g.tenant_id, owner_type="vnp", owner_id=user.vendor_id, user_id=user.id, **data
+    )
+    body = UploadRequestResponseSchema().dump(document)
+    body["upload_url"] = upload_url
+    return jsonify(body), 201
+
+
+@bp.post("/vendor-users/<uuid:vendor_user_id>/documents/<uuid:document_id>/confirm")
+@require_permission("vnp:write")
+def confirm_document_upload(vendor_user_id, document_id):
+    user = _get_vendor_user_or_404(vendor_user_id)
+    from app.documents import portal as doc_portal
+    from app.documents.schemas import DocumentSchema
+
+    doc = doc_portal.confirm(
+        g.tenant_id, owner_type="vnp", owner_id=user.vendor_id, user_id=user.id, document_id=document_id
+    )
+    return jsonify(DocumentSchema().dump(doc))
+
+
+@bp.get("/vendor-users/<uuid:vendor_user_id>/documents")
+@require_permission("vnp:read")
+def list_documents(vendor_user_id):
+    user = _get_vendor_user_or_404(vendor_user_id)
+    from app.documents import portal as doc_portal
+    from app.documents.schemas import DocumentSchema
+
+    docs = doc_portal.list_owned(g.tenant_id, owner_type="vnp", owner_id=user.vendor_id)
+    return jsonify(envelope(DocumentSchema().dump(docs, many=True)))
+
+
+@bp.get("/vendor-users/<uuid:vendor_user_id>/documents/<uuid:document_id>/download")
+@require_permission("vnp:read")
+def download_document(vendor_user_id, document_id):
+    user = _get_vendor_user_or_404(vendor_user_id)
+    from app.documents import portal as doc_portal
+
+    url = doc_portal.download_url(g.tenant_id, owner_type="vnp", owner_id=user.vendor_id, document_id=document_id)
+    return jsonify({"download_url": url})

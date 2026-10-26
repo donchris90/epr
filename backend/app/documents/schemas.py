@@ -30,3 +30,9 @@ class DocumentSchema(Schema):
 
 class DocumentWithUrlSchema(DocumentSchema):
     download_url = fields.Str(dump_only=True, allow_none=True)
+
+
+class PortalUploadRequestSchema(Schema):
+    original_filename = fields.Str(required=True)
+    content_type = fields.Str(required=True)
+    doc_type = fields.Str(required=True)

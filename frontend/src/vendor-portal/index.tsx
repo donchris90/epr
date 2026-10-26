@@ -8,6 +8,7 @@ import DashboardPage from "./pages/DashboardPage";
 import PurchaseOrdersPage from "./pages/PurchaseOrdersPage";
 import PurchaseOrderDetailPage from "./pages/PurchaseOrderDetailPage";
 import RfqInvitationsPage from "./pages/RfqInvitationsPage";
+import DocumentsPage from "./pages/DocumentsPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import NotificationsPage from "./notifications";
 import ProfilePage from "./pages/ProfilePage";
@@ -36,6 +37,7 @@ export default function VendorPortalApp() {
           <Route path="purchase-orders" element={<PurchaseOrdersPage />} />
           <Route path="purchase-orders/:id" element={<PurchaseOrderDetailPage />} />
           <Route path="rfqs" element={<RfqInvitationsPage />} />
+          <Route path="documents" element={<DocumentsPage />} />
           <Route path="invoices" element={<InvoicesPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="profile" element={<ProfilePage />} />

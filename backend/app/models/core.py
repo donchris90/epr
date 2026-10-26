@@ -220,7 +220,14 @@ class Document(db.Model, UUIDPrimaryKeyMixin, AuditMixin):
     size_bytes = db.Column(db.BigInteger, nullable=True)  # set on confirm, from S3's own HEAD response, not client-supplied
     status = db.Column(db.String(16), nullable=False, default="pending")  # pending | uploaded | failed
     uploaded_by = db.Column(UUID(as_uuid=True), nullable=True)
+    # Set only for documents uploaded through the subcontractor ("scp")
+    # or vendor ("vnp") portal (migration 0059): the owning organisation
+    # (subcontractor_id / vendor_id). Portal users see their own
+    # organisation's documents through this and nothing else.
+    portal_owner_type = db.Column(db.String(8), nullable=True)
+    portal_owner_id = db.Column(UUID(as_uuid=True), nullable=True, index=True)
 
     __table_args__ = (
         db.CheckConstraint("status IN ('pending','uploaded','failed')", name="ck_documents_status"),
+        db.CheckConstraint("portal_owner_type IS NULL OR portal_owner_type IN ('scp','vnp')", name="ck_documents_portal_owner_type"),
     )

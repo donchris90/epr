@@ -34,6 +34,7 @@ export function deepLinkFor(data: Record<string, unknown> | null): string | null
     purchase_order: `/procurement/orders/${entityId}`,
     contract_amendment: `/contracts`,
     budget_revision: `/finance`,
+    banking_change_request: `/vendor-portal`,
     permit_to_work: `/hse`,
   };
   return routes[entityType] ?? null;
