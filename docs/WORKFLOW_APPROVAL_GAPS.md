@@ -59,11 +59,16 @@ Two of the gaps below are closed on the backend:
   logged under the nil UUID `SYSTEM_ACTOR_ID` because the audit log's
   `actor_id` is NOT NULL.
 
-Still true: the frontend does not yet use `step_due_at` (it still
-computes SLA client-side), has no "Escalate" button, and the step
-editor has no escalation-target fields. A step with `auto_escalate` on
-and no target is accepted at definition time (to avoid breaking the
-current builder) and is reported as `skipped_no_target` by the task.
+Frontend (added after the backend): the SLA badge now prefers the
+stored `step_due_at` and falls back to the old derived date for
+payloads without it; the Approval Center shows an "Escalated" badge,
+an Escalate button (only when the current step has a target and isn't
+already escalated; the backend still decides who may use it), and
+labels scheduler escalations "System (automatic)". The step editor has
+escalation-target pickers, and publishing is blocked for a step with
+auto-escalate on but no target or no SLA duration. The backend itself
+still accepts auto-escalate with no target (so old definitions load);
+such steps are reported as `skipped_no_target` by the hourly task.
 
 The two items below are kept for history; both are now addressed as
 described above.

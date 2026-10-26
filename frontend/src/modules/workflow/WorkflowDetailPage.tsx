@@ -180,7 +180,18 @@ export default function WorkflowDetailPage() {
                   )}
                   {step.timeout_hours && (
                     <div style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>
-                      Timeout: {step.timeout_hours}h {step.auto_escalate && "(auto-escalate — recorded, not yet enforced by a scheduler)"}
+                      SLA: {step.timeout_hours}h {step.auto_escalate && "· escalates automatically when overdue"}
+                    </div>
+                  )}
+                  {(step.escalate_to_user_id || step.escalate_to_role_id) && (
+                    <div style={{ fontSize: 12, color: "var(--sf-navy-600)" }}>
+                      Escalates to:{" "}
+                      {[
+                        step.escalate_to_user_id ? members.get(step.escalate_to_user_id) ?? step.escalate_to_user_id : null,
+                        step.escalate_to_role_id ? `${roles.get(step.escalate_to_role_id) ?? step.escalate_to_role_id} (role)` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(", ")}
                     </div>
                   )}
                 </div>

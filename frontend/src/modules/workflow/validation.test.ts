@@ -128,4 +128,28 @@ describe("validateWorkflowDraft", () => {
     const errors = validateWorkflowDraft(realDraft({ workflow_name: "", steps: [] }));
     expect(errors.length).toBeGreaterThanOrEqual(2);
   });
+
+  describe("auto-escalation", () => {
+    it("requires an escalation target when auto-escalate is on", () => {
+      const errors = validateWorkflowDraft(realDraft({ steps: [realStep({ auto_escalate: true, timeout_hours: 24 })] }));
+      expect(errors.some((e) => e.includes("choose who to escalate to"))).toBe(true);
+    });
+
+    it("accepts auto-escalate with a user target, or a role target", () => {
+      for (const target of [{ escalate_to_user_id: "user-9" }, { escalate_to_role_id: "role-9" }]) {
+        const errors = validateWorkflowDraft(realDraft({ steps: [realStep({ auto_escalate: true, timeout_hours: 24, ...target })] }));
+        expect(errors).toEqual([]);
+      }
+    });
+
+    it("requires an SLA duration when auto-escalate is on", () => {
+      const errors = validateWorkflowDraft(realDraft({ steps: [realStep({ auto_escalate: true, escalate_to_user_id: "user-9" })] }));
+      expect(errors.some((e) => e.includes("needs an SLA duration"))).toBe(true);
+    });
+
+    it("does not complain about an escalation target when auto-escalate is off", () => {
+      const errors = validateWorkflowDraft(realDraft({ steps: [realStep({ escalate_to_user_id: "user-9", timeout_hours: 8 })] }));
+      expect(errors).toEqual([]);
+    });
+  });
 });

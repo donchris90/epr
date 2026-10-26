@@ -76,6 +76,17 @@ export function validateWorkflowDraft(draft: WorkflowDraft): string[] {
       errors.push(`${label}: minimum amount cannot be greater than maximum amount.`);
     }
 
+    // Auto-escalation needs somewhere to escalate TO. The backend
+    // accepts the combination (so older definitions keep loading) but
+    // the hourly task can then only report it as skipped, never act --
+    // block it at publish time here instead.
+    if (step.auto_escalate && !step.escalate_to_user_id && !step.escalate_to_role_id) {
+      errors.push(`${label}: auto-escalation is on, so choose who to escalate to (a person or a role).`);
+    }
+    if (step.auto_escalate && !step.timeout_hours) {
+      errors.push(`${label}: auto-escalation needs an SLA duration.`);
+    }
+
     // "Invalid transitions" / "circular flow" -- reject_to_step must
     // point to a real, earlier step. Pointing forward or to itself
     // isn't a rework loop, it's either a no-op or a genuine cycle the

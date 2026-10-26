@@ -444,11 +444,31 @@ function StepConfigModal({
             Escalate after SLA elapses
           </label>
           <p style={{ fontSize: 11, color: "var(--sf-navy-400)", marginTop: 4, marginLeft: 24 }}>
-            Recorded, not yet enforced by a scheduler -- no automatic escalation actually happens yet. There's also no
-            real "escalation target" field on the backend today (who it would escalate to); this checkbox only
-            records the intent.
+            Checked hourly: once the SLA has passed and nobody has actioned the step, it is escalated to the person or
+            role below, who can then approve or reject it too.
           </p>
         </div>
+      )}
+      {step.timeout_hours && (
+        <>
+          <Field label={step.auto_escalate ? "Escalate to person" : "Escalate to person (optional)"}>
+            <UserSelect
+              value={step.escalate_to_user_id ?? ""}
+              placeholder="No person"
+              onChange={(id) => onChange({ escalate_to_user_id: id || undefined })}
+            />
+          </Field>
+          <Field label={step.auto_escalate ? "Escalate to role" : "Escalate to role (optional)"}>
+            <RoleSelect
+              value={step.escalate_to_role_id ?? ""}
+              placeholder="No role"
+              onChange={(id) => onChange({ escalate_to_role_id: id || undefined })}
+            />
+          </Field>
+          <p style={{ fontSize: 11, color: "var(--sf-navy-400)", marginTop: -8, marginBottom: 12 }}>
+            Either or both. Without one of these, this step cannot be escalated, manually or automatically.
+          </p>
+        </>
       )}
 
       <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
