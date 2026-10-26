@@ -64,6 +64,9 @@ function mockGet(url: string, config?: any) {
   if (url === "/scp/portal-users/portal-user-1/claims") {
     return Promise.resolve({ data: { data: [] } });
   }
+  if (url === "/scp/portal-users/portal-user-1/documents") {
+    return Promise.resolve({ data: { data: [{ id: "doc-1", doc_type: "other", original_filename: "site-diary.pdf", content_type: "application/pdf", size_bytes: 10, created_at: "2026-08-23T00:00:00Z" }] } });
+  }
   return Promise.reject(new Error(`unexpected GET ${url}`));
 }
 
@@ -156,6 +159,32 @@ describe("Subcontractor portal — agreement detail and claim submission", () =>
       expect(subcontractorPortalClient.post).toHaveBeenCalledWith(
         "/scp/portal-users/portal-user-1/claims",
         expect.objectContaining({ agreement_id: "agr-1", description: "Extra scope requested by site team" })
+      );
+    });
+  });
+
+  it("attaches one of the organisation's uploaded documents to a claim", async () => {
+    const user = userEvent.setup();
+    vi.mocked(subcontractorPortalClient.post).mockImplementation((url: string, body?: any) => {
+      if (url === "/scp/auth/login") {
+        return Promise.resolve({ data: { access_token: ACCESS_TOKEN, refresh_token: "fake-refresh-token" } });
+      }
+      if (url === "/scp/portal-users/portal-user-1/claims") {
+        return Promise.resolve({ data: { id: "claim-1", agreement_id: "agr-1", claim_type: body?.claim_type, description: body?.description, claimed_amount: null, claimed_days: null, status: "submitted", submitted_at: "2026-08-23T00:00:00Z", response_notes: null, supporting_document_id: body?.supporting_document_id } });
+      }
+      return Promise.reject(new Error(`unexpected POST ${url}`));
+    });
+
+    await loginAndOpenAgreement(user);
+    await user.click(await screen.findByRole("button", { name: /new claim/i }));
+    await user.type(screen.getByPlaceholderText("Describe the claim"), "Delay evidence");
+    await user.selectOptions(await screen.findByLabelText("Supporting document"), "doc-1");
+    await user.click(screen.getByRole("button", { name: /submit claim/i }));
+
+    await waitFor(() => {
+      expect(subcontractorPortalClient.post).toHaveBeenCalledWith(
+        "/scp/portal-users/portal-user-1/claims",
+        expect.objectContaining({ supporting_document_id: "doc-1" })
       );
     });
   });

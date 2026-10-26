@@ -167,6 +167,7 @@ export async function submitClaim(input: {
   description: string;
   claimed_amount?: string;
   claimed_days?: number;
+  supporting_document_id?: string;
 }): Promise<Claim> {
   const userId = getPortalUserId();
   const res = await subcontractorPortalClient.post(`/scp/portal-users/${userId}/claims`, input);

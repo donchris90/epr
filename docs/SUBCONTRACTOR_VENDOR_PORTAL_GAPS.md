@@ -84,8 +84,12 @@ Limits:
   fine.
 - Content type is checked from the declared type, not by sniffing file
   contents, and there is no virus scanning.
-- No delete or replace by the portal user; staff can delete through the
-  normal documents API.
+- Portal users can now delete their own organisation's uploads
+  (`DELETE .../documents/<id>`, Delete with a confirm step on the Documents
+  page). A document that a claim or vendor invoice points at can't be deleted
+  (409), because the other side may be relying on it. There is no separate
+  "replace": delete (when unattached) and upload again. Staff can still delete
+  through the normal documents API.
 - Staff see portal uploads in the Document Library (a Source column and a
   Source filter: staff / vendor portal / subcontractor portal), each labelled
   with the organisation's name. `GET /v1/documents` accepts `source=staff|vendor|subcontractor`
@@ -93,8 +97,13 @@ Limits:
   Before this, portal uploads appeared in that list with no indication of
   where they came from. There is no per-vendor documents tab on the vendor
   record itself yet.
-- SCP invoices/claims have no document attachment field, so subcontractor
-  uploads are standalone for now.
+- Subcontractor claims can now carry one supporting document
+  (`sub_claims.supporting_document_id`, migration 0060), chosen from the
+  organisation's own finished uploads and ownership-checked on submit; staff
+  fetch it through the normal documents API. Subcontractors have no invoice
+  object (payment certificates are issued by the contractor), so claims are
+  the attachment point. Progress entries carry no attachment, and a claim
+  holds a single file.
 
 Matching this session's own established pattern for every prior
 portal build: no notification bell where nothing populates one, no

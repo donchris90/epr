@@ -170,9 +170,19 @@ def get_payment_certificates_for_subcontractor(tenant_id, *, portal_user: Subcon
 
 def submit_claim_as_subcontractor(
     tenant_id, *, portal_user: SubcontractorPortalUser, agreement_id, claim_type, description,
-    claimed_amount=None, claimed_days=None
+    claimed_amount=None, claimed_days=None, supporting_document_id=None
 ):
     assert_subcontractor_owns_agreement(tenant_id, portal_user=portal_user, agreement_id=agreement_id)
+
+    if supporting_document_id:
+        # Must be a finished upload held by this subcontractor's own organisation.
+        from app.documents import portal as doc_portal
+
+        doc = doc_portal.get_owned(
+            tenant_id, owner_type="scp", owner_id=portal_user.subcontractor_id, document_id=supporting_document_id
+        )
+        if doc.status != "uploaded":
+            raise APIError("The attached document has not finished uploading", status=409)
 
     from app.modules.sub.models import SubcontractClaim
 
@@ -183,6 +193,7 @@ def submit_claim_as_subcontractor(
         description=description,
         claimed_amount=claimed_amount,
         claimed_days=claimed_days,
+        supporting_document_id=supporting_document_id,
         status="submitted",
         submitted_at=datetime.now(timezone.utc),
     )

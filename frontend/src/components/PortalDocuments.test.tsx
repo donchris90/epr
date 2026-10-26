@@ -75,4 +75,34 @@ describe("PortalDocuments", () => {
     expect(screen.getByRole("button", { name: "Upload" })).toBeDisabled();
     expect(post).not.toHaveBeenCalled();
   });
+
+  it("deletes only after a second confirming click, then reloads", async () => {
+    const get = vi.fn().mockResolvedValueOnce({ data: { data: [doc] } }).mockResolvedValueOnce({ data: { data: [] } });
+    const del = vi.fn().mockResolvedValue({});
+    render(<PortalDocuments client={{ get, post: vi.fn(), delete: del } as any} base="/vnp/vendor-users/u1" docTypes={types} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Delete cover.pdf" }));
+    expect(del).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Confirm delete" }));
+    await waitFor(() => expect(del).toHaveBeenCalledWith("/vnp/vendor-users/u1/documents/d1"));
+    expect(await screen.findByText("No documents yet")).toBeInTheDocument();
+  });
+
+  it("cancel leaves the document alone", async () => {
+    const del = vi.fn();
+    render(<PortalDocuments client={{ get: vi.fn().mockResolvedValue({ data: { data: [doc] } }), post: vi.fn(), delete: del } as any} base="/b" docTypes={types} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Delete cover.pdf" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(del).not.toHaveBeenCalled();
+    expect(screen.getByText("cover.pdf")).toBeInTheDocument();
+  });
+
+  it("explains why a document in use can't be deleted", async () => {
+    const del = vi.fn().mockRejectedValue({ response: { data: { title: "This document is attached to a claim or invoice you submitted, so it can't be deleted." } } });
+    render(<PortalDocuments client={{ get: vi.fn().mockResolvedValue({ data: { data: [doc] } }), post: vi.fn(), delete: del } as any} base="/b" docTypes={types} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Delete cover.pdf" }));
+    await userEvent.click(screen.getByRole("button", { name: "Confirm delete" }));
+    expect(await screen.findByText(/attached to a claim or invoice/i)).toBeInTheDocument();
+    expect(screen.getByText("cover.pdf")).toBeInTheDocument();
+  });
 });
+

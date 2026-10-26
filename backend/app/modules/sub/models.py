@@ -269,6 +269,8 @@ class SubcontractClaim(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
     reviewed_by = db.Column(UUID(as_uuid=True), nullable=True)
     reviewed_at = db.Column(db.DateTime(timezone=True), nullable=True)
     response_notes = db.Column(db.Text, nullable=True)
+    # Optional evidence: a document the subcontractor uploaded in the portal.
+    supporting_document_id = db.Column(UUID(as_uuid=True), db.ForeignKey("documents.id"), nullable=True)
 
     __table_args__ = (
         db.CheckConstraint(f"claim_type IN {CLAIM_TYPES}", name="ck_sub_claims_type"),

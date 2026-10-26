@@ -202,3 +202,93 @@ class TestStaffListing:
         self._docs(db, seed_tenants["a"])
         h = auth_headers("b", permissions=["documents:read"])
         assert self._names(client, h) == {}
+
+
+def _scp_with_agreement(db, tid, email="sub@example.com"):
+    from app.auth.jwt_utils import hash_password
+    from app.modules.scp.models import SubcontractorPortalUser, SubcontractorPortalEmailIndex
+    from tests.test_scp import _seed_subcontractor_and_agreement
+
+    sub_id, agreement_id = _seed_subcontractor_and_agreement(db, tid, name=f"Sub {email}")
+    _as_tenant(db, tid)
+    u = SubcontractorPortalUser(tenant_id=tid, subcontractor_id=sub_id, email=email,
+                                password_hash=hash_password("a real password"), is_active=True)
+    db.session.add(u)
+    db.session.flush()
+    uid = u.id
+    db.session.add(SubcontractorPortalEmailIndex(email=email, portal_user_id=uid, tenant_id=tid))
+    db.session.commit()
+    return uid, agreement_id
+
+
+@pytest.mark.parametrize("portal", ["vnp", "scp"])
+class TestPortalDocumentDelete:
+    def test_delete_own_document_then_it_is_gone(self, app, db, client, seed_tenants, s3_bucket, portal):
+        cfg = PORTALS[portal]
+        uid = cfg["seed"](db, seed_tenants["a"])
+        h = _login(client, portal, cfg["email"])
+        _, doc_id = _upload(client, portal, uid, h)
+        url = f"/v1/{portal}/{cfg['base']}/{uid}/documents/{doc_id}"
+        assert client.delete(url, headers=h).status_code == 204
+        assert client.get(f"/v1/{portal}/{cfg['base']}/{uid}/documents", headers=h).get_json()["data"] == []
+        assert client.get(url + "/download", headers=h).status_code == 404
+
+    def test_cannot_delete_another_organisations_document(self, app, db, client, seed_tenants, s3_bucket, portal):
+        cfg = PORTALS[portal]
+        u1 = cfg["seed"](db, seed_tenants["a"], email="one@example.com")
+        u2 = cfg["seed"](db, seed_tenants["a"], email="two@example.com")
+        h1, h2 = _login(client, portal, "one@example.com"), _login(client, portal, "two@example.com")
+        _, doc_id = _upload(client, portal, u1, h1)
+        r = client.delete(f"/v1/{portal}/{cfg['base']}/{u2}/documents/{doc_id}", headers=h2)
+        assert r.status_code == 404
+        assert len(client.get(f"/v1/{portal}/{cfg['base']}/{u1}/documents", headers=h1).get_json()["data"]) == 1
+
+
+class TestDeleteBlockedWhileAttached:
+    def test_vendor_invoice_attachment_blocks_delete(self, app, db, client, seed_tenants, s3_bucket):
+        u = _seed_vnp_user(db, seed_tenants["a"])
+        h = _login(client, "vnp", "vendor@example.com")
+        _, doc_id = _upload(client, "vnp", u, h, doc_type="invoice")
+        po = _po_for_vendor(db, seed_tenants["a"], u)
+        r = client.post(f"/v1/vnp/vendor-users/{u}/invoices", headers=h, json={
+            "invoice_number": "INV-9", "amount": "10.00", "purchase_order_id": str(po), "invoice_document_id": doc_id})
+        assert r.status_code == 201
+        d = client.delete(f"/v1/vnp/vendor-users/{u}/documents/{doc_id}", headers=h)
+        assert d.status_code == 409
+        assert len(client.get(f"/v1/vnp/vendor-users/{u}/documents", headers=h).get_json()["data"]) == 1
+
+
+class TestClaimSupportingDocument:
+    def _claim(self, client, h, uid, agreement_id, doc_id=None):
+        body = {"agreement_id": str(agreement_id), "claim_type": "delay", "description": "Access blocked", "claimed_days": 3}
+        if doc_id:
+            body["supporting_document_id"] = doc_id
+        return client.post(f"/v1/scp/portal-users/{uid}/claims", headers=h, json=body)
+
+    def test_claim_can_carry_own_uploaded_document_and_it_blocks_delete(self, app, db, client, seed_tenants, s3_bucket):
+        uid, agreement_id = _scp_with_agreement(db, seed_tenants["a"])
+        h = _login(client, "scp", "sub@example.com")
+        _, doc_id = _upload(client, "scp", uid, h, doc_type="other")
+        r = self._claim(client, h, uid, agreement_id, doc_id)
+        assert r.status_code == 201
+        assert r.get_json()["supporting_document_id"] == doc_id
+        listed = client.get(f"/v1/scp/portal-users/{uid}/claims?agreement_id={agreement_id}", headers=h).get_json()["data"]
+        assert listed[0]["supporting_document_id"] == doc_id
+        assert client.delete(f"/v1/scp/portal-users/{uid}/documents/{doc_id}", headers=h).status_code == 409
+
+    def test_claim_without_document_still_works(self, app, db, client, seed_tenants, s3_bucket):
+        uid, agreement_id = _scp_with_agreement(db, seed_tenants["a"])
+        h = _login(client, "scp", "sub@example.com")
+        r = self._claim(client, h, uid, agreement_id)
+        assert r.status_code == 201 and r.get_json()["supporting_document_id"] is None
+
+    def test_claim_cannot_use_another_organisations_or_a_pending_document(self, app, db, client, seed_tenants, s3_bucket):
+        u1, a1 = _scp_with_agreement(db, seed_tenants["a"], "one@example.com")
+        u2, _ = _scp_with_agreement(db, seed_tenants["a"], "two@example.com")
+        h1, h2 = _login(client, "scp", "one@example.com"), _login(client, "scp", "two@example.com")
+        _, theirs = _upload(client, "scp", u2, h2, doc_type="other")
+        assert self._claim(client, h1, u1, a1, theirs).status_code == 404
+
+        pending = client.post(f"/v1/scp/portal-users/{u1}/documents/upload-request", headers=h1, json={
+            "original_filename": "a.pdf", "content_type": "application/pdf", "doc_type": "other"}).get_json()["id"]
+        assert self._claim(client, h1, u1, a1, pending).status_code == 409

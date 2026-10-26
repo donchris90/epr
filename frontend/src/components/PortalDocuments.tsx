@@ -16,7 +16,7 @@ export interface PortalDocument {
 }
 
 export interface PortalDocumentsConfig {
-  client: Pick<AxiosInstance, "get" | "post">;
+  client: Pick<AxiosInstance, "get" | "post" | "delete">;
   /** e.g. "/vnp/vendor-users/<id>" */
   base: string;
   docTypes: { value: string; label: string }[];
@@ -36,7 +36,7 @@ export function formatSize(bytes: number | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function usePortalDocuments(client: PortalDocumentsConfig["client"], base: string) {
+export function usePortalDocuments(client: Pick<AxiosInstance, "get">, base: string) {
   const [documents, setDocuments] = useState<PortalDocument[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -104,6 +104,20 @@ export function PortalDocuments({ client, base, docTypes }: PortalDocumentsConfi
     }
   }
 
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  async function remove(id: string) {
+    setError(null);
+    try {
+      await (client as any).delete(`${base}/documents/${id}`);
+      setConfirmId(null);
+      reload();
+    } catch (err) {
+      setConfirmId(null);
+      setError(errorMessage(err));
+    }
+  }
+
   const labelFor = (v: string | null) => docTypes.find((t) => t.value === v)?.label ?? v ?? "—";
 
   return (
@@ -167,6 +181,30 @@ export function PortalDocuments({ client, base, docTypes }: PortalDocumentsConfi
                     >
                       Download
                     </button>
+                    {confirmId === d.id ? (
+                      <>
+                        <button
+                          onClick={() => remove(d.id)}
+                          style={{ background: "none", border: "none", color: "var(--sf-brick)", cursor: "pointer", fontSize: 12, marginLeft: 10, fontWeight: 600 }}
+                        >
+                          Confirm delete
+                        </button>
+                        <button
+                          onClick={() => setConfirmId(null)}
+                          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, marginLeft: 6 }}
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmId(d.id)}
+                        aria-label={`Delete ${d.original_filename}`}
+                        style={{ background: "none", border: "none", color: "var(--sf-brick)", cursor: "pointer", fontSize: 12, marginLeft: 10 }}
+                      >
+                        Delete
+                      </button>
+                    )}
                   </Td>
                 </tr>
               ))}
