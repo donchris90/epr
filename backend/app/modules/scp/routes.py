@@ -353,3 +353,13 @@ def download_document(portal_user_id, document_id):
 
     url = doc_portal.download_url(g.tenant_id, owner_type="scp", owner_id=user.subcontractor_id, document_id=document_id)
     return jsonify({"download_url": url})
+
+
+@bp.delete("/portal-users/<uuid:portal_user_id>/documents/<uuid:document_id>")
+@require_permission("scp:write")
+def delete_document(portal_user_id, document_id):
+    user = _get_portal_user_or_404(portal_user_id)
+    from app.documents import portal as doc_portal
+
+    doc_portal.delete_owned(g.tenant_id, owner_type="scp", owner_id=user.subcontractor_id, document_id=document_id)
+    return "", 204

@@ -407,3 +407,13 @@ def download_document(vendor_user_id, document_id):
 
     url = doc_portal.download_url(g.tenant_id, owner_type="vnp", owner_id=user.vendor_id, document_id=document_id)
     return jsonify({"download_url": url})
+
+
+@bp.delete("/vendor-users/<uuid:vendor_user_id>/documents/<uuid:document_id>")
+@require_permission("vnp:write")
+def delete_document(vendor_user_id, document_id):
+    user = _get_vendor_user_or_404(vendor_user_id)
+    from app.documents import portal as doc_portal
+
+    doc_portal.delete_owned(g.tenant_id, owner_type="vnp", owner_id=user.vendor_id, document_id=document_id)
+    return "", 204

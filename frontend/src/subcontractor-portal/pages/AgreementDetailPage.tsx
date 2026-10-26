@@ -1,6 +1,9 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { PageHeader, Card, Table, Th, Td, Badge, Button, Input, Field, formatMoney } from "../../components/ui";
+import { usePortalDocuments } from "../../components/PortalDocuments";
+import { subcontractorPortalClient } from "../api/client";
+import { getPortalUserId } from "../lib/auth";
 import { useAgreement, useProgressEntries, submitProgress, usePaymentCertificates, useClaims, submitClaim } from "../hooks";
 import type { ClaimType } from "../types";
 import { CLAIM_TYPES } from "../types";
@@ -68,6 +71,7 @@ function ProgressSection({ agreementId }: { agreementId: string }) {
           <thead>
             <tr>
               <Th>Quantity</Th>
+              <Th>Evidence</Th>
               <Th>Status</Th>
               <Th>Submitted</Th>
             </tr>
@@ -147,6 +151,8 @@ function ClaimsSection({ agreementId }: { agreementId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [documentId, setDocumentId] = useState("");
+  const { documents } = usePortalDocuments(subcontractorPortalClient, `/scp/portal-users/${getPortalUserId()}`);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -163,7 +169,9 @@ function ClaimsSection({ agreementId }: { agreementId: string }) {
         description,
         claimed_amount: claimedAmount || undefined,
         claimed_days: claimedDays ? Number(claimedDays) : undefined,
+        supporting_document_id: documentId || undefined,
       });
+      setDocumentId("");
       setDescription("");
       setClaimedAmount("");
       setClaimedDays("");
@@ -217,6 +225,24 @@ function ClaimsSection({ agreementId }: { agreementId: string }) {
               </Field>
             </div>
           </div>
+          <Field label="Supporting document (optional)">
+            <select
+              aria-label="Supporting document"
+              value={documentId}
+              onChange={(e) => setDocumentId(e.target.value)}
+              style={{ width: "100%", padding: "8px 10px", borderRadius: "var(--sf-radius)", border: "1px solid var(--sf-line)" }}
+            >
+              <option value="">No attachment</option>
+              {documents?.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.original_filename}
+                </option>
+              ))}
+            </select>
+            <span style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>
+              Upload the file first on the <Link to="/subcontractor/documents">Documents</Link> page.
+            </span>
+          </Field>
           {error && <div style={{ color: "var(--sf-brick)", fontSize: 12, marginBottom: 12 }}>{error}</div>}
           <div style={{ display: "flex", gap: 8 }}>
             <Button type="submit" disabled={submitting}>
@@ -248,6 +274,7 @@ function ClaimsSection({ agreementId }: { agreementId: string }) {
                 <Td>{c.claim_type.replace(/_/g, " ")}</Td>
                 <Td>{c.description}</Td>
                 <Td mono>{c.claimed_amount ? formatMoney(c.claimed_amount) : "—"}</Td>
+                <Td>{c.supporting_document_id ? "Attached" : "—"}</Td>
                 <Td>
                   <Badge tone={statusTone(c.status)}>{c.status}</Badge>
                 </Td>

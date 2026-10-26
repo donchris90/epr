@@ -82,3 +82,24 @@ def list_owned(tenant_id, *, owner_type, owner_id):
 def download_url(tenant_id, *, owner_type, owner_id, document_id):
     doc = get_owned(tenant_id, owner_type=owner_type, owner_id=owner_id, document_id=document_id)
     return services.get_download_url(doc)
+
+
+def delete_owned(tenant_id, *, owner_type, owner_id, document_id):
+    """Remove one of the organisation's own uploads. Refused (409) while
+    anything points at it: a claim's supporting document or a vendor
+    invoice's attachment is evidence the other side may be relying on.
+    Delete-then-upload is how a portal user replaces a file."""
+    doc = get_owned(tenant_id, owner_type=owner_type, owner_id=owner_id, document_id=document_id)
+
+    from app.modules.sub.models import SubcontractClaim
+    from app.modules.vnp.models import VendorInvoiceUpload
+
+    in_use = (
+        SubcontractClaim.query.filter_by(tenant_id=tenant_id, supporting_document_id=doc.id).first()
+        or VendorInvoiceUpload.query.filter_by(tenant_id=tenant_id, invoice_document_id=doc.id).first()
+    )
+    if in_use:
+        raise APIError(
+            "This document is attached to a claim or invoice you submitted, so it can't be deleted.", status=409
+        )
+    services.delete_document(doc)

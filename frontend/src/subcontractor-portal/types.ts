@@ -61,4 +61,5 @@ export interface Claim {
   status: string;
   submitted_at: string;
   response_notes: string | null;
+  supporting_document_id?: string | null;
 }
