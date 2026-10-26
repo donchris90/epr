@@ -54,6 +54,21 @@ class QuotationSchema(Schema):
     id = fields.UUID(dump_only=True)
     rfq_id = fields.UUID(dump_only=True)
     price = fields.Decimal(dump_only=True, as_string=True)
+    lead_time_days = fields.Int(dump_only=True)
+    payment_terms = fields.Str(dump_only=True)
+    submitted_at = fields.DateTime(dump_only=True)
+
+
+class RFQInvitationSchema(Schema):
+    invitation_id = fields.UUID(dump_only=True)
+    rfq_id = fields.UUID(dump_only=True)
+    title = fields.Str(dump_only=True)
+    description = fields.Str(dump_only=True, allow_none=True)
+    response_deadline = fields.DateTime(dump_only=True, allow_none=True)
+    rfq_status = fields.Str(dump_only=True)
+    invitation_status = fields.Str(dump_only=True)
+    quote = fields.Nested(QuotationSchema, dump_only=True, allow_none=True)
+    can_quote = fields.Bool(dump_only=True)
 
 
 class UploadInvoiceSchema(Schema):

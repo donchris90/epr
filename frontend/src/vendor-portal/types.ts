@@ -34,6 +34,21 @@ export interface Quotation {
   id: string;
   rfq_id: string;
   price: string;
+  lead_time_days?: number | null;
+  payment_terms?: string | null;
+  submitted_at?: string | null;
+}
+
+export interface RfqInvitation {
+  invitation_id: string;
+  rfq_id: string;
+  title: string;
+  description: string | null;
+  response_deadline: string | null;
+  rfq_status: string;
+  invitation_status: string;
+  quote: Quotation | null;
+  can_quote: boolean;
 }
 
 export interface InvoiceUpload {

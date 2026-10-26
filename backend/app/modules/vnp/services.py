@@ -116,6 +116,52 @@ def list_purchase_orders_for_vendor(tenant_id, *, vendor_user: VendorPortalUser)
     )
 
 
+def list_rfq_invitations_for_vendor(tenant_id, *, vendor_user: VendorPortalUser):
+    """The RFQs this vendor's organization was invited to, newest first,
+    each with the vendor's own quote (if any) and whether a quote can
+    still be submitted. Scoped by the invitation's vendor_id, so a
+    vendor never sees an RFQ they were not invited to, and never sees
+    another vendor's quote."""
+    from app.modules.prc.models import RFQ, RFQInvitation, RFQQuotation
+
+    rows = (
+        db.session.query(RFQInvitation, RFQ)
+        .join(RFQ, RFQ.id == RFQInvitation.rfq_id)
+        .filter(RFQInvitation.tenant_id == tenant_id, RFQInvitation.vendor_id == vendor_user.vendor_id)
+        .order_by(RFQInvitation.created_at.desc())
+        .all()
+    )
+    quotes = {
+        q.rfq_id: q
+        for q in RFQQuotation.query.filter_by(tenant_id=tenant_id, vendor_id=vendor_user.vendor_id).all()
+    }
+    now = datetime.now(timezone.utc)
+    out = []
+    for inv, rfq in rows:
+        quote = quotes.get(rfq.id)
+        out.append(
+            {
+                "invitation_id": inv.id,
+                "rfq_id": rfq.id,
+                "title": rfq.title,
+                "description": rfq.description,
+                "response_deadline": rfq.response_deadline,
+                "rfq_status": rfq.status,
+                "invitation_status": inv.status,
+                "quote": quote,
+                "can_quote": quote is None and _rfq_accepts_quotes(rfq, now),
+            }
+        )
+    return out
+
+
+def _rfq_accepts_quotes(rfq, now=None) -> bool:
+    now = now or datetime.now(timezone.utc)
+    if rfq.status != "open":
+        return False
+    return rfq.response_deadline is None or rfq.response_deadline >= now
+
+
 def assert_vendor_invited_to_rfq(tenant_id, *, vendor_user: VendorPortalUser, rfq_id):
     """VNP-02: a vendor may only quote on an RFQ they were actually
     invited to -- not any RFQ that happens to exist in the tenant."""
@@ -166,9 +212,13 @@ def acknowledge_order(tenant_id, *, vendor_user: VendorPortalUser, purchase_orde
 # --- Quote submission (VNP-02) ---------------------------------------------------
 
 def submit_quote_as_vendor(tenant_id, *, vendor_user: VendorPortalUser, rfq_id, price, lead_time_days=None, payment_terms=None):
-    assert_vendor_invited_to_rfq(tenant_id, vendor_user=vendor_user, rfq_id=rfq_id)
+    invitation = assert_vendor_invited_to_rfq(tenant_id, vendor_user=vendor_user, rfq_id=rfq_id)
 
-    from app.modules.prc.models import RFQQuotation
+    from app.modules.prc.models import RFQ, RFQQuotation
+
+    rfq = RFQ.query.filter_by(id=rfq_id, tenant_id=tenant_id).first()
+    if rfq is None or not _rfq_accepts_quotes(rfq):
+        raise APIError("This RFQ is closed or past its response deadline", status=409)
 
     existing = RFQQuotation.query.filter_by(tenant_id=tenant_id, rfq_id=rfq_id, vendor_id=vendor_user.vendor_id).first()
     if existing:
@@ -184,6 +234,7 @@ def submit_quote_as_vendor(tenant_id, *, vendor_user: VendorPortalUser, rfq_id, 
         submitted_at=datetime.now(timezone.utc),
     )
     db.session.add(quotation)
+    invitation.status = "responded"
     db.session.commit()
     return quotation
 

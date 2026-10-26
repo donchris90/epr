@@ -155,8 +155,24 @@ def invite_vendor(rfq_id):
     rfq = _get_rfq_or_404(rfq_id)
     data = _load(invitation_schema)
     _get_vendor_or_404(data["vendor_id"])
+    if RFQInvitation.query.filter_by(tenant_id=g.tenant_id, rfq_id=rfq.id, vendor_id=data["vendor_id"]).first():
+        raise APIError("This vendor has already been invited to this RFQ", status=409)
     invitation = RFQInvitation(tenant_id=g.tenant_id, rfq_id=rfq.id, vendor_id=data["vendor_id"])
     db.session.add(invitation)
+
+    # Tell the vendor's portal users. Same transaction as the invitation,
+    # so a failed invite never leaves a notification behind.
+    from app.notifications.portal import notify_vendor_users
+
+    deadline = rfq.response_deadline.strftime("%d %b %Y %H:%M UTC") if rfq.response_deadline else None
+    notify_vendor_users(
+        g.tenant_id,
+        vendor_id=data["vendor_id"],
+        type="vnp.rfq_invited",
+        title=f"You have been invited to quote: {rfq.title}",
+        body=f"Respond by {deadline}." if deadline else None,
+        data={"entity_type": "rfq", "entity_id": str(rfq.id)},
+    )
     db.session.commit()
     return jsonify(invitation_schema.dump(invitation)), 201
 
