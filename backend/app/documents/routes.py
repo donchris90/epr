@@ -79,13 +79,30 @@ def get_document(document_id):
 def list_documents():
     project_id = request.args.get("project_id")
     doc_type = request.args.get("doc_type")
+    source = request.args.get("source", "")
     query = Document.query.filter_by(tenant_id=g.tenant_id)
     if project_id:
         query = query.filter_by(project_id=project_id)
     if doc_type:
         query = query.filter_by(doc_type=doc_type)
+    # source: "" = everything, "staff" = uploaded by staff, "vendor" /
+    # "subcontractor" = uploaded through that portal. A specific
+    # organisation can be narrowed with portal_owner_id.
+    if source == "staff":
+        query = query.filter(Document.portal_owner_type.is_(None))
+    elif source in ("vendor", "subcontractor"):
+        query = query.filter_by(portal_owner_type="vnp" if source == "vendor" else "scp")
+        owner_id = request.args.get("portal_owner_id")
+        if owner_id:
+            query = query.filter_by(portal_owner_id=owner_id)
+    elif source:
+        raise APIError("Unknown source filter", status=400)
     documents = query.order_by(Document.created_at.desc()).all()
-    return jsonify(envelope(document_schema.dump(documents, many=True)))
+    body = document_schema.dump(documents, many=True)
+    names = services.portal_owner_names(g.tenant_id, documents)
+    for item, doc in zip(body, documents):
+        item["source_name"] = names.get((doc.portal_owner_type, doc.portal_owner_id))
+    return jsonify(envelope(body))
 
 
 @bp.delete("/<uuid:document_id>")

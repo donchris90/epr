@@ -86,8 +86,13 @@ Limits:
   contents, and there is no virus scanning.
 - No delete or replace by the portal user; staff can delete through the
   normal documents API.
-- Staff have no screen that lists portal uploads by organisation yet (the
-  link exists in the data; the staff documents list does not filter on it).
+- Staff see portal uploads in the Document Library (a Source column and a
+  Source filter: staff / vendor portal / subcontractor portal), each labelled
+  with the organisation's name. `GET /v1/documents` accepts `source=staff|vendor|subcontractor`
+  and, with a portal source, `portal_owner_id=<vendor or subcontractor id>`.
+  Before this, portal uploads appeared in that list with no indication of
+  where they came from. There is no per-vendor documents tab on the vendor
+  record itself yet.
 - SCP invoices/claims have no document attachment field, so subcontractor
   uploads are standalone for now.
 

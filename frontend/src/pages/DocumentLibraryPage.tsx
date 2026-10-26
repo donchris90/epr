@@ -16,6 +16,21 @@ interface DocumentRow {
   size_bytes: number | null;
   status: string;
   created_at: string;
+  portal_owner_type?: "scp" | "vnp" | null;
+  source_name?: string | null;
+}
+
+const SOURCE_OPTIONS = [
+  { value: "", label: "All sources" },
+  { value: "staff", label: "Our staff" },
+  { value: "vendor", label: "Vendor portal" },
+  { value: "subcontractor", label: "Subcontractor portal" },
+];
+
+function sourceLabel(doc: { portal_owner_type?: string | null; source_name?: string | null }) {
+  if (!doc.portal_owner_type) return "Staff";
+  const kind = doc.portal_owner_type === "vnp" ? "Vendor" : "Subcontractor";
+  return `${kind}: ${doc.source_name ?? "unknown"}`;
 }
 
 const COMMON_DOC_TYPES = ["drawing", "contract", "photo", "report", "certificate", "invoice", "other"];
@@ -49,6 +64,7 @@ export default function DocumentLibraryPage() {
   const [documents, setDocuments] = useState<DocumentRow[] | null>(null);
   const [projectFilter, setProjectFilter] = useState("");
   const [docTypeFilter, setDocTypeFilter] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("");
   const [uploadDocType, setUploadDocType] = useState("other");
   const [error, setError] = useState<unknown>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -59,7 +75,7 @@ export default function DocumentLibraryPage() {
     setError(null);
     try {
       const res = await apiClient.get("/documents", {
-        params: { project_id: projectFilter || undefined, doc_type: docTypeFilter || undefined },
+        params: { project_id: projectFilter || undefined, doc_type: docTypeFilter || undefined, source: sourceFilter || undefined },
       });
       setDocuments(res.data.data);
     } catch (err) {
@@ -70,7 +86,7 @@ export default function DocumentLibraryPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectFilter, docTypeFilter]);
+  }, [projectFilter, docTypeFilter, sourceFilter]);
 
   function handlePickFile() {
     fileInputRef.current?.click();
@@ -158,6 +174,17 @@ export default function DocumentLibraryPage() {
             </Select>
           </Field>
         </div>
+        <div style={{ width: 200 }}>
+          <Field label="Filter by source">
+            <Select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}>
+              {SOURCE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
       </div>
 
       <Card style={{ padding: 0 }}>
@@ -177,6 +204,7 @@ export default function DocumentLibraryPage() {
               <tr>
                 <Th>File</Th>
                 <Th>Type</Th>
+                <Th>Source</Th>
                 <Th>Size</Th>
                 <Th>Status</Th>
                 <Th>Uploaded</Th>
@@ -188,6 +216,7 @@ export default function DocumentLibraryPage() {
                 <tr key={doc.id}>
                   <Td>{doc.original_filename || "—"}</Td>
                   <Td>{doc.doc_type || "—"}</Td>
+                  <Td>{sourceLabel(doc)}</Td>
                   <Td mono>{formatSize(doc.size_bytes)}</Td>
                   <Td>{statusBadge(doc.status)}</Td>
                   <Td mono>{new Date(doc.created_at).toLocaleDateString()}</Td>
