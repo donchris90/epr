@@ -33,6 +33,26 @@ from app.modules.sub.models import (
 )
 
 
+def _agreement_for(tenant_id, agreement_id):
+    from app.modules.sub.models import SubcontractAgreement
+
+    return SubcontractAgreement.query.filter_by(id=agreement_id, tenant_id=tenant_id).first()
+
+
+def _notify_sub(agreement, *, type, title, body=None):
+    """Tell the agreement's subcontractor portal users. Does not commit."""
+    from app.notifications.portal import notify_subcontractor_users
+
+    notify_subcontractor_users(
+        agreement.tenant_id,
+        subcontractor_id=agreement.subcontractor_id,
+        type=type,
+        title=title,
+        body=body,
+        data={"entity_type": "agreement", "entity_id": str(agreement.id), "agreement_id": str(agreement.id)},
+    )
+
+
 # --- Measurement sheets (SUB-04) ---------------------------------------------
 
 def verify_measurement_sheet(sheet: MeasurementSheet, *, measured_by):
@@ -42,6 +62,15 @@ def verify_measurement_sheet(sheet: MeasurementSheet, *, measured_by):
     sheet.status = "verified"
     sheet.measured_by = measured_by
     sheet.measured_at = datetime.now(timezone.utc)
+
+    agreement = _agreement_for(sheet.tenant_id, sheet.agreement_id)
+    if agreement:
+        _notify_sub(
+            agreement,
+            type="scp.progress_verified",
+            title=f"Your measured work was verified ({agreement.agreement_number})",
+            body=f"Verified quantity: {sheet.verified_quantity.normalize():f}",
+        )
     db.session.commit()
     return sheet
 
@@ -188,6 +217,14 @@ def release_subcontract_retention(retention: SubcontractRetention, *, stage: str
     else:
         raise APIError("Invalid release stage", status=400)
 
+    agreement = _agreement_for(retention.tenant_id, retention.agreement_id)
+    if agreement:
+        label = "substantial completion" if stage == "substantial_completion" else "final"
+        _notify_sub(
+            agreement,
+            type="scp.retention_released",
+            title=f"{label.capitalize()} retention released ({agreement.agreement_number})",
+        )
     db.session.commit()
     return retention
 

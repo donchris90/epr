@@ -200,9 +200,16 @@ def user_ids_with_permission(tenant_id, permission):
     return [u.id for u in users]
 
 
-def notify_users_with_permission(tenant_id, *, permission, type, title, body=None, data=None):
+def notify_users_with_permission(tenant_id, *, permission, type, title, body=None, data=None, channel="in_app"):
     """Notify every active staff user who can act on something (e.g. the
-    approvers of a pending request). Does not commit."""
+    approvers of a pending request). Does not commit. Pass channel="email"
+    to also email them (each user's own preferences can still suppress)."""
     return notify_many(
-        tenant_id, user_ids=user_ids_with_permission(tenant_id, permission), type=type, title=title, body=body, data=data
+        tenant_id,
+        user_ids=user_ids_with_permission(tenant_id, permission),
+        type=type,
+        title=title,
+        body=body,
+        data=data,
+        channel=channel,
     )

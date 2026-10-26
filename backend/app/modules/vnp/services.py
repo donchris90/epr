@@ -405,6 +405,9 @@ def submit_banking_change(tenant_id, *, vendor_user: VendorPortalUser, proposed_
         title=f"Banking change awaiting review: {vendor.name if vendor else 'a vendor'}",
         body="Compare the proposed details with those on file before approving.",
         data={"entity_type": "banking_change_request", "entity_id": str(request.id)},
+        # Bank-detail changes are a fraud vector; don't rely on someone
+        # opening the bell. Email the approvers too.
+        channel="email",
     )
     db.session.commit()
     return request
