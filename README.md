@@ -2188,9 +2188,12 @@ production deployment, roughly in the order it would actually bite:
   measured number (see above, `docs/DATA_PROTECTION.md`) -- but at a
   small data volume on shared sandbox infrastructure. Both need
   re-validating at real production scale before the numbers are
-  relied on for an actual incident response plan. Scheduling
-  `backup.sh` to run automatically (cron/CI) also still isn't done --
-  only the script and its S3 upload step exist, not the trigger.
+  relied on for an actual incident response plan. Scheduling is now
+  wired up as Render Cron Jobs in `render.yaml` (nightly `backup.sh`,
+  plus the two daily Celery tasks via `backend/scripts/run_scheduled_task.py`)
+  -- they need the paid `starter` plan and the four `S3_*` variables
+  set on the backup job, and have only been verified locally, not on
+  a live Render deploy.
 
 **Lower urgency, still real for a Nigeria-market product:**
 - NDPA/NDPR (Nigeria Data Protection Act/Regulation) compliance --
