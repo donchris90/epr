@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { apiClient } from "../api/client";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, ErrorBanner, EmptyState, Input, Select, Field, formatMoney } from "../components/ui";
 import { computeSlaInfo, formatTimeRemaining, SLA_STATE_LABEL, SLA_STATE_TONE } from "../modules/workflow/sla";
+import { SYSTEM_ACTOR_ID } from "../modules/workflow/types";
 import type { WorkflowDefinition, WorkflowInstance } from "../modules/workflow/types";
 
 interface OrgUser {
@@ -38,6 +39,23 @@ function SlaBadge({ instance, definition }: { instance: WorkflowInstance; defini
     <Badge tone={SLA_STATE_TONE[sla.state]}>
       {SLA_STATE_LABEL[sla.state]} · {formatTimeRemaining(sla.dueAt)}
     </Badge>
+  );
+}
+
+/** Shown while the current step is escalated (backend sets
+ * escalated_at; it is cleared when the instance moves to another step). */
+function EscalatedBadge({ instance }: { instance: WorkflowInstance }) {
+  if (!instance.escalated_at || instance.status !== "pending") return null;
+  return <Badge tone="steel">Escalated</Badge>;
+}
+
+/** Whether the instance's current step has somewhere to escalate to.
+ * Used only to decide if the Escalate button is worth showing -- the
+ * backend remains the authority and still rejects anything invalid. */
+function currentStepHasEscalationTarget(instance: WorkflowInstance, definition: WorkflowDefinition | null): boolean {
+  if (!definition) return false;
+  return definition.steps.some(
+    (s) => s.step_number === instance.current_step_number && (s.escalate_to_user_id || s.escalate_to_role_id)
   );
 }
 
@@ -83,13 +101,14 @@ function InstanceDetailModal({
   // Real confirmation step, inline rather than a nested modal --
   // holds which action is awaiting a real "are you sure", or null
   // when nothing is pending confirmation yet.
-  const [confirming, setConfirming] = useState<"approve" | "reject" | "delegate" | null>(null);
+  const [confirming, setConfirming] = useState<"approve" | "reject" | "delegate" | "escalate" | null>(null);
 
   function nameFor(userId: string) {
+    if (userId === SYSTEM_ACTOR_ID) return "System (automatic)";
     return members.get(userId) ?? userId;
   }
 
-  async function act(action: "approve" | "reject" | "cancel" | "comment") {
+  async function act(action: "approve" | "reject" | "cancel" | "comment" | "escalate") {
     if (action === "comment" && !comment.trim()) {
       setError("Enter a comment first.");
       return;
@@ -136,6 +155,7 @@ function InstanceDetailModal({
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <SlaBadge instance={instance} definition={definition} />
+          <EscalatedBadge instance={instance} />
           {statusBadge(instance.status)}
         </div>
       </div>
@@ -189,6 +209,7 @@ function InstanceDetailModal({
                 {confirming === "approve" && "Approve this request?"}
                 {confirming === "reject" && "Reject this request?"}
                 {confirming === "delegate" && `Delegate to ${delegateTo ? nameFor(delegateTo) : "this person"}?`}
+                {confirming === "escalate" && "Escalate this request to its escalation target?"}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <Button
@@ -218,6 +239,11 @@ function InstanceDetailModal({
               ) : (
                 <Button variant="secondary" onClick={() => setShowDelegate(true)} disabled={!!submitting}>
                   Delegate
+                </Button>
+              )}
+              {!instance.escalated_at && currentStepHasEscalationTarget(instance, definition) && (
+                <Button variant="secondary" onClick={() => setConfirming("escalate")} disabled={!!submitting}>
+                  Escalate
                 </Button>
               )}
               <Button variant="ghost" onClick={() => act("comment")} disabled={!!submitting}>
@@ -407,7 +433,10 @@ export default function ApprovalCenterPage() {
                   <Td mono>{i.amount ? formatMoney(i.amount) : "—"}</Td>
                   <Td>{statusBadge(i.status)}</Td>
                   <Td>
-                    <SlaBadge instance={i} definition={definitions.get(i.workflow_id) ?? null} />
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <SlaBadge instance={i} definition={definitions.get(i.workflow_id) ?? null} />
+                      <EscalatedBadge instance={i} />
+                    </div>
                   </Td>
                   <Td mono>{new Date(i.created_at).toLocaleDateString()}</Td>
                   <Td style={{ textAlign: "right" }}>

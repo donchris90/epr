@@ -25,6 +25,10 @@ export interface WorkflowStep {
   allow_skip: boolean;
   parallel: boolean;
   reject_to_step?: number | null;
+  /** Who the step escalates to (backend migration 0052). Either or
+   * both may be set; an escalated step can also be actioned by them. */
+  escalate_to_user_id?: string | null;
+  escalate_to_role_id?: string | null;
 }
 
 export interface WorkflowDefinition {
@@ -65,8 +69,19 @@ export interface WorkflowInstance {
   amount: string | null;
   initiated_by: string;
   created_at: string;
+  /** Backend-stored due date of the CURRENT step (null if the step has
+   * no timeout). Optional so older payloads/fixtures without it still
+   * type-check; computeSlaInfo falls back to deriving it. */
+  step_due_at?: string | null;
+  /** Set when the current step has been escalated; cleared when the
+   * instance moves to another step. */
+  escalated_at?: string | null;
   actions: WorkflowAction[];
 }
+
+/** WorkflowAction.actor_id for escalations performed by the
+ * scheduler rather than a person (backend SYSTEM_ACTOR_ID). */
+export const SYSTEM_ACTOR_ID = "00000000-0000-0000-0000-000000000000";
 
 /** Real, known (module_name, entity_type) pairs -- verified directly
  * against real call sites (grep for get_active_workflow/

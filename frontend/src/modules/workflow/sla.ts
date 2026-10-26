@@ -11,23 +11,19 @@ export interface SlaInfo {
 
 const DUE_SOON_WINDOW_HOURS = 4;
 
-/** Real, honest SLA computation -- entirely derived from real,
- * existing backend data, not invented. WorkflowInstance itself has no
- * due_at/sla_deadline column at all (confirmed directly against
- * backend/app/workflow/models.py before writing this); the closest
- * real signal a step is "on the clock" is its own definition's
- * timeout_hours (backend/app/workflow/models.py:WorkflowStep),
- * combined with when the instance actually reached this step -- the
- * most recent real WorkflowAction's created_at if one exists, or the
- * instance's own created_at if it's still on step 1 with no actions
- * yet.
+/** Real, honest SLA computation.
  *
- * "Overdue" and "due soon" here are honest presentational states,
- * not backend-enforced ones -- confirmed no scheduler or endpoint
- * exists anywhere in this backend to act on an elapsed timeout (see
- * docs/WORKFLOW_BUILDER_GAPS.md's own note: "recorded, not yet
- * enforced"). This function only ever reads real data; it doesn't
- * pretend escalation happens automatically. */
+ * Preferred source: the backend's stored `step_due_at` (migration
+ * 0052), set from the step's timeout_hours whenever the instance
+ * enters a step. When an instance doesn't carry it (older payloads),
+ * this falls back to deriving the due date from the step's
+ * timeout_hours plus when the instance reached the step -- the most
+ * recent action for this step, or the instance's created_at.
+ *
+ * "Overdue" and "due soon" are display states computed from the
+ * current time. Whether an overdue step is then auto-escalated is the
+ * backend's job (hourly task, only for steps with auto_escalate on and
+ * an escalation target); `autoEscalate` here just reports the flag. */
 export function computeSlaInfo(instance: WorkflowInstance, definition: WorkflowDefinition | null): SlaInfo {
   if (!definition) {
     return { state: "no_sla", dueAt: null, timeoutHours: null, autoEscalate: false };
@@ -40,6 +36,8 @@ export function computeSlaInfo(instance: WorkflowInstance, definition: WorkflowD
     return { state: "no_sla", dueAt: null, timeoutHours: null, autoEscalate: false };
   }
 
+  const autoEscalate = currentSteps.some((s) => s.auto_escalate);
+
   // The most recent action that actually landed the instance on its
   // CURRENT step -- real actions for earlier steps (e.g. a prior
   // approval, or a return-for-rework) don't count as the clock start
@@ -51,10 +49,14 @@ export function computeSlaInfo(instance: WorkflowInstance, definition: WorkflowD
       ? new Date(actionsForThisStep[actionsForThisStep.length - 1].created_at)
       : new Date(instance.created_at);
 
-  const dueAt = new Date(clockStartsAt.getTime() + step.timeout_hours * 60 * 60 * 1000);
+  const storedDue = instance.step_due_at ? new Date(instance.step_due_at) : null;
+  const dueAt =
+    storedDue && !Number.isNaN(storedDue.getTime())
+      ? storedDue
+      : new Date(clockStartsAt.getTime() + step.timeout_hours * 60 * 60 * 1000);
 
   if (instance.status !== "pending") {
-    return { state: "no_sla", dueAt, timeoutHours: step.timeout_hours, autoEscalate: step.auto_escalate };
+    return { state: "no_sla", dueAt, timeoutHours: step.timeout_hours, autoEscalate };
   }
 
   const now = new Date();
@@ -65,7 +67,7 @@ export function computeSlaInfo(instance: WorkflowInstance, definition: WorkflowD
   else if (hoursRemaining <= DUE_SOON_WINDOW_HOURS) state = "due_soon";
   else state = "within_sla";
 
-  return { state, dueAt, timeoutHours: step.timeout_hours, autoEscalate: step.auto_escalate };
+  return { state, dueAt, timeoutHours: step.timeout_hours, autoEscalate };
 }
 
 export const SLA_STATE_LABEL: Record<SlaState, string> = {

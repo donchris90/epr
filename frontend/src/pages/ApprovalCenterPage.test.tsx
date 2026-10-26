@@ -217,4 +217,83 @@ describe("ApprovalCenterPage", () => {
       expect(screen.getAllByText(/within sla|due soon|overdue/i).length).toBeGreaterThan(0);
     });
   });
+
+  describe("escalation", () => {
+    const DEF_WITH_TARGET = {
+      ...SAMPLE_DEFINITION,
+      steps: [{ ...SAMPLE_DEFINITION.steps[0], escalate_to_user_id: "u9", auto_escalate: true }],
+    };
+
+    function mockWith(definition: unknown, instance: unknown) {
+      vi.mocked(apiClient.get).mockImplementation((url: string) => {
+        if (url === "/workflow/instances/pending" || url === "/workflow/instances") return Promise.resolve({ data: { data: [instance] } });
+        if (url === "/org/members") return Promise.resolve({ data: { users: [{ id: "u1", email: "requester@example.com" }] } });
+        if (url === "/workflow/definitions") return Promise.resolve({ data: { data: [definition] } });
+        return Promise.reject(new Error(`unexpected GET ${url}`));
+      });
+    }
+
+    async function openDetail() {
+      const user = userEvent.setup();
+      render(<ApprovalCenterPage />);
+      await waitFor(() => screen.getByText("requester@example.com"));
+      await user.click(screen.getByRole("button", { name: /view/i }));
+      await waitFor(() => screen.getByRole("button", { name: /^approve$/i }));
+      return user;
+    }
+
+    it("hides Escalate when the current step has no escalation target", async () => {
+      await openDetail();
+      expect(screen.queryByRole("button", { name: /^escalate$/i })).not.toBeInTheDocument();
+    });
+
+    it("shows Escalate when a target is configured, and asks for confirmation before posting", async () => {
+      mockWith(DEF_WITH_TARGET, SAMPLE_INSTANCE);
+      const user = await openDetail();
+
+      await user.click(screen.getByRole("button", { name: /^escalate$/i }));
+      expect(await screen.findByText(/escalate this request/i)).toBeInTheDocument();
+      expect(apiClient.post).not.toHaveBeenCalled();
+
+      await user.click(screen.getByRole("button", { name: /yes, confirm/i }));
+      await waitFor(() => {
+        expect(apiClient.post).toHaveBeenCalledWith("/workflow/instances/wi1/escalate", { comment: undefined });
+      });
+    });
+
+    it("shows the server's reason when escalation is refused", async () => {
+      mockWith(DEF_WITH_TARGET, SAMPLE_INSTANCE);
+      vi.mocked(apiClient.post).mockRejectedValue({ response: { data: { title: "The current step has no escalation target configured" } } });
+      const user = await openDetail();
+
+      await user.click(screen.getByRole("button", { name: /^escalate$/i }));
+      await user.click(await screen.findByRole("button", { name: /yes, confirm/i }));
+
+      expect(await screen.findByText(/no escalation target configured/i)).toBeInTheDocument();
+    });
+
+    it("marks an already-escalated step and no longer offers Escalate", async () => {
+      mockWith(DEF_WITH_TARGET, { ...SAMPLE_INSTANCE, escalated_at: new Date().toISOString() });
+      await openDetail();
+      expect(screen.getAllByText("Escalated").length).toBeGreaterThan(0);
+      expect(screen.queryByRole("button", { name: /^escalate$/i })).not.toBeInTheDocument();
+    });
+
+    it("labels scheduler escalations as System (automatic), not a raw id", async () => {
+      mockWith(DEF_WITH_TARGET, {
+        ...SAMPLE_INSTANCE,
+        escalated_at: new Date().toISOString(),
+        actions: [
+          ...SAMPLE_INSTANCE.actions,
+          {
+            id: "a2", step_number: 1, action_type: "escalate", actor_id: "00000000-0000-0000-0000-000000000000",
+            old_status: "pending", new_status: "pending", comment: "Escalated automatically: step was not actioned by its due date",
+            delegated_to: null, created_at: new Date().toISOString(),
+          },
+        ],
+      });
+      await openDetail();
+      expect(screen.getByText("System (automatic)")).toBeInTheDocument();
+    });
+  });
 });

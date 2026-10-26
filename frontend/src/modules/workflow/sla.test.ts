@@ -109,6 +109,28 @@ describe("computeSlaInfo", () => {
     const result = computeSlaInfo(realInstance(), realDefinition());
     expect(result.autoEscalate).toBe(true);
   });
+
+  describe("backend-stored step_due_at", () => {
+    it("is used in preference to the derived due date", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-08-23T12:00:00Z"));
+      // Derived would be created_at (08-23 00:00) + 24h = 08-24 00:00 -> within SLA.
+      // The stored date says it was due at 11:00 today -> overdue.
+      const result = computeSlaInfo(realInstance({ step_due_at: "2026-08-23T11:00:00Z" }), realDefinition());
+      expect(result.state).toBe("overdue");
+      expect(result.dueAt?.toISOString()).toBe("2026-08-23T11:00:00.000Z");
+    });
+
+    it("falls back to the derived due date when absent or unparseable", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-08-23T12:00:00Z"));
+      for (const step_due_at of [undefined, null, "not-a-date"]) {
+        const result = computeSlaInfo(realInstance({ step_due_at }), realDefinition());
+        expect(result.state).toBe("within_sla");
+        expect(result.dueAt?.toISOString()).toBe("2026-08-24T00:00:00.000Z");
+      }
+    });
+  });
 });
 
 describe("formatTimeRemaining", () => {

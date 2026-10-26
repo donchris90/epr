@@ -183,6 +183,59 @@ describe("WorkflowBuilderPage — save draft vs publish", () => {
   });
 });
 
+describe("WorkflowBuilderPage — step escalation", () => {
+  async function startStep(user: ReturnType<typeof userEvent.setup>) {
+    renderBuilder();
+    await user.type(screen.getByPlaceholderText(/purchase request approval/i), "Escalating Workflow");
+    await user.selectOptions(screen.getByLabelText(/trigger/i), "prc::purchase_request");
+    await user.click(screen.getByRole("button", { name: /add step/i }));
+    await user.type(screen.getByLabelText(/step name/i), "Finance Approval");
+    await user.selectOptions(screen.getByLabelText(/approver role/i), "role-1");
+  }
+
+  it("offers escalation targets only once an SLA duration is set", async () => {
+    const user = userEvent.setup();
+    await startStep(user);
+    expect(screen.queryByLabelText(/escalate to role/i)).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/sla duration/i), "24");
+
+    expect(await screen.findByLabelText(/escalate to person/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/escalate to role/i)).toBeInTheDocument();
+  });
+
+  it("blocks publishing auto-escalation that has no target", async () => {
+    const user = userEvent.setup();
+    await startStep(user);
+    await user.type(screen.getByLabelText(/sla duration/i), "24");
+    await user.click(await screen.findByLabelText(/escalate after sla elapses/i));
+    await user.click(screen.getByRole("button", { name: "Done" }));
+
+    await user.click(screen.getByRole("button", { name: "Publish" }));
+
+    expect(await screen.findByText(/choose who to escalate to/i)).toBeInTheDocument();
+    expect(apiClient.post).not.toHaveBeenCalled();
+  });
+
+  it("sends the chosen escalation role to the real create endpoint", async () => {
+    const user = userEvent.setup();
+    await startStep(user);
+    await user.type(screen.getByLabelText(/sla duration/i), "24");
+    await user.click(await screen.findByLabelText(/escalate after sla elapses/i));
+    await user.selectOptions(await screen.findByLabelText(/escalate to role/i), "role-1");
+    await user.click(screen.getByRole("button", { name: "Done" }));
+
+    vi.mocked(apiClient.post).mockResolvedValue({
+      data: { id: "wf-1", workflow_name: "Escalating Workflow", module_name: "prc", entity_type: "purchase_request", active: false, version: 1, steps: [] },
+    });
+    await user.click(screen.getByRole("button", { name: "Save Draft" }));
+
+    await waitFor(() => expect(apiClient.post).toHaveBeenCalled());
+    const [, payload] = vi.mocked(apiClient.post).mock.calls[0] as [string, { steps: Array<Record<string, unknown>> }];
+    expect(payload.steps[0]).toMatchObject({ timeout_hours: 24, auto_escalate: true, escalate_to_role_id: "role-1" });
+  });
+});
+
 describe("WorkflowBuilderPage — duplicate", () => {
   it("pre-fills the form from a real definition passed as navigation state", async () => {
     const duplicateFrom = {
