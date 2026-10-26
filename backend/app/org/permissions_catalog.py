@@ -104,6 +104,7 @@ ALL_PERMISSIONS = [
     "procurement:create",
     "projects:manage", "projects:read",
     "qms:approve", "qms:read", "qms:write",
+    "sal:approve", "sal:read", "sal:write",
     "scp:approve", "scp:read", "scp:write",
     "sub:approve", "sub:read", "sub:write",
     "svy:approve", "svy:read", "svy:write",
