@@ -1,6 +1,6 @@
 """
 Self-service forgot-password / reset-password for the Subcontractor
-Portal (SCP) and Vendor Portal (VNP) -- previously genuinely missing
+Portal (SCP), Vendor Portal (VNP) and Client Portal (CLP) -- previously genuinely missing
 (see docs/SUBCONTRACTOR_VENDOR_PORTAL_GAPS.md): a portal user who lost
 their password could only be helped by staff re-creating the account.
 
@@ -13,7 +13,7 @@ Mirrors the staff flow in app/auth/services.py deliberately:
     in portal tokens as `pwd_ts` and checked on refresh and on every
     request, so all earlier sessions stop working immediately.
 
-One table serves both portals; `portal_type` ("scp" | "vnp") says
+One table serves both portals; `portal_type` ("scp" | "vnp" | "clp") says
 which user table `portal_user_id` refers to (no FK for that reason).
 """
 import hashlib
@@ -70,6 +70,16 @@ def _portal_config(portal_type):
             "index_fk": "vendor_user_id",
             "path": "/vendor/reset-password",
             "label": "Vendor Portal",
+        }
+    if portal_type == "clp":
+        from app.modules.clp.models import ClientPortalUser, ClientPortalEmailIndex
+
+        return {
+            "user": ClientPortalUser,
+            "index": ClientPortalEmailIndex,
+            "index_fk": "client_user_id",
+            "path": "/portal/reset-password",
+            "label": "Client Portal",
         }
     raise ValueError(f"Unknown portal type {portal_type!r}")
 
