@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Input, Field } from "../../components/ui";
+import { LegalLinks } from "../../pages/legal/LegalLayout";
 import { loginVendor } from "../hooks";
 
 /** Vendor portal's own sign-in screen, deliberately separate from
@@ -105,6 +106,7 @@ export default function VendorLoginPage() {
           <p style={{ textAlign: "center", fontSize: 12, color: "var(--sf-navy-400)", marginTop: 8 }}>
             Don't have portal access? Contact your procurement contact.
           </p>
+          <LegalLinks />
         </form>
       </div>
     </div>

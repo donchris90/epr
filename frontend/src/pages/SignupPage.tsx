@@ -4,6 +4,7 @@ import { apiClient } from "../api/client";
 import { setTokens } from "../lib/auth";
 import { Button, Input, Field } from "../components/ui";
 
+
 export default function SignupPage() {
   const navigate = useNavigate();
   const [companyName, setCompanyName] = useState("");
@@ -104,6 +105,10 @@ export default function SignupPage() {
           {error && (
             <div style={{ color: "var(--sf-brick)", fontSize: 12, marginBottom: 12 }}>{error}</div>
           )}
+          <p style={{ fontSize: 11, color: "var(--sf-navy-400)", marginBottom: 10 }}>
+            By creating a workspace you agree to our <Link to="/terms">Terms of Service</Link> and{" "}
+            <Link to="/privacy">Privacy Policy</Link>.
+          </p>
           <Button type="submit" disabled={loading} style={{ width: "100%" }}>
             {loading ? "Creating your workspace…" : "Create workspace"}
           </Button>

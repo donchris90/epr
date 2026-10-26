@@ -321,6 +321,14 @@ services:
       # AFTER siteforge-api exists, then siteforge-web redeployed.
       - key: VITE_API_BASE_URL
         sync: false
+      # Shown on the public /privacy and /terms pages -- set before launch
+      # (defaults are placeholders). See frontend/src/pages/legal/legalConfig.ts.
+      - key: VITE_LEGAL_COMPANY_NAME
+        sync: false
+      - key: VITE_LEGAL_CONTACT_EMAIL
+        sync: false
+      - key: VITE_LEGAL_ADDRESS
+        sync: false
     routes:
       # SPA routing -- every path that isn't a real static file falls
       # through to index.html, so client-side routing (react-router)

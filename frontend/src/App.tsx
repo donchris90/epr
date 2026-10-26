@@ -49,6 +49,8 @@ import MFAModule from "./modules/mfa";
 import AIModule from "./modules/ai";
 import ClientPortalApp from "./client-portal";
 import SubcontractorPortalApp from "./subcontractor-portal";
+import PrivacyPage from "./pages/legal/PrivacyPage";
+import TermsPage from "./pages/legal/TermsPage";
 import VendorPortalApp from "./vendor-portal";
 
 /**
@@ -65,6 +67,8 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         {/* Public -- an invitee isn't logged in yet, matching /login and /signup above. */}
