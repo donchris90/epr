@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, Input, Select, ErrorBanner, EmptyState, formatMoney } from "../../components/ui";
-import { getErrorMessage } from "../../api/client";
+import { apiClient, getErrorMessage } from "../../api/client";
 import {
   useAgreement,
   useScopeItems,
@@ -453,6 +453,28 @@ function BackChargesTab({ agreement }: { agreement: SubcontractAgreement }) {
 
 const CLAIM_TYPES = ["delay", "additional_scope", "other"];
 
+function EvidenceLink({ documentId }: { documentId?: string | null }) {
+  const [error, setError] = useState<string | null>(null);
+  if (!documentId) return <span style={{ color: "var(--sf-text-muted)" }}>—</span>;
+  async function open() {
+    setError(null);
+    try {
+      const res = await apiClient.get(`/documents/${documentId}`);
+      const url = res.data?.download_url;
+      if (!url) throw new Error("No download link");
+      window.open(url, "_blank", "noopener");
+    } catch (e) {
+      setError(getErrorMessage(e));
+    }
+  }
+  return (
+    <span>
+      <button type="button" onClick={open} style={{ background: "none", border: "none", color: "var(--sf-link, #2563eb)", cursor: "pointer", padding: 0 }}>View evidence</button>
+      {error && <span role="alert" style={{ marginLeft: 6, color: "var(--sf-brick)", fontSize: 12 }}>{error}</span>}
+    </span>
+  );
+}
+
 function ClaimsTab({ agreement }: { agreement: SubcontractAgreement }) {
   const { data: claims } = useClaims(agreement.id);
   const submitClaim = useSubmitClaim(agreement.id);
@@ -483,13 +505,14 @@ function ClaimsTab({ agreement }: { agreement: SubcontractAgreement }) {
           <EmptyState compact title="No claims yet." />
         ) : (
           <Table>
-            <thead><tr><Th>Type</Th><Th>Description</Th><Th>Amount</Th><Th>Status</Th><Th /></tr></thead>
+            <thead><tr><Th>Type</Th><Th>Description</Th><Th>Amount</Th><Th>Evidence</Th><Th>Status</Th><Th /></tr></thead>
             <tbody>
               {claims.map((c) => (
                 <tr key={c.id}>
                   <Td>{c.claim_type}</Td>
                   <Td>{c.description}</Td>
                   <Td mono>{c.claimed_amount ? formatMoney(c.claimed_amount) : "—"}</Td>
+                  <Td><EvidenceLink documentId={c.supporting_document_id} /></Td>
                   <Td><Badge tone={statusTone(c.status)}>{c.status}</Badge></Td>
                   <Td style={{ textAlign: "right" }}>
                     {c.status === "submitted" && (
