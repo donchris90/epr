@@ -4,7 +4,12 @@ Notifications service layer.
 from datetime import datetime, timezone
 
 from app.extensions import db
-from app.notifications.models import Notification
+from app.notifications.models import (
+    NOTIFICATION_CATEGORIES,
+    Notification,
+    NotificationPreference,
+    category_for_type,
+)
 
 
 def notify(tenant_id, *, user_id, type, title, body=None, data=None, channel="in_app"):
@@ -16,19 +21,26 @@ def notify(tenant_id, *, user_id, type, title, body=None, data=None, channel="in
     fails to persist, and vice versa. A caller that only wants to
     notify with nothing else to commit should call db.session.commit()
     itself right after."""
-    notification = Notification(
-        tenant_id=tenant_id,
-        user_id=user_id,
-        type=type,
-        title=title,
-        body=body,
-        data=data or {},
-        channel=channel,
-    )
-    db.session.add(notification)
+    in_app_on, email_on = _channel_flags(tenant_id, user_id, type)
 
-    if channel != "in_app":
-        _dispatch_external(notification)
+    notification = None
+    if in_app_on:
+        notification = Notification(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            type=type,
+            title=title,
+            body=body,
+            data=data or {},
+            channel=channel,
+        )
+        db.session.add(notification)
+
+    # Email is only sent when the caller asked for it (channel != in_app)
+    # and the recipient has not switched it off for this category. This
+    # holds even when the in-app row is suppressed.
+    if channel != "in_app" and email_on:
+        _dispatch_external(tenant_id, user_id, title, body, notification.id if notification else None)
 
     return notification
 
@@ -38,13 +50,15 @@ def notify_many(tenant_id, *, user_ids, type, title, body=None, data=None, chann
     holding the role a workflow step requires) -- one notification row
     per recipient, not a single shared row, so each person's own
     read/unread state is independent."""
-    return [
+    results = [
         notify(tenant_id, user_id=uid, type=type, title=title, body=body, data=data, channel=channel)
         for uid in user_ids
     ]
+    # A recipient who switched in-app off for this category gets no row.
+    return [n for n in results if n is not None]
 
 
-def _dispatch_external(notification: Notification) -> None:
+def _dispatch_external(tenant_id, user_id, title, body, notification_id=None) -> None:
     """
     Queues a real email via Celery -- never sends inline here, so a
     slow or down SMTP server can never block the request that
@@ -63,14 +77,14 @@ def _dispatch_external(notification: Notification) -> None:
     """
     from app.models.core import User
 
-    user = User.query.filter_by(tenant_id=notification.tenant_id, id=notification.user_id).first()
+    user = User.query.filter_by(tenant_id=tenant_id, id=user_id).first()
     if not user or not user.email:
         return
 
     from app.notifications.tasks import send_email_notification
 
     try:
-        send_email_notification.delay(to_address=user.email, subject=notification.title, body=notification.body or "")
+        send_email_notification.delay(to_address=user.email, subject=title, body=body or "")
     except Exception:
         # Same real bug, same real fix as
         # app/org/services.py:_send_invitation_email -- with
@@ -85,7 +99,7 @@ def _dispatch_external(notification: Notification) -> None:
         import logging
 
         logging.getLogger(__name__).warning(
-            "Notification %s created but the email failed to send/queue for %s", notification.id, user.email, exc_info=True
+            "Notification %s: the email failed to send/queue for %s", notification_id, user.email, exc_info=True
         )
 
 
@@ -118,3 +132,51 @@ def mark_all_read(tenant_id, *, user_id):
     now = datetime.now(timezone.utc)
     Notification.query.filter_by(tenant_id=tenant_id, user_id=user_id, read_at=None).update({"read_at": now})
     db.session.commit()
+
+
+# ---------------------------------------------------------------- preferences
+
+def _channel_flags(tenant_id, user_id, notification_type):
+    """(in_app_on, email_on) for this recipient and notification type.
+    No stored row (including portal users, who have no preferences UI)
+    means the default: both on."""
+    pref = NotificationPreference.query.filter_by(
+        tenant_id=tenant_id, user_id=user_id, category=category_for_type(notification_type)
+    ).first()
+    if pref is None:
+        return True, True
+    return pref.in_app, pref.email
+
+
+def get_preferences(tenant_id, *, user_id):
+    """One entry per category, defaults filled in for categories the user
+    has never touched."""
+    rows = {
+        p.category: p
+        for p in NotificationPreference.query.filter_by(tenant_id=tenant_id, user_id=user_id).all()
+    }
+    return [
+        {
+            "category": c,
+            "in_app": rows[c].in_app if c in rows else True,
+            "email": rows[c].email if c in rows else True,
+        }
+        for c in NOTIFICATION_CATEGORIES
+    ]
+
+
+def set_preferences(tenant_id, *, user_id, items):
+    """Upsert the given categories (others untouched). Commits."""
+    existing = {
+        p.category: p
+        for p in NotificationPreference.query.filter_by(tenant_id=tenant_id, user_id=user_id).all()
+    }
+    for item in items:
+        pref = existing.get(item["category"])
+        if pref is None:
+            pref = NotificationPreference(tenant_id=tenant_id, user_id=user_id, category=item["category"])
+            db.session.add(pref)
+        pref.in_app = item["in_app"]
+        pref.email = item["email"]
+    db.session.commit()
+    return get_preferences(tenant_id, user_id=user_id)

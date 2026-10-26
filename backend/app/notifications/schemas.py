@@ -1,4 +1,6 @@
-from marshmallow import Schema, fields
+from marshmallow import Schema, fields, validate
+
+from app.notifications.models import NOTIFICATION_CATEGORIES
 
 
 class NotificationSchema(Schema):
@@ -10,3 +12,13 @@ class NotificationSchema(Schema):
     channel = fields.Str(dump_only=True)
     read_at = fields.DateTime(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
+
+
+class PreferenceItemSchema(Schema):
+    category = fields.Str(required=True, validate=validate.OneOf(NOTIFICATION_CATEGORIES))
+    in_app = fields.Bool(required=True)
+    email = fields.Bool(required=True)
+
+
+class PreferencesUpdateSchema(Schema):
+    preferences = fields.List(fields.Nested(PreferenceItemSchema), required=True, validate=validate.Length(min=1))

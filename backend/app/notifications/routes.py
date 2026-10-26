@@ -14,7 +14,9 @@ from flask import Blueprint, g, jsonify, request
 
 from app.notifications import services
 from app.notifications.models import Notification
-from app.notifications.schemas import NotificationSchema
+from app.notifications.schemas import NotificationSchema, PreferencesUpdateSchema
+from marshmallow import ValidationError
+
 from app.utils.errors import APIError
 from app.utils.pagination import envelope
 
@@ -61,3 +63,18 @@ def mark_unread(notification_id):
 def mark_all_read():
     services.mark_all_read(g.tenant_id, user_id=g.user_id)
     return jsonify({"status": "ok"})
+
+
+@bp.get("/preferences")
+def get_preferences():
+    return jsonify({"preferences": services.get_preferences(g.tenant_id, user_id=g.user_id)})
+
+
+@bp.put("/preferences")
+def put_preferences():
+    try:
+        payload = PreferencesUpdateSchema().load(request.get_json(silent=True) or {})
+    except ValidationError as e:
+        raise APIError("Invalid preferences", status=400, detail=str(e.messages))
+    prefs = services.set_preferences(g.tenant_id, user_id=g.user_id, items=payload["preferences"])
+    return jsonify({"preferences": prefs})

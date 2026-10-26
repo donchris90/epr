@@ -55,3 +55,43 @@ class Notification(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
         db.CheckConstraint(f"channel IN {NOTIFICATION_CHANNELS}", name="ck_notifications_channel"),
         db.Index("ix_notifications_user_unread", "tenant_id", "user_id", "read_at"),
     )
+
+
+# Preference categories. Mirrors frontend/src/lib/notifications.ts
+# categoryFor(): the category is derived from the notification `type`
+# prefix, so there is no second hand-maintained list of event types.
+NOTIFICATION_CATEGORIES = ("approvals", "projects", "finance", "hse", "system")
+
+_PREFIX_TO_CATEGORY = {
+    "workflow": "approvals",
+    "clp": "projects",
+    "scp": "projects",
+    "vnp": "projects",
+    "proj": "projects",
+    "pc": "projects",
+    "fin": "finance",
+    "bil": "finance",
+    "hse": "hse",
+}
+
+
+def category_for_type(notification_type: str) -> str:
+    return _PREFIX_TO_CATEGORY.get((notification_type or "").split(".")[0], "system")
+
+
+class NotificationPreference(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
+    """One row per (user, category). No row means the default: both
+    channels on. Preferences can only suppress; they never cause a
+    notification or email that the triggering code would not send."""
+
+    __tablename__ = "notification_preferences"
+
+    user_id = db.Column(UUID(as_uuid=True), nullable=False)
+    category = db.Column(db.String(16), nullable=False)
+    in_app = db.Column(db.Boolean, nullable=False, default=True, server_default=db.text("true"))
+    email = db.Column(db.Boolean, nullable=False, default=True, server_default=db.text("true"))
+
+    __table_args__ = (
+        db.UniqueConstraint("tenant_id", "user_id", "category", name="uq_notification_preferences_user_category"),
+        db.CheckConstraint(f"category IN {NOTIFICATION_CATEGORIES}", name="ck_notification_preferences_category"),
+    )
