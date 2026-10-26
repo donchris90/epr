@@ -111,8 +111,14 @@ Limits:
   with the organisation's name. `GET /v1/documents` accepts `source=staff|vendor|subcontractor`
   and, with a portal source, `portal_owner_id=<vendor or subcontractor id>`.
   Before this, portal uploads appeared in that list with no indication of
-  where they came from. There is no per-vendor documents tab on the vendor
-  record itself yet.
+  where they came from. Each vendor row (Procurement > Vendors) and each
+  subcontractor row (Subcontractors) now has a "Portal documents" button that
+  opens a read-only panel of just that organisation's portal uploads, with
+  download for finished uploads (needs `documents:read`; a permission error is
+  shown, not an empty list). There is still no dedicated vendor or subcontractor
+  record page, so this is a panel on the list, not a tab; deleting or
+  re-filing a portal document remains a Document Library action. A malformed
+  `portal_owner_id` now returns 400 instead of an error.
 - Subcontractor claims can now carry one supporting document
   (`sub_claims.supporting_document_id`, migration 0060), chosen from the
   organisation's own finished uploads and ownership-checked on submit; staff

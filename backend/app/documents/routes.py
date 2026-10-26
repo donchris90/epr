@@ -94,6 +94,12 @@ def list_documents():
         query = query.filter_by(portal_owner_type="vnp" if source == "vendor" else "scp")
         owner_id = request.args.get("portal_owner_id")
         if owner_id:
+            import uuid
+
+            try:
+                owner_id = uuid.UUID(owner_id)
+            except ValueError:
+                raise APIError("portal_owner_id must be a valid id", status=400)
             query = query.filter_by(portal_owner_id=owner_id)
     elif source:
         raise APIError("Unknown source filter", status=400)
