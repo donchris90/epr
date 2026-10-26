@@ -166,6 +166,15 @@ def reset_portal_password(portal_type: str, raw_token: str, new_password: str) -
     db.session.commit()
 
 
+def invalidate_reset_tokens(portal_type, user_id) -> None:
+    """Void every unused reset link for this user. Called when the
+    password changes by another route, so an old emailed link can't be
+    used to overwrite the new password. Does not commit."""
+    PortalPasswordResetToken.query.filter_by(portal_type=portal_type, portal_user_id=user_id, used_at=None).delete(
+        synchronize_session=False
+    )
+
+
 def check_portal_pwd_ts(portal_type, tenant_id, user_id, claim_pwd_ts) -> bool:
     """True while the token's pwd_ts still matches the user's current
     password_changed_at. A user that can't be found passes (same

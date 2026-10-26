@@ -82,7 +82,15 @@ def change_vendor_password(vendor_user: VendorPortalUser, *, current_password: s
     if not vendor_user.password_hash or not verify_password(vendor_user.password_hash, current_password):
         raise APIError("Current password is incorrect", status=401)
 
+    from datetime import datetime, timezone
+
+    from app.auth.portal_reset import invalidate_reset_tokens
+
     vendor_user.password_hash = hash_password(new_password)
+    # Ends every OTHER session of this user (tokens carry the old pwd_ts); the
+    # route hands the caller a fresh token pair so this browser stays signed in.
+    vendor_user.password_changed_at = datetime.now(timezone.utc)
+    invalidate_reset_tokens("vnp", vendor_user.id)
     db.session.commit()
     return vendor_user
 

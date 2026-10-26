@@ -233,7 +233,7 @@ def client_change_password():
     client_user = _get_client_user_or_404(g.user_id)
     data = _load(ChangeClientPasswordSchema())
     services.change_client_password(client_user, **data)
-    return jsonify({"status": "password updated"})
+    return jsonify({"status": "password updated", **_issue_client_tokens(client_user)})
 
 
 # --- Portal users & project assignment (CLP-08) -----------------------------------

@@ -202,7 +202,7 @@ def portal_change_password():
     portal_user = _get_portal_user_or_404(g.user_id)
     data = _load(ChangeSubcontractorPasswordSchema())
     services.change_subcontractor_password(portal_user, **data)
-    return jsonify({"status": "password updated"})
+    return jsonify({"status": "password updated", **_issue_portal_tokens(portal_user)})
 
 
 # --- Portal users --------------------------------------------------------------

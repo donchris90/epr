@@ -62,7 +62,7 @@ export default function ProfilePage() {
       <Card style={{ marginTop: 16 }}>
         <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Change password</h3>
         <p style={{ fontSize: 12, color: "var(--sf-navy-400)", marginBottom: 16 }}>
-          Changing your password signs you out of your current session.
+          Changing your password signs you out everywhere, including other devices and this session.
         </p>
         {success ? (
           <div style={{ fontSize: 13, color: "var(--sf-green)" }}>

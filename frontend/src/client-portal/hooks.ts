@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { clientPortalClient } from "./api/client";
-import { getClientAccessToken } from "./lib/auth";
+import { getClientAccessToken, setClientTokens } from "./lib/auth";
 
 /** Real types matching backend/app/modules/clp/services.py's own
  * get_client_progress_summary and get_client_site_media return
@@ -50,8 +50,15 @@ export function useClientMe() {
 
 export function useChangeClientPassword() {
   return useMutation({
-    mutationFn: (payload: { current_password: string; new_password: string }) =>
-      clientPortalClient.post("/clp/auth/me/password", payload),
+    mutationFn: async (payload: { current_password: string; new_password: string }) => {
+      const res = await clientPortalClient.post("/clp/auth/me/password", payload);
+      // Changing the password signs out every other session; the server
+      // hands this browser a fresh pair so it stays signed in.
+      if (typeof res.data?.access_token === "string" && typeof res.data?.refresh_token === "string") {
+        setClientTokens(res.data.access_token, res.data.refresh_token);
+      }
+      return res;
+    },
   });
 }
 

@@ -210,7 +210,7 @@ def portal_change_password():
     vendor_user = _get_vendor_user_or_404(g.user_id)
     data = _load(ChangeVendorPasswordSchema())
     services.change_vendor_password(vendor_user, **data)
-    return jsonify({"status": "password updated"})
+    return jsonify({"status": "password updated", **_issue_portal_tokens(vendor_user)})
 
 
 # --- Portal users ------------------------------------------------------------------
