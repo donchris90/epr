@@ -72,6 +72,15 @@ subcontractor's *submitted* progress entry being verified is not a separate
 event in the data model, so "progress verified" fires on the measurement
 sheet; PO notifications fire on issue only, not on later PO changes.
 
+**Changing your password inside the portal** (subcontractor, vendor and
+client portals) now ends every other session of that user: it sets
+`password_changed_at`, so tokens carrying the old `pwd_ts` stop working
+(checked per request and on refresh), returns a fresh token pair so the
+current browser keeps working, and voids unused reset links. The vendor and
+subcontractor profile pages still sign the user out after the change (their
+existing behaviour); the client portal stays signed in. A password set by
+staff does not yet end existing sessions.
+
 **RFQ decline, quote revision and invitation email.** A vendor can decline an
 invitation (optional reason, final: no quote afterwards; only while no quote
 exists and the RFQ is open) and revise a submitted quote until the RFQ closes

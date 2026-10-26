@@ -57,7 +57,7 @@ export default function ProfilePage() {
             <Input type="password" required minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
           </Field>
           {error && <div style={{ color: "var(--sf-brick)", fontSize: 12, marginBottom: 10 }}>{error}</div>}
-          {success && <div style={{ color: "var(--sf-green)", fontSize: 12, marginBottom: 10 }}>Password updated.</div>}
+          {success && <div style={{ color: "var(--sf-green)", fontSize: 12, marginBottom: 10 }}>Password updated. Any other devices signed in to this account have been signed out.</div>}
           <Button type="submit" disabled={changePassword.isPending}>
             {changePassword.isPending ? "Saving…" : "Update password"}
           </Button>

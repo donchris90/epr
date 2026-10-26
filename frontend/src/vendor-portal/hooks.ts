@@ -46,10 +46,15 @@ export function useVendorProfile() {
 }
 
 export async function changeVendorPassword(currentPassword: string, newPassword: string): Promise<void> {
-  await vendorPortalClient.post("/vnp/auth/me/password", {
+  const res = await vendorPortalClient.post("/vnp/auth/me/password", {
     current_password: currentPassword,
     new_password: newPassword,
   });
+  // Changing the password signs out every other session; the server hands
+  // this browser a fresh pair so it stays signed in.
+  if (typeof res.data?.access_token === "string" && typeof res.data?.refresh_token === "string") {
+    setPortalTokens(res.data.access_token, res.data.refresh_token);
+  }
 }
 
 /** Real PO list, backed by GET

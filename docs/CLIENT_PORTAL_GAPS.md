@@ -78,9 +78,12 @@ all, and, more fundamentally:
   tokens carry as `pwd_ts`, so every earlier client session stops working
   at once (checked per request and on refresh). Tokens issued before this
   deploy have no `portal_kind` and are skipped until their next refresh.
-  Not changed: the in-session change-password route and the staff
-  admin reset do not bump `password_changed_at`, so they do not end other
-  sessions (same as the other two portals).
+  The in-session change-password route (all three portals) now also bumps
+  `password_changed_at`, so it ends every other session of that user, returns
+  a fresh token pair so the browser that made the change stays signed in, and
+  voids any unused emailed reset links. Not changed: the staff admin reset
+  (`set_*_password`) still does not bump `password_changed_at`, so a staff-set
+  password does not end the user's existing sessions.
 
 ### 2. Two real security fixes
 

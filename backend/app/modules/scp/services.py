@@ -79,7 +79,15 @@ def change_subcontractor_password(portal_user: SubcontractorPortalUser, *, curre
     if not portal_user.password_hash or not verify_password(portal_user.password_hash, current_password):
         raise APIError("Current password is incorrect", status=401)
 
+    from datetime import datetime, timezone
+
+    from app.auth.portal_reset import invalidate_reset_tokens
+
     portal_user.password_hash = hash_password(new_password)
+    # Ends every OTHER session of this user (tokens carry the old pwd_ts); the
+    # route hands the caller a fresh token pair so this browser stays signed in.
+    portal_user.password_changed_at = datetime.now(timezone.utc)
+    invalidate_reset_tokens("scp", portal_user.id)
     db.session.commit()
     return portal_user
 
