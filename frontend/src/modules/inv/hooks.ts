@@ -18,6 +18,7 @@ export interface MaterialItem {
   unit: string | null;
   is_batch_tracked: boolean;
   is_serial_tracked: boolean;
+  item_type?: "raw_material" | "semi_finished" | "finished_good" | "consumable" | "other";
 }
 
 export interface StockItem {
@@ -151,7 +152,7 @@ export function useMaterialItems() {
 export function useCreateMaterialItem() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { code: string; description: string; unit?: string; is_batch_tracked?: boolean; is_serial_tracked?: boolean }) =>
+    mutationFn: (payload: { code: string; description: string; unit?: string; is_batch_tracked?: boolean; is_serial_tracked?: boolean; item_type?: string }) =>
       apiClient.post("/inv/material-items", payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["inv", "material-items"] }),
   });

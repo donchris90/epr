@@ -14,7 +14,7 @@ export default function WarehousesPage() {
   const [whForm, setWhForm] = useState({ name: "", warehouse_type: "site_store", location: "" });
 
   const [showItemForm, setShowItemForm] = useState(false);
-  const [itemForm, setItemForm] = useState({ code: "", description: "", unit: "" });
+  const [itemForm, setItemForm] = useState({ code: "", description: "", unit: "", item_type: "other", is_batch_tracked: false });
 
   const [selectedWarehouse, setSelectedWarehouse] = useState<string | null>(null);
   const { data: stock } = useWarehouseStock(selectedWarehouse || undefined);
@@ -29,7 +29,7 @@ export default function WarehousesPage() {
   async function handleCreateItem(e: React.FormEvent) {
     e.preventDefault();
     await createMaterialItem.mutateAsync(itemForm);
-    setItemForm({ code: "", description: "", unit: "" });
+    setItemForm({ code: "", description: "", unit: "", item_type: "other", is_batch_tracked: false });
     setShowItemForm(false);
   }
 
@@ -75,7 +75,7 @@ export default function WarehousesPage() {
 
       {showItemForm && (
         <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleCreateItem} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr auto", gap: 12 }}>
+          <form onSubmit={handleCreateItem} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr 1fr auto", gap: 12 }}>
             <Field label="Code">
               <Input required value={itemForm.code} onChange={(e) => setItemForm({ ...itemForm, code: e.target.value })} />
             </Field>
@@ -85,7 +85,25 @@ export default function WarehousesPage() {
             <Field label="Unit">
               <Input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} placeholder="bags, m3, tons" />
             </Field>
+            <Field label="Type">
+              <select
+                aria-label="Item type"
+                value={itemForm.item_type}
+                onChange={(e) => setItemForm({ ...itemForm, item_type: e.target.value })}
+                style={{ padding: "8px 10px", border: "1px solid var(--sf-line)", borderRadius: "var(--sf-radius)", fontSize: 13, background: "#fff" }}
+              >
+                <option value="other">Other</option>
+                <option value="raw_material">Raw material</option>
+                <option value="semi_finished">Semi-finished</option>
+                <option value="finished_good">Finished good</option>
+                <option value="consumable">Consumable</option>
+              </select>
+            </Field>
             <Button type="submit" disabled={createMaterialItem.isPending} style={{ height: 38, alignSelf: "end" }}>Add</Button>
+            <label style={{ display: "flex", gap: 6, fontSize: 12, gridColumn: "1 / -1" }}>
+              <input type="checkbox" checked={itemForm.is_batch_tracked} onChange={(e) => setItemForm({ ...itemForm, is_batch_tracked: e.target.checked })} />
+              Track by batch (expiry, quality hold)
+            </label>
           </form>
         </Card>
       )}
@@ -149,7 +167,7 @@ export default function WarehousesPage() {
           <h3 style={{ fontSize: 14, marginBottom: 12 }}>Material items</h3>
           <Table>
             <thead>
-              <tr><Th>Code</Th><Th>Description</Th><Th>Unit</Th><Th>Tracking</Th></tr>
+              <tr><Th>Code</Th><Th>Description</Th><Th>Unit</Th><Th>Type</Th><Th>Tracking</Th></tr>
             </thead>
             <tbody>
               {materialItems.map((m: any) => (
@@ -157,6 +175,7 @@ export default function WarehousesPage() {
                   <Td mono>{m.code}</Td>
                   <Td>{m.description}</Td>
                   <Td mono>{m.unit || "—"}</Td>
+                  <Td>{m.item_type && m.item_type !== "other" ? m.item_type.replace("_", " ") : "—"}</Td>
                   <Td>
                     {m.is_batch_tracked && <Badge tone="amber">Batch</Badge>}
                     {m.is_serial_tracked && <Badge tone="steel">Serial</Badge>}

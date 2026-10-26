@@ -47,6 +47,8 @@ VALUATION_METHODS = ("weighted_average", "fifo")
 SERIAL_STATUSES = ("in_stock", "issued", "disposed")
 COUNT_TYPES = ("cycle", "full")
 COUNT_STATUSES = ("draft", "completed", "adjusted")
+ITEM_TYPES = ("raw_material", "semi_finished", "finished_good", "consumable", "other")
+BATCH_STATUSES = ("released", "quarantined", "rejected")
 
 
 class InventorySettings(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
@@ -89,8 +91,15 @@ class MaterialItem(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
     unit = db.Column(db.String(32), nullable=True)
     is_batch_tracked = db.Column(db.Boolean, nullable=False, default=False)  # INV-06
     is_serial_tracked = db.Column(db.Boolean, nullable=False, default=False)  # INV-07
+    # What the item is in a factory: lets the manufacturing module offer
+    # only finished/semi-finished goods as products and raw materials as
+    # BOM components. "other" keeps every pre-existing item valid.
+    item_type = db.Column(db.String(24), nullable=False, default="other", server_default="other")
 
-    __table_args__ = (db.UniqueConstraint("tenant_id", "code", name="uq_inv_material_items_tenant_code"),)
+    __table_args__ = (
+        db.UniqueConstraint("tenant_id", "code", name="uq_inv_material_items_tenant_code"),
+        db.CheckConstraint(f"item_type IN {ITEM_TYPES}", name="ck_inv_material_items_item_type"),
+    )
 
 
 class StockItem(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
@@ -222,6 +231,12 @@ class BatchNumber(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
     expiry_date = db.Column(db.Date, nullable=True, index=True)
     quality_cert_document_id = db.Column(UUID(as_uuid=True), db.ForeignKey("documents.id"), nullable=True)
     quantity_remaining = db.Column(db.Numeric(18, 4), nullable=False, default=0)
+    # Quality hold. A recorded status only: stock issue is not batch-aware,
+    # so a quarantined batch is flagged and filterable, not blocked.
+    status = db.Column(db.String(16), nullable=False, default="released", server_default="released")
+    production_order_id = db.Column(UUID(as_uuid=True), nullable=True, index=True)  # mfg_production_orders.id
+
+    __table_args__ = (db.CheckConstraint(f"status IN {BATCH_STATUSES}", name="ck_inv_batch_numbers_status"),)
 
 
 class SerialNumber(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):

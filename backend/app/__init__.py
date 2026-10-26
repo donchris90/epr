@@ -24,6 +24,7 @@ MODULE_BLUEPRINTS = [
     ("app.modules.exe.routes", "bp"),
     ("app.modules.prc.routes", "bp"),
     ("app.modules.inv.routes", "bp"),
+    ("app.modules.mfg.routes", "bp"),
     ("app.modules.eqp.routes", "bp"),
     ("app.modules.fuel.routes", "bp"),
     ("app.modules.wfm.routes", "bp"),

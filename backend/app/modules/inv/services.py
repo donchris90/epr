@@ -55,7 +55,7 @@ def _get_or_create_stock_item(tenant_id, warehouse_id, material_item_id) -> Stoc
 
 # --- Receiving & valuation (INV-11) -----------------------------------------
 
-def receive_stock(tenant_id, *, warehouse_id, material_item_id, quantity, unit_cost, received_at=None):
+def receive_stock(tenant_id, *, warehouse_id, material_item_id, quantity, unit_cost, received_at=None, commit=True):
     """Increases on-hand quantity and updates valuation per the
     tenant's configured method."""
     quantity = Decimal(str(quantity))
@@ -86,7 +86,8 @@ def receive_stock(tenant_id, *, warehouse_id, material_item_id, quantity, unit_c
         )
 
     stock_item.quantity_on_hand += quantity
-    db.session.commit()
+    if commit:
+        db.session.commit()
     return stock_item
 
 
@@ -122,7 +123,7 @@ def _consume_fifo(tenant_id, warehouse_id, material_item_id, quantity) -> Decima
     return total_cost
 
 
-def issue_stock(tenant_id, *, warehouse_id, material_item_id, quantity) -> dict:
+def issue_stock(tenant_id, *, warehouse_id, material_item_id, quantity, commit=True) -> dict:
     """Decreases on-hand quantity and returns the valued cost of the
     issued quantity, per the tenant's configured valuation method."""
     quantity = Decimal(str(quantity))
@@ -144,7 +145,8 @@ def issue_stock(tenant_id, *, warehouse_id, material_item_id, quantity) -> dict:
         valued_cost = _consume_fifo(tenant_id, warehouse_id, material_item_id, quantity)
 
     stock_item.quantity_on_hand -= quantity
-    db.session.commit()
+    if commit:
+        db.session.commit()
     return {"quantity": quantity, "valued_cost": valued_cost}
 
 
