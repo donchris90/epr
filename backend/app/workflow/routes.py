@@ -201,6 +201,24 @@ def delegate_instance(instance_id):
     return jsonify(instance_schema.dump(instance))
 
 
+@bp.post("/instances/<uuid:instance_id>/escalate")
+@require_permission("workflow:approve")
+def escalate_instance_route(instance_id):
+    """Escalate the current step to its configured escalation target.
+    Allowed for the instance's initiator, anyone who can currently act
+    on it, or a workflow admin."""
+    instance = WorkflowInstance.query.filter_by(id=instance_id, tenant_id=g.tenant_id).first()
+    if not instance:
+        raise APIError("Workflow instance not found", status=404)
+    permissions = getattr(g, "permissions", [])
+    is_admin = "workflow:admin" in permissions or "*" in permissions
+    if not services.can_user_escalate(instance, user_id=g.user_id, role_id=g.role_id, is_admin=is_admin):
+        raise APIError("Forbidden", status=403, detail="Only the requester, a current approver, or a workflow admin can escalate")
+    data = _load(WorkflowDecisionSchema())
+    instance = services.escalate_instance(instance, actor_id=g.user_id, comment=data.get("comment"), **_client_context())
+    return jsonify(instance_schema.dump(instance))
+
+
 @bp.post("/instances/<uuid:instance_id>/cancel")
 @require_permission("workflow:approve")
 def cancel_instance_route(instance_id):

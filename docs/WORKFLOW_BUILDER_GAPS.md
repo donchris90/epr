@@ -69,7 +69,7 @@ updating it. A "custom" free-text option exists as an escape hatch,
 but a workflow built against a pair nothing actually calls will simply
 never trigger, with no warning.
 
-**BACKEND GAP: no timeout/escalation scheduler.**
+**(Closed on the backend in migration 0052 -- see WORKFLOW_APPROVAL_GAPS.md. The builder UI does not yet expose the escalation target.) BACKEND GAP: no timeout/escalation scheduler.**
 `timeout_hours`/`auto_escalate` are real, storable fields — the
 builder lets you set them — but nothing on the backend currently reads
 them to actually escalate a stalled approval. The detail and builder

@@ -23,8 +23,8 @@ than faked: no visual drag-and-drop builder (this is API/model-only --
 a builder is a real, separate frontend project), no notifications of
 any kind (this codebase has no notification system at all -- email,
 in-app, or push -- to integrate with; see docs/WORKFLOW_ENGINE.md), no
-automatic timeout/escalation (needs a scheduler; the pattern from
-app/modules/inv/tasks.py could drive this later, not attempted here),
+automatic timeout/escalation was originally absent; it now exists (step_due_at,
+escalate_instance, app/workflow/tasks.py),
 no "Manager"/"Department"/"CEO" dynamic approver types (this platform
 has no organizational hierarchy -- no department table, no
 manager/reports-to relationship anywhere -- so those approver types
@@ -50,6 +50,11 @@ from app.models.base import UUIDPrimaryKeyMixin, TenantMixin, AuditMixin
 APPROVER_TYPES = ("specific_user", "specific_role")
 INSTANCE_STATUSES = ("pending", "approved", "rejected", "cancelled")
 ACTION_TYPES = ("approve", "reject", "return", "comment", "delegate", "escalate", "cancel")
+
+# WorkflowAction.actor_id is NOT NULL (the audit log is deliberately
+# strict), so an escalation performed by the scheduler rather than a
+# person is recorded under this fixed nil UUID. Never a real user id.
+SYSTEM_ACTOR_ID = uuid.UUID(int=0)
 
 
 class WorkflowDefinition(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
@@ -106,8 +111,21 @@ class WorkflowStep(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
     minimum_amount = db.Column(db.Numeric(18, 2), nullable=True)
     maximum_amount = db.Column(db.Numeric(18, 2), nullable=True)
 
-    timeout_hours = db.Column(db.Integer, nullable=True)  # recorded, not yet enforced -- see module docstring
-    auto_escalate = db.Column(db.Boolean, nullable=False, default=False)  # recorded, not yet enforced
+    # timeout_hours drives WorkflowInstance.step_due_at (set whenever an
+    # instance enters this step). With auto_escalate on, the hourly
+    # workflow.escalate_overdue_approvals task (app/workflow/tasks.py)
+    # escalates an overdue instance to the target below; with it off,
+    # the due date is informational only (overdue shows in the UI).
+    timeout_hours = db.Column(db.Integer, nullable=True)
+    auto_escalate = db.Column(db.Boolean, nullable=False, default=False)
+    # Who an escalation goes to -- same specific_user / specific_role
+    # shape as the approver fields (no org hierarchy exists to resolve
+    # "manager" against). Either or both may be set; an escalated
+    # instance becomes actionable by anyone matching either. A step
+    # with no target cannot be escalated at all (400 on the endpoint,
+    # skipped-and-reported by the scheduled task).
+    escalate_to_user_id = db.Column(UUID(as_uuid=True), nullable=True)
+    escalate_to_role_id = db.Column(UUID(as_uuid=True), db.ForeignKey("roles.id"), nullable=True)
     allow_skip = db.Column(db.Boolean, nullable=False, default=False)
     parallel = db.Column(db.Boolean, nullable=False, default=False)
     # If a rejection at this step should return the instance to an
@@ -144,6 +162,18 @@ class WorkflowInstance(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
     current_step_number = db.Column(db.Integer, nullable=False, default=1)
     amount = db.Column(db.Numeric(18, 2), nullable=True)  # drives amount-based step skipping, if the entity has one
     initiated_by = db.Column(UUID(as_uuid=True), nullable=False)
+
+    # When the CURRENT step is due, computed from the step's
+    # timeout_hours at the moment the instance enters it (start,
+    # advance, or return-for-rework). Null when the step has no
+    # timeout. Delegation deliberately does not reset it -- otherwise
+    # re-delegating could postpone escalation forever.
+    step_due_at = db.Column(db.DateTime(timezone=True), nullable=True, index=True)
+    # Set when the current step has been escalated (manually or by the
+    # scheduler); cleared whenever the instance moves to another step.
+    # While set, the step's escalation target may also act on it, and
+    # the scheduler will not escalate it a second time.
+    escalated_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
     actions = db.relationship(
         "WorkflowAction", back_populates="instance", cascade="all, delete-orphan",

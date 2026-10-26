@@ -99,6 +99,10 @@ def configure_celery(app):
                 "task": "eqp.apply_due_transfer_cutovers",
                 "schedule": 60 * 60 * 24,
             },
+            "escalate-overdue-workflow-approvals-hourly": {
+                "task": "workflow.escalate_overdue_approvals",
+                "schedule": 60 * 60,
+            },
         },
     )
 
