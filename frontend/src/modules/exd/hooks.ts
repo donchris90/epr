@@ -138,6 +138,26 @@ export function useEquipmentUtilization() {
   });
 }
 
+export interface SafetyRates {
+  recordable_incidents: number;
+  lost_time_incidents: number;
+  near_misses: number;
+  total_hours_worked: string;
+  trir: string | null;
+  ltifr: string | null;
+  records_counted: number;
+  records_missing_check_out: number;
+  hours_basis: string;
+}
+
+/** Year-to-date TRIR/LTIFR; hours come from recorded attendance. */
+export function useSafetyRates() {
+  return useQuery({
+    queryKey: ["exd", "safety-rates"],
+    queryFn: async (): Promise<SafetyRates> => (await apiClient.get("/exd/safety-rates", { params: yearToDateRange() })).data,
+  });
+}
+
 // --- New sections: Commercial, HSE, Workforce ------------------------------------
 
 export interface ProjectNameLookup {

@@ -229,3 +229,34 @@ describe("Executive DashboardPage", () => {
     });
   });
 });
+
+describe("DashboardPage safety rates", () => {
+  const RATES = {
+    recordable_incidents: 2, lost_time_incidents: 1, near_misses: 3, total_hours_worked: "250000.00",
+    trir: "1.60", ltifr: "4.00", records_counted: 120, records_missing_check_out: 0,
+    hours_basis: "Recorded attendance (check-out minus check-in) for employees and casual workers. Subcontractor labour is not included.",
+  };
+
+  it("shows TRIR, LTIFR, hours and the basis note", async () => {
+    mockGet({ "/exd/safety-rates": RATES });
+    renderDashboard();
+    const card = await screen.findByTestId("safety-rates");
+    expect(card).toHaveTextContent("1.60");
+    expect(card).toHaveTextContent("4.00");
+    expect(card).toHaveTextContent("250,000");
+    expect(card).toHaveTextContent("Subcontractor labour is not included");
+  });
+
+  it("warns when attendance records are missing a check-out", async () => {
+    mockGet({ "/exd/safety-rates": { ...RATES, records_missing_check_out: 4 } });
+    renderDashboard();
+    expect(await screen.findByText(/4 attendance record\(s\) have no check-out/)).toBeInTheDocument();
+  });
+
+  it("shows an honest empty state, not zeros, when no hours are recorded", async () => {
+    mockGet({ "/exd/safety-rates": { ...RATES, trir: null, ltifr: null, total_hours_worked: "0.00" } });
+    renderDashboard();
+    expect(await screen.findByText("No hours recorded yet.")).toBeInTheDocument();
+    expect(screen.queryByTestId("safety-rates")).not.toBeInTheDocument();
+  });
+});

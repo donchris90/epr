@@ -19,6 +19,7 @@ from app.modules.exd.schemas import (
     DashboardConfigurationSchema,
     CompanyRevenueQuerySchema,
     EquipmentUtilizationQuerySchema,
+    SafetyRatesQuerySchema,
 )
 
 bp = Blueprint("exd", __name__, url_prefix="/v1/exd")
@@ -148,6 +149,24 @@ def get_project_risks():
 def get_ar_ap_aging():
     result = services.get_ar_ap_aging_summary(g.tenant_id)
     return jsonify(result)
+
+
+# --- Safety rates (EXD-05) ------------------------------------------------------------------
+
+@bp.get("/safety-rates")
+@require_permission("exd:read")
+def get_safety_rates():
+    """TRIR/LTIFR for a period, with hours worked taken from recorded
+    attendance (see services.get_hours_worked for exactly what that
+    includes). Rates are null when no hours are recorded."""
+    try:
+        args = SafetyRatesQuerySchema().load(request.args)
+    except ValidationError as err:
+        raise APIError("Validation failed", status=422, detail=str(err.messages))
+    if args["period_end"] < args["period_start"]:
+        raise APIError("period_end must not be before period_start", status=400)
+    result = services.get_safety_rates(g.tenant_id, **args)
+    return jsonify({k: (str(v) if v is not None and not isinstance(v, (int, str)) else v) for k, v in result.items()})
 
 
 # --- Equipment Utilization by category (EXD-04) -----------------------------------------

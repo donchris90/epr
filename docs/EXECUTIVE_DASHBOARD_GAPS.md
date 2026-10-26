@@ -60,28 +60,16 @@ fabricated aggregation).
 
 ## Genuine gaps — not built, and not faked
 
-**No TRIR/LTIFR rates, no near-miss count.** The real, existing
-rate-calculating endpoint (`GET /v1/hse/safety-indicators`) requires a
-real `total_hours_worked` figure — confirmed `required=True` on
-`SafetyIndicatorsQuerySchema`, and confirmed via that service
-function's own docstring that HSE doesn't own hours-worked data itself
-("`total_hours_worked` is supplied by the caller since HSE does not
-own Module 6/11's hours data"). There is no dashboard-accessible,
-honest source for this figure today; passing a placeholder would
-produce a fake rate dressed up as a real one, which is worse than not
-showing a rate at all. Near-miss counts have the identical problem —
-only reachable via that same endpoint, for the same reason.
-
-```
-BACKEND GAP:
-Endpoint: none directly -- would need either a real hours-worked
-  aggregation endpoint (summing real WFM timesheet/attendance data
-  for a period) or a documented, deliberate simplification the
-  dashboard could cite honestly (e.g. headcount x period length as an
-  approximation, clearly labeled as such)
-Why frontend requires it: without a real hours figure, TRIR/LTIFR
-  and near-miss counts have no honest value to display.
-```
+**TRIR/LTIFR -- now shown, with a stated hours basis.** `GET
+/v1/exd/safety-rates` sums hours from recorded WFM attendance (check-out
+minus check-in, employees and casual workers) and passes them to HSE's own
+`calculate_safety_indicators`. The dashboard shows year-to-date TRIR, LTIFR,
+hours and near-miss count. Limits, shown on the card: subcontractor labour
+is not in WFM attendance so its hours are excluded (rates are overstated if
+subcontractors had incidents counted); attendance with no check-out adds no
+hours (the count is reported and a warning shown); and with no recorded hours
+the rates are null and the card says so rather than showing zero. Not built:
+per-project rates on the dashboard (the endpoint accepts `project_id`).
 
 **No Margin, Cash, or Budget variance beyond revenue's own
 variance.** `get_company_revenue` computes actual-vs-budget revenue
