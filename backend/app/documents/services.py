@@ -153,3 +153,19 @@ def delete_document(document: Document):
 
     db.session.delete(document)
     db.session.commit()
+
+
+def portal_owner_names(tenant_id, documents):
+    """{(owner_type, owner_id): organisation name} for the portal-owned
+    documents in `documents`. Two small IN-queries, not one per row."""
+    from app.modules.prc.models import Vendor
+    from app.modules.sub.models import Subcontractor
+
+    names = {}
+    for owner_type, model in (("vnp", Vendor), ("scp", Subcontractor)):
+        ids = {d.portal_owner_id for d in documents if d.portal_owner_type == owner_type and d.portal_owner_id}
+        if not ids:
+            continue
+        for row in model.query.filter(model.tenant_id == tenant_id, model.id.in_(ids)).all():
+            names[(owner_type, row.id)] = row.name
+    return names

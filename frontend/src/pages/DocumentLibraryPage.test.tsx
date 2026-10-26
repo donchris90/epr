@@ -103,4 +103,23 @@ describe("DocumentLibraryPage", () => {
 
     expect(screen.getByRole("button", { name: /download/i })).toBeDisabled();
   });
+
+  it("shows who uploaded a portal document and filters by source", async () => {
+    const portalDoc = { ...SAMPLE_DOCS[0], id: "d2", original_filename: "licence.pdf", portal_owner_type: "vnp", source_name: "Acme Steel" };
+    vi.mocked(apiClient.get).mockImplementation((url: string, cfg?: any) => {
+      if (url === "/documents") {
+        const rows = cfg?.params?.source === "vendor" ? [portalDoc] : [...SAMPLE_DOCS, portalDoc];
+        return Promise.resolve({ data: { data: rows } });
+      }
+      if (url === "/projects") return Promise.resolve({ data: { data: [] } });
+      return Promise.reject(new Error(`unexpected GET ${url}`));
+    });
+    renderPage();
+    expect(await screen.findByText("Vendor: Acme Steel")).toBeInTheDocument();
+    expect(screen.getByText("Staff")).toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText("Filter by source"), "vendor");
+    await waitFor(() => expect(screen.queryByText("site-plan.pdf")).not.toBeInTheDocument());
+    expect(screen.getByText("licence.pdf")).toBeInTheDocument();
+  });
 });

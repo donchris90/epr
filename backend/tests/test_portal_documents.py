@@ -149,3 +149,56 @@ def _po_for_vendor(db, tid, vendor_user_id):
     pid = po.id
     db.session.commit()
     return pid
+
+
+class TestStaffListing:
+    def _docs(self, db, tid):
+        from app.models.core import Document
+        from app.modules.prc.models import Vendor
+        from app.modules.sub.models import Subcontractor
+
+        _as_tenant(db, tid)
+        v1, v2 = Vendor(tenant_id=tid, name="Acme Steel"), Vendor(tenant_id=tid, name="Beta Cement")
+        sub = Subcontractor(tenant_id=tid, name="Sparks Electrical")
+        db.session.add_all([v1, v2, sub])
+        db.session.flush()
+        ids = {"v1": v1.id, "v2": v2.id, "sub": sub.id}
+
+        def doc(name, otype=None, oid=None):
+            d = Document(tenant_id=tid, file_key=f"k/{name}", original_filename=name, status="uploaded",
+                         portal_owner_type=otype, portal_owner_id=oid)
+            db.session.add(d)
+
+        doc("staff.pdf")
+        doc("acme.pdf", "vnp", v1.id)
+        doc("beta.pdf", "vnp", v2.id)
+        doc("sparks.pdf", "scp", sub.id)
+        db.session.commit()
+        return ids
+
+    def _names(self, client, h, qs=""):
+        rows = client.get(f"/v1/documents{qs}", headers=h).get_json()["data"]
+        return {r["original_filename"]: r for r in rows}
+
+    def test_default_lists_everything_with_source_names(self, app, db, client, seed_tenants, auth_headers):
+        self._docs(db, seed_tenants["a"])
+        h = auth_headers("a", permissions=["documents:read"])
+        rows = self._names(client, h)
+        assert set(rows) == {"staff.pdf", "acme.pdf", "beta.pdf", "sparks.pdf"}
+        assert rows["acme.pdf"]["source_name"] == "Acme Steel" and rows["acme.pdf"]["portal_owner_type"] == "vnp"
+        assert rows["sparks.pdf"]["source_name"] == "Sparks Electrical"
+        assert rows["staff.pdf"]["source_name"] is None
+
+    def test_source_filters(self, app, db, client, seed_tenants, auth_headers):
+        ids = self._docs(db, seed_tenants["a"])
+        h = auth_headers("a", permissions=["documents:read"])
+        assert set(self._names(client, h, "?source=staff")) == {"staff.pdf"}
+        assert set(self._names(client, h, "?source=vendor")) == {"acme.pdf", "beta.pdf"}
+        assert set(self._names(client, h, "?source=subcontractor")) == {"sparks.pdf"}
+        assert set(self._names(client, h, f"?source=vendor&portal_owner_id={ids['v1']}")) == {"acme.pdf"}
+        assert client.get("/v1/documents?source=bogus", headers=h).status_code == 400
+
+    def test_other_tenants_documents_never_listed(self, app, db, client, seed_tenants, auth_headers):
+        self._docs(db, seed_tenants["a"])
+        h = auth_headers("b", permissions=["documents:read"])
+        assert self._names(client, h) == {}

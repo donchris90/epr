@@ -26,6 +26,9 @@ class DocumentSchema(Schema):
     size_bytes = fields.Int(dump_only=True, allow_none=True)
     status = fields.Str(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
+    # Set for documents uploaded through a subcontractor / vendor portal.
+    portal_owner_type = fields.Str(dump_only=True, allow_none=True)
+    portal_owner_id = fields.UUID(dump_only=True, allow_none=True)
 
 
 class DocumentWithUrlSchema(DocumentSchema):
