@@ -1,19 +1,16 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { logoutSubcontractor } from "./hooks";
+import { SubcontractorNotificationBell } from "./notifications";
 
-// Deliberately a short, flat list -- same reasoning as
-// client-portal/ClientPortalShell.tsx's own docstring: "feel like a
-// subcontractor portal, not an internal ERP screen." No notification
-// bell here (unlike the client portal's own shell) -- confirmed
-// directly against backend/app/modules/scp/services.py that nothing
-// ever calls notify() for this flow, so a bell here would always show
-// zero and imply a real feature that doesn't exist yet. See
-// docs/SUBCONTRACTOR_VENDOR_PORTAL_GAPS.md.
+// Deliberately a short, flat list: this should feel like a portal, not an
+// internal ERP screen. The bell reads /v1/notifications with the portal
+// token (see notifications.tsx).
 const NAV = [
   { to: "/subcontractor/dashboard", label: "Dashboard", icon: "🏠" },
   { to: "/subcontractor/agreements", label: "Agreements", icon: "📄" },
   { to: "/subcontractor/claims", label: "Claims", icon: "📋" },
+  { to: "/subcontractor/notifications", label: "Notifications", icon: "🔔" },
   { to: "/subcontractor/profile", label: "My Account", icon: "👤" },
 ];
 
@@ -35,6 +32,7 @@ export default function SubcontractorPortalShell() {
         <span className="sf-mono" style={{ fontSize: 13, color: "var(--sf-amber)" }}>
           Subcontractor Portal
         </span>
+        <SubcontractorNotificationBell />
       </div>
 
       {drawerOpen && <div className="sf-sidebar-backdrop" onClick={() => setDrawerOpen(false)} />}
@@ -51,7 +49,8 @@ export default function SubcontractorPortalShell() {
         }}
       >
         <div style={{ padding: "20px 20px 16px", borderBottom: "1px solid var(--sf-navy-800)" }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
             <span
               className="sf-mono"
               style={{ color: "var(--sf-amber)", fontSize: 13, border: "1px solid var(--sf-amber)", borderRadius: 2, padding: "1px 5px" }}
@@ -61,6 +60,8 @@ export default function SubcontractorPortalShell() {
             <span style={{ fontFamily: "var(--sf-font-display)", fontWeight: 600, fontSize: 16, color: "#fff" }}>
               Subcontractor Portal
             </span>
+            </div>
+            <SubcontractorNotificationBell />
           </div>
         </div>
 

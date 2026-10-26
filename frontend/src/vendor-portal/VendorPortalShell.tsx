@@ -1,17 +1,16 @@
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { logoutVendor } from "./hooks";
+import { VendorNotificationBell } from "./notifications";
 
-// Deliberately a short, flat list -- same real reasoning as
-// SubcontractorPortalShell's own docstring. No notification bell here
-// -- confirmed directly against app/modules/vnp/services.py that
-// nothing in this module calls notify() at all, so there is
-// genuinely nothing real a bell could ever show (see
-// docs/SUBCONTRACTOR_VENDOR_PORTAL_GAPS.md).
+// Deliberately a short, flat list: this should feel like a portal, not an
+// internal ERP screen. The bell reads /v1/notifications with the portal
+// token (see notifications.tsx).
 const NAV = [
   { to: "/vendor/dashboard", label: "Dashboard", icon: "🏠" },
   { to: "/vendor/purchase-orders", label: "Purchase Orders", icon: "📦" },
   { to: "/vendor/invoices", label: "Invoices", icon: "🧾" },
+  { to: "/vendor/notifications", label: "Notifications", icon: "🔔" },
   { to: "/vendor/profile", label: "My Account", icon: "👤" },
 ];
 
@@ -33,6 +32,7 @@ export default function VendorPortalShell() {
         <span className="sf-mono" style={{ fontSize: 13, color: "var(--sf-amber)" }}>
           Vendor Portal
         </span>
+        <VendorNotificationBell />
       </div>
 
       {drawerOpen && <div className="sf-sidebar-backdrop" onClick={() => setDrawerOpen(false)} />}
@@ -49,7 +49,8 @@ export default function VendorPortalShell() {
         }}
       >
         <div style={{ padding: "20px 20px 16px", borderBottom: "1px solid var(--sf-navy-800)" }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
             <span
               className="sf-mono"
               style={{ color: "var(--sf-amber)", fontSize: 13, border: "1px solid var(--sf-amber)", borderRadius: 2, padding: "1px 5px" }}
@@ -59,6 +60,8 @@ export default function VendorPortalShell() {
             <span style={{ fontFamily: "var(--sf-font-display)", fontWeight: 600, fontSize: 16, color: "#fff" }}>
               Vendor Portal
             </span>
+            </div>
+            <VendorNotificationBell />
           </div>
         </div>
 

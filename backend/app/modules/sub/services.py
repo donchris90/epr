@@ -152,6 +152,17 @@ def issue_payment_certificate(
     if agreement.retention:
         agreement.retention.amount_withheld += retention_amount
 
+    from app.notifications.portal import notify_subcontractor_users
+
+    notify_subcontractor_users(
+        certificate.tenant_id,
+        subcontractor_id=agreement.subcontractor_id,
+        type="scp.certificate_issued",
+        title="A payment certificate was issued",
+        body=f"Net payable: {certificate.net_payable}",
+        data={"entity_type": "payment_certificate", "entity_id": str(certificate.id), "agreement_id": str(agreement.id)},
+    )
+
     db.session.commit()
     return certificate
 
@@ -193,6 +204,23 @@ def review_claim(claim: SubcontractClaim, *, decision: str, reviewed_by, respons
     claim.reviewed_by = reviewed_by
     claim.reviewed_at = datetime.now(timezone.utc)
     claim.response_notes = response_notes
+
+    # Tell the subcontractor's portal users; committed with the decision.
+    from app.modules.sub.models import SubcontractAgreement
+    from app.notifications.portal import notify_subcontractor_users
+
+    agreement = SubcontractAgreement.query.filter_by(id=claim.agreement_id, tenant_id=claim.tenant_id).first()
+    if agreement:
+        label = {"approved": "approved", "rejected": "rejected", "under_review": "now under review"}[decision]
+        notify_subcontractor_users(
+            claim.tenant_id,
+            subcontractor_id=agreement.subcontractor_id,
+            type=f"scp.claim_{decision}",
+            title=f"Your claim was {label}" if decision != "under_review" else "Your claim is now under review",
+            body=response_notes,
+            data={"entity_type": "claim", "entity_id": str(claim.id), "agreement_id": str(claim.agreement_id)},
+        )
+
     db.session.commit()
     return claim
 

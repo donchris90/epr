@@ -8,6 +8,7 @@ import DashboardPage from "./pages/DashboardPage";
 import PurchaseOrdersPage from "./pages/PurchaseOrdersPage";
 import PurchaseOrderDetailPage from "./pages/PurchaseOrderDetailPage";
 import InvoicesPage from "./pages/InvoicesPage";
+import NotificationsPage from "./notifications";
 import ProfilePage from "./pages/ProfilePage";
 
 /** The real vendor-facing portal -- mounted at a wholly separate
@@ -34,6 +35,7 @@ export default function VendorPortalApp() {
           <Route path="purchase-orders" element={<PurchaseOrdersPage />} />
           <Route path="purchase-orders/:id" element={<PurchaseOrderDetailPage />} />
           <Route path="invoices" element={<InvoicesPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
       </Route>
