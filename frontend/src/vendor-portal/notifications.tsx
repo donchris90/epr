@@ -5,6 +5,8 @@ import { PortalNotificationBell, PortalNotificationsPage, type PortalNotificatio
 export function notificationLink(n: PortalNotification): string | null {
   if (n.type.startsWith("vnp.banking_change")) return "/vendor/profile";
   if (n.type === "vnp.rfq_invited") return "/vendor/rfqs";
+  const poId = n.data?.entity_id as string | undefined;
+  if (n.type === "vnp.po_issued" && poId) return `/vendor/purchase-orders/${poId}`;
   return null;
 }
 

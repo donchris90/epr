@@ -5,7 +5,8 @@ import { PortalNotificationBell, PortalNotificationsPage, type PortalNotificatio
 export function notificationLink(n: PortalNotification): string | null {
   if (n.type.startsWith("scp.claim")) return "/subcontractor/claims";
   const agreementId = n.data?.agreement_id as string | undefined;
-  if (n.type === "scp.certificate_issued" && agreementId) return `/subcontractor/agreements/${agreementId}`;
+  const agreementTypes = ["scp.certificate_issued", "scp.progress_verified", "scp.retention_released"];
+  if (agreementTypes.includes(n.type) && agreementId) return `/subcontractor/agreements/${agreementId}`;
   return null;
 }
 

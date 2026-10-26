@@ -261,6 +261,18 @@ def issue_purchase_order(po: PurchaseOrder, *, waiver=False, waiver_reason=None,
         po.compliance_waiver_by = waiver_by
 
     po.status = "issued"
+
+    # Tell the vendor's portal users; committed with the status change.
+    from app.notifications.portal import notify_vendor_users
+
+    notify_vendor_users(
+        po.tenant_id,
+        vendor_id=po.vendor_id,
+        type="vnp.po_issued",
+        title=f"Purchase order {po.po_number} was issued to you",
+        body="Please acknowledge it in the vendor portal.",
+        data={"entity_type": "purchase_order", "entity_id": str(po.id)},
+    )
     db.session.commit()
     return po
 

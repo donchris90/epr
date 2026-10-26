@@ -58,10 +58,19 @@ Remaining: the Client Portal (CLP) still has no equivalent.
 claim approved/rejected/under review and payment certificate issued
 (subcontractor); banking-details change approved/rejected (vendor). The
 portals read them through the ordinary `/v1/notifications` routes with the
-portal token, via a shared bell and a full list page. Remaining: no
-notifications yet for PO issued, progress verification or retention release;
-no email copy of portal notifications (in-app only), except the RFQ invitation
-email below.
+portal token, via a shared bell and a full list page. Also notified now:
+a vendor when a purchase order is issued to them (`vnp.po_issued`, links to the
+PO); a subcontractor when a measurement sheet is verified
+(`scp.progress_verified`, the "progress verified" event: staff verifying
+measured work) and when retention is released at either stage
+(`scp.retention_released`), both linking to the agreement. Staff finance
+approvers now also get an **email** for a new vendor banking-details change
+(on top of the bell), unless they switched email off for the Finance category.
+Remaining: portal users' own notifications are in-app only (no email copy,
+and no preferences for them), except the RFQ invitation email below; a
+subcontractor's *submitted* progress entry being verified is not a separate
+event in the data model, so "progress verified" fires on the measurement
+sheet; PO notifications fire on issue only, not on later PO changes.
 
 **RFQ decline, quote revision and invitation email.** A vendor can decline an
 invitation (optional reason, final: no quote afterwards; only while no quote
