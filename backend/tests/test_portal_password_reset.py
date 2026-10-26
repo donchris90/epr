@@ -1,4 +1,4 @@
-"""Self-service forgot/reset password for the SCP and VNP portals."""
+"""Self-service forgot/reset password for the SCP, VNP and CLP portals."""
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -9,7 +9,14 @@ from sqlalchemy import text
 
 from tests.test_scp_vnp_portal_auth import _seed_scp_user, _seed_vnp_user
 
+def _seed_clp_user(db, tenant_id, *, email="client@example.com", password="a real password"):
+    from tests.test_clp_client_portal import _seed_client_user
+
+    return _seed_client_user(db, tenant_id, email=email, password=password)
+
+
 PORTALS = {
+    "clp": {"seed": _seed_clp_user, "email": "client@example.com", "path": "/portal/reset-password"},
     "scp": {"seed": _seed_scp_user, "email": "sub@example.com", "path": "/subcontractor/reset-password"},
     "vnp": {"seed": _seed_vnp_user, "email": "vendor@example.com", "path": "/vendor/reset-password"},
 }
@@ -26,7 +33,7 @@ def _request_token(client, portal, email):
     return tokens
 
 
-@pytest.mark.parametrize("portal", ["scp", "vnp"])
+@pytest.mark.parametrize("portal", ["scp", "vnp", "clp"])
 class TestPortalPasswordReset:
     def test_email_contains_portal_specific_link(self, app, db, client, seed_tenants, portal):
         cfg = PORTALS[portal]
@@ -50,7 +57,7 @@ class TestPortalPasswordReset:
         cfg = PORTALS[portal]
         cfg["seed"](db, seed_tenants["a"])
         db.session.execute(text("SET LOCAL app.tenant_id = :t"), {"t": str(seed_tenants["a"])})
-        table = "scp_portal_users" if portal == "scp" else "vnp_portal_users"
+        table = {"scp": "scp_portal_users", "vnp": "vnp_portal_users", "clp": "clp_portal_users"}[portal]
         db.session.execute(text(f"UPDATE {table} SET is_active = false"))
         db.session.commit()
         assert _request_token(client, portal, cfg["email"]) == []
@@ -92,7 +99,7 @@ class TestPortalPasswordReset:
         cfg = PORTALS[portal]
         cfg["seed"](db, seed_tenants["a"])
         token = _request_token(client, portal, cfg["email"])[0][0]
-        other = "vnp" if portal == "scp" else "scp"
+        other = "vnp" if portal == "scp" else "scp" if portal == "clp" else "clp"
         r = client.post(f"/v1/{other}/auth/reset-password", json={"token": token, "new_password": "brandnewpass1"})
         assert r.status_code == 400
 

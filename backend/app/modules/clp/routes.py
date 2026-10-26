@@ -35,6 +35,7 @@ from marshmallow import ValidationError
 from app.extensions import db, limiter
 from app.utils.decorators import require_permission
 from app.utils.errors import APIError
+from app.auth import portal_reset  # noqa: F401  (registers PortalPasswordResetToken with the metadata)
 from app.utils.pagination import envelope
 
 from app.modules.clp import services
@@ -105,6 +106,8 @@ def _issue_client_tokens(client_user: ClientPortalUser):
         "user_id": str(client_user.id),
         "permissions": CLIENT_PERMISSIONS,
         "is_client": True,
+        "portal_kind": "clp",
+        "pwd_ts": client_user.password_changed_at.isoformat() if client_user.password_changed_at else None,
     }
     access_token = create_access_token(identity=str(client_user.id), additional_claims=claims)
     refresh_token = create_refresh_token(identity=str(client_user.id), additional_claims=claims)
@@ -135,6 +138,30 @@ def client_login():
     return jsonify(_issue_client_tokens(client_user))
 
 
+@bp.post("/auth/forgot-password")
+@limiter.limit("5 per hour")
+def client_forgot_password():
+    """Always the same 200 -- never reveals whether the email has an
+    account (see app/auth/portal_reset.py)."""
+    from app.auth.portal_reset import request_portal_password_reset
+    from app.auth.schemas import ForgotPasswordSchema
+
+    data = _load(ForgotPasswordSchema())
+    request_portal_password_reset("clp", data["email"])
+    return jsonify({"message": "If an account exists for that email, a reset link has been sent."})
+
+
+@bp.post("/auth/reset-password")
+@limiter.limit("10 per hour")
+def client_reset_password():
+    from app.auth.portal_reset import reset_portal_password
+    from app.auth.schemas import ResetPasswordSchema
+
+    data = _load(ResetPasswordSchema())
+    reset_portal_password("clp", data["token"], data["new_password"])
+    return jsonify({"message": "Password reset successfully."})
+
+
 @bp.post("/auth/refresh")
 @jwt_required(refresh=True)
 def client_refresh():
@@ -144,12 +171,21 @@ def client_refresh():
         # access token, or vice versa -- see the login-family docstring.
         return jsonify({"type": "about:blank", "title": "Not a client session", "status": 401}), 401
 
+    # A reset kills older sessions: this route is exempt from the
+    # tenant-context middleware's check.
+    from app.auth.portal_reset import check_portal_pwd_ts
+
+    if not check_portal_pwd_ts("clp", old_claims.get("tenant_id"), old_claims.get("user_id"), old_claims.get("pwd_ts")):
+        return jsonify({"type": "about:blank", "title": "Session no longer valid", "status": 401}), 401
+
     identity = get_jwt_identity()
     new_claims = {
         "tenant_id": old_claims.get("tenant_id"),
         "user_id": old_claims.get("user_id"),
         "permissions": CLIENT_PERMISSIONS,
         "is_client": True,
+        "portal_kind": "clp",
+        "pwd_ts": old_claims.get("pwd_ts"),
     }
     access_token = create_access_token(identity=identity, additional_claims=new_claims)
 

@@ -52,7 +52,7 @@ interface RetryableConfig extends InternalAxiosRequestConfig {
   _retried?: boolean;
 }
 
-const REFRESH_EXEMPT_PATHS = ["/clp/auth/login", "/clp/auth/refresh"];
+const REFRESH_EXEMPT_PATHS = ["/clp/auth/login", "/clp/auth/refresh", "/clp/auth/forgot-password", "/clp/auth/reset-password"];
 
 function isRefreshExempt(url?: string): boolean {
   return !!url && REFRESH_EXEMPT_PATHS.some((p) => url.includes(p));

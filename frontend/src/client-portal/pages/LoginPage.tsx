@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Input, Field } from "../../components/ui";
 import { LegalLinks } from "../../pages/legal/LegalLayout";
 import { useClientLogin } from "../hooks";
@@ -102,7 +102,10 @@ export default function ClientLoginPage() {
           <Button type="submit" disabled={login.isPending} style={{ width: "100%" }}>
             {login.isPending ? "Signing in…" : "Sign in"}
           </Button>
-          <p style={{ textAlign: "center", fontSize: 12, color: "var(--sf-navy-400)", marginTop: 14 }}>
+          <p style={{ textAlign: "center", fontSize: 12, marginTop: 14 }}>
+            <Link to="/portal/forgot-password">Forgot password?</Link>
+          </p>
+          <p style={{ textAlign: "center", fontSize: 12, color: "var(--sf-navy-400)", marginTop: 8 }}>
             Don't have portal access? Contact your project manager.
           </p>
           <LegalLinks />

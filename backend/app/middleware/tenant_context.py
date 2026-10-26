@@ -71,6 +71,8 @@ PUBLIC_PATHS = {
     # ever ran.
     "/v1/clp/auth/login",
     "/v1/clp/auth/refresh",
+    "/v1/clp/auth/forgot-password",
+    "/v1/clp/auth/reset-password",
     "/v1/clp/auth/logout",
     # Subcontractor Portal (SCP) and Vendor Portal (VNP) -- same real
     # reasoning as CLP's own auth family above: no session/JWT exists
@@ -166,12 +168,12 @@ def register_tenant_context(app, db):
 
                 raise APIError("Session no longer valid", status=401)
 
-        # SCP/VNP tokens carry `portal_kind` + `pwd_ts` (migration 0053);
+        # SCP/VNP/CLP tokens carry `portal_kind` + `pwd_ts` (migration 0053);
         # a self-service reset bumps password_changed_at and so kills
         # earlier sessions. Legacy tokens without portal_kind are
         # skipped here and re-checked on their next refresh.
         portal_kind = claims.get("portal_kind")
-        if tenant_id and g.user_id and g.is_portal_user and portal_kind in ("scp", "vnp"):
+        if tenant_id and g.user_id and (g.is_portal_user or g.is_client) and portal_kind in ("scp", "vnp", "clp"):
             from app.auth.portal_reset import check_portal_pwd_ts
 
             if not check_portal_pwd_ts(portal_kind, tenant_id, g.user_id, claims.get("pwd_ts")):

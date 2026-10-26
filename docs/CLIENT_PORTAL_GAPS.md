@@ -67,14 +67,20 @@ all, and, more fundamentally:
   would silently produce a token missing the claim the identity guard
   below depends on.
 - Self-service password change exists (`POST /v1/clp/auth/me/password`,
-  requires the current password). **There is no self-service "forgot
-  password" / reset-by-email flow.** A client who forgets their
-  password today has no recovery path except asking their contractor
-  to create/reset it via the admin page. Building real reset-by-email
-  would need: a token-based reset link, an email template
-  (`app/notifications/email.py` already has infrastructure this could
-  extend), and rate limiting beyond what exists. Not built here --
-  flagging it rather than shipping a half-secure version.
+  requires the current password). Self-service
+  forgot/reset password now exists: `POST /v1/clp/auth/forgot-password`
+  (5/hour, always the same 200, never reveals whether an account exists)
+  and `POST /v1/clp/auth/reset-password` (single-use, 1-hour, hashed
+  token). It shares `app/auth/portal_reset.py` and the
+  `portal_password_reset_tokens` table with the subcontractor and vendor
+  portals; the email links to `/portal/reset-password`. A reset sets
+  `clp_portal_users.password_changed_at` (migration 0057), which client
+  tokens carry as `pwd_ts`, so every earlier client session stops working
+  at once (checked per request and on refresh). Tokens issued before this
+  deploy have no `portal_kind` and are skipped until their next refresh.
+  Not changed: the in-session change-password route and the staff
+  admin reset do not bump `password_changed_at`, so they do not end other
+  sessions (same as the other two portals).
 
 ### 2. Two real security fixes
 
