@@ -30,6 +30,7 @@ from marshmallow import ValidationError
 from app.extensions import db, limiter
 from app.utils.decorators import require_permission
 from app.utils.errors import APIError
+from app.auth import portal_reset  # noqa: F401  (registers PortalPasswordResetToken with the metadata)
 from app.utils.pagination import envelope
 
 from app.modules.scp import services
@@ -79,6 +80,8 @@ def _issue_portal_tokens(portal_user: SubcontractorPortalUser):
         "user_id": str(portal_user.id),
         "permissions": PORTAL_PERMISSIONS,
         "is_portal_user": True,
+        "portal_kind": "scp",
+        "pwd_ts": portal_user.password_changed_at.isoformat() if portal_user.password_changed_at else None,
     }
     access_token = create_access_token(identity=str(portal_user.id), additional_claims=claims)
     refresh_token = create_refresh_token(identity=str(portal_user.id), additional_claims=claims)
@@ -94,8 +97,8 @@ def health():
 # Deliberately a SEPARATE endpoint family from /v1/auth/*, not an
 # extension of it -- same reasoning as CLP's own auth family: a
 # subcontractor session and a staff session should never be
-# interchangeable. See docs/SUBCONTRACTOR_VENDOR_PORTAL_GAPS.md for
-# what a self-service "forgot password" flow would still need.
+# interchangeable. Self-service forgot/reset password lives in
+# app/auth/portal_reset.py.
 
 @bp.post("/auth/login")
 @limiter.limit("10 per minute")
@@ -107,6 +110,30 @@ def portal_login():
     return jsonify(_issue_portal_tokens(portal_user))
 
 
+@bp.post("/auth/forgot-password")
+@limiter.limit("5 per hour")
+def portal_forgot_password():
+    """Always the same 200 -- never reveals whether the email has an
+    account (see app/auth/portal_reset.py)."""
+    from app.auth.portal_reset import request_portal_password_reset
+    from app.auth.schemas import ForgotPasswordSchema
+
+    data = _load(ForgotPasswordSchema())
+    request_portal_password_reset("scp", data["email"])
+    return jsonify({"message": "If an account exists for that email, a reset link has been sent."})
+
+
+@bp.post("/auth/reset-password")
+@limiter.limit("10 per hour")
+def portal_reset_password():
+    from app.auth.portal_reset import reset_portal_password
+    from app.auth.schemas import ResetPasswordSchema
+
+    data = _load(ResetPasswordSchema())
+    reset_portal_password("scp", data["token"], data["new_password"])
+    return jsonify({"message": "Password reset successfully."})
+
+
 @bp.post("/auth/refresh")
 @jwt_required(refresh=True)
 def portal_refresh():
@@ -114,12 +141,21 @@ def portal_refresh():
     if not old_claims.get("is_portal_user"):
         return jsonify({"type": "about:blank", "title": "Not a subcontractor session", "status": 401}), 401
 
+    # A reset (or any password_changed_at change) kills older sessions:
+    # this route is exempt from the tenant-context middleware's check.
+    from app.auth.portal_reset import check_portal_pwd_ts
+
+    if not check_portal_pwd_ts("scp", old_claims.get("tenant_id"), old_claims.get("user_id"), old_claims.get("pwd_ts")):
+        return jsonify({"type": "about:blank", "title": "Session no longer valid", "status": 401}), 401
+
     identity = get_jwt_identity()
     new_claims = {
         "tenant_id": old_claims.get("tenant_id"),
         "user_id": old_claims.get("user_id"),
         "permissions": PORTAL_PERMISSIONS,
         "is_portal_user": True,
+        "portal_kind": "scp",
+        "pwd_ts": old_claims.get("pwd_ts"),
     }
     access_token = create_access_token(identity=identity, additional_claims=new_claims)
 

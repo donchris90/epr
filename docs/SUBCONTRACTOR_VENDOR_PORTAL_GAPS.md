@@ -40,13 +40,18 @@ business logic.
 
 ## Genuine gaps -- not built, and not faked
 
-**No self-service "forgot password" flow for either portal.** Same
-gap already documented for the Client Portal (`CLIENT_PORTAL_GAPS.md`)
--- only staff-initiated password creation exists (via
-`POST /v1/scp/portal-users` / `POST /v1/vnp/vendor-users`). Building a
-real one needs a token-based reset link, an email template, and rate
-limiting beyond what exists today for either portal; flagged rather
-than shipped half-secure.
+**Self-service "forgot password" -- now built for both portals** (migration
+`0053_portal_pwd_reset`). `POST /v1/scp|vnp/auth/forgot-password` always
+returns the same 200 (no account enumeration, 5/hour) and emails a
+single-use, 1-hour link (`/subcontractor/reset-password?token=...`,
+`/vendor/reset-password?token=...`); `POST .../auth/reset-password`
+(10/hour) sets the new password. Only a SHA-256 hash of the token is
+stored (`portal_password_reset_tokens`, outside RLS). A reset sets
+`password_changed_at`, carried in portal tokens as `pwd_ts` and checked
+on refresh and every request, so all earlier sessions stop working.
+Portal sessions issued before this change have no `portal_kind` claim;
+they keep working until their next refresh, which re-checks them.
+Remaining: the Client Portal (CLP) still has no equivalent.
 
 **No notification bell in either portal.** Confirmed directly against
 `backend/app/modules/scp/services.py` and

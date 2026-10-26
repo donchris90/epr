@@ -2,6 +2,8 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import SubcontractorPortalProtectedRoute from "./lib/ProtectedRoute";
 import SubcontractorPortalShell from "./SubcontractorPortalShell";
 import LoginPage from "./pages/LoginPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import DashboardPage from "./pages/DashboardPage";
 import AgreementsPage from "./pages/AgreementsPage";
 import AgreementDetailPage from "./pages/AgreementDetailPage";
@@ -20,6 +22,8 @@ export default function SubcontractorPortalApp() {
   return (
     <Routes>
       <Route path="login" element={<LoginPage />} />
+      <Route path="forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="reset-password" element={<ResetPasswordPage />} />
 
       <Route element={<SubcontractorPortalProtectedRoute />}>
         <Route element={<SubcontractorPortalShell />}>
