@@ -95,6 +95,7 @@ ALL_PERMISSIONS = [
     "hse:approve", "hse:officer", "hse:read", "hse:write",
     "inv:approve", "inv:read", "inv:write",
     "mfa:approve", "mfa:read", "mfa:write",
+    "mfg:approve", "mfg:read", "mfg:write",
     "org:manage", "org:read",
     "pc:read", "pc:write",
     "pln:approve", "pln:read", "pln:write",

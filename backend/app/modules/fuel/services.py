@@ -130,6 +130,7 @@ def record_issue(
     operator_id=None,
     issued_by=None,
     countersignature_threshold=DEFAULT_COUNTERSIGNATURE_THRESHOLD_LITRES,
+    commit=True,
 ):
     quantity_litres = Decimal(str(quantity_litres))
 
@@ -153,7 +154,8 @@ def record_issue(
     tank.current_level_litres -= quantity_litres
 
     db.session.add(issue)
-    db.session.commit()
+    if commit:
+        db.session.commit()
     return issue
 
 

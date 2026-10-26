@@ -12,6 +12,8 @@ from app.modules.inv.models import (
     RETURN_CONDITIONS,
     VALUATION_METHODS,
     COUNT_TYPES,
+    ITEM_TYPES,
+    BATCH_STATUSES,
 )
 
 
@@ -35,6 +37,7 @@ class MaterialItemSchema(Schema):
     unit = fields.Str(allow_none=True)
     is_batch_tracked = fields.Bool(load_default=False)
     is_serial_tracked = fields.Bool(load_default=False)
+    item_type = fields.Str(load_default="other", validate=validate.OneOf(ITEM_TYPES))
 
 
 class StockItemSchema(Schema):
@@ -102,6 +105,8 @@ class BatchNumberSchema(Schema):
     expiry_date = fields.Date(allow_none=True)
     quality_cert_document_id = fields.UUID(allow_none=True)
     quantity_remaining = fields.Decimal(load_default="0", as_string=True)
+    status = fields.Str(dump_only=True)
+    production_order_id = fields.UUID(dump_only=True, allow_none=True)
 
 
 class SerialNumberSchema(Schema):
@@ -179,3 +184,7 @@ class StockCountSchema(Schema):
     count_type = fields.Str(dump_only=True)
     status = fields.Str(dump_only=True)
     lines = fields.List(fields.Nested(StockCountLineSchema), dump_only=True)
+
+
+class BatchStatusSchema(Schema):
+    status = fields.Str(required=True, validate=validate.OneOf(BATCH_STATUSES))

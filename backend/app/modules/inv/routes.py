@@ -39,6 +39,7 @@ from app.modules.inv.schemas import (
     ReorderLevelSchema,
     ItemCodeSchema,
     BatchNumberSchema,
+    BatchStatusSchema,
     SerialNumberSchema,
     WasteRecordInputSchema,
     WasteRecordSchema,
@@ -320,8 +321,25 @@ def list_batch_numbers():
         query = query.filter_by(material_item_id=material_item_id)
     if warehouse_id:
         query = query.filter_by(warehouse_id=warehouse_id)
+    status = request.args.get("status")
+    if status:
+        query = query.filter_by(status=status)
     batches = query.all()
     return jsonify(envelope(batch_schema.dump(batches, many=True)))
+
+
+@bp.put("/batch-numbers/<uuid:batch_id>/status")
+@require_permission("inv:approve")
+def set_batch_status(batch_id):
+    """Quality release / quarantine / reject. Recorded and filterable;
+    not enforced at stock issue (see BatchNumber.status)."""
+    data = _load(BatchStatusSchema())
+    batch = BatchNumber.query.filter_by(id=batch_id, tenant_id=g.tenant_id).first()
+    if not batch:
+        raise APIError("Batch not found", status=404)
+    batch.status = data["status"]
+    db.session.commit()
+    return jsonify(batch_schema.dump(batch))
 
 
 @bp.get("/batch-numbers/expiring")

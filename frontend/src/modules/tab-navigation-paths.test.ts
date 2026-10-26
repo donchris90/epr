@@ -11,6 +11,7 @@ import wfmSource from "../modules/wfm/index.tsx?raw";
 import qmsSource from "../modules/qms/index.tsx?raw";
 import hseSource from "../modules/hse/index.tsx?raw";
 import aiSource from "../modules/ai/index.tsx?raw";
+import mfgSource from "../modules/mfg/index.tsx?raw";
 
 /**
  * Regression coverage for a real, user-reported bug: navigating
@@ -45,6 +46,7 @@ const MODULES = [
   ["qms", qmsSource],
   ["hse", hseSource],
   ["ai", aiSource],
+  ["mfg", mfgSource],
 ] as const;
 
 describe("every module's tab navigation uses absolute paths, not relative ones", () => {

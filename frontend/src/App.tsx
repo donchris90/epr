@@ -37,6 +37,7 @@ import BILModule from "./modules/bil";
 import INVModule from "./modules/inv";
 import EQPModule from "./modules/eqp";
 import FUELModule from "./modules/fuel";
+import MFGModule from "./modules/mfg";
 import WFMModule from "./modules/wfm";
 import SUBModule from "./modules/sub";
 import QMSModule from "./modules/qms";
@@ -146,6 +147,7 @@ export default function App() {
             <Route path="inventory/*" element={<INVModule />} />
             <Route path="equipment/*" element={<EQPModule />} />
             <Route path="fuel/*" element={<FUELModule />} />
+            <Route path="manufacturing/*" element={<MFGModule />} />
             <Route path="workforce/*" element={<WFMModule />} />
             <Route path="subcontractors/*" element={<SUBModule />} />
             <Route path="quality/*" element={<QMSModule />} />
