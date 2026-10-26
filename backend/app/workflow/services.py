@@ -2,9 +2,17 @@
 Workflow engine service layer -- see app/workflow/models.py for the
 full design scope and honest limitations.
 """
+from datetime import datetime, timedelta, timezone
+
 from app.extensions import db
 from app.utils.errors import APIError
-from app.workflow.models import WorkflowDefinition, WorkflowStep, WorkflowInstance, WorkflowAction
+from app.workflow.models import (
+    SYSTEM_ACTOR_ID,
+    WorkflowDefinition,
+    WorkflowStep,
+    WorkflowInstance,
+    WorkflowAction,
+)
 from app.notifications import services as notification_services
 
 
@@ -176,6 +184,33 @@ def _first_applicable_step_number(workflow, amount):
     return _next_applicable_step_number(workflow, after_step_number=0, amount=amount)
 
 
+# --- Step entry: due dates ----------------------------------------------------
+
+def _compute_step_due_at(workflow, step_number, amount, *, now=None):
+    """Due date for an instance entering `step_number`. For a parallel
+    group the earliest configured timeout wins (the group is overdue as
+    soon as its strictest step is). None when no applicable step at
+    this number has a positive timeout_hours."""
+    timeouts = [
+        s.timeout_hours
+        for s in _applicable_steps_at_number(workflow, step_number, amount)
+        if s.timeout_hours and s.timeout_hours > 0
+    ]
+    if not timeouts:
+        return None
+    return (now or datetime.now(timezone.utc)) + timedelta(hours=min(timeouts))
+
+
+def _enter_step(instance, workflow, step_number, *, now=None):
+    """The one place an instance moves to a step: sets the step,
+    recomputes its due date and clears any escalation from the
+    previous step. Every code path that changes current_step_number
+    must go through here, or step_due_at goes stale."""
+    instance.current_step_number = step_number
+    instance.step_due_at = _compute_step_due_at(workflow, step_number, instance.amount, now=now)
+    instance.escalated_at = None
+
+
 # --- Instances --------------------------------------------------------------
 
 def start_workflow_instance(tenant_id, workflow, *, module_name, entity_type, entity_id, initiated_by, amount=None):
@@ -194,6 +229,7 @@ def start_workflow_instance(tenant_id, workflow, *, module_name, entity_type, en
         amount=amount,
         initiated_by=initiated_by,
     )
+    instance.step_due_at = _compute_step_due_at(workflow, first_number, amount)
     db.session.add(instance)
     db.session.flush()
 
@@ -241,6 +277,16 @@ def _find_actionable_step_for_user(instance, *, user_id, role_id):
             return step
         if step.approver_type == "specific_role" and str(step.required_role_id) == str(role_id):
             return step
+
+    # Once the current step has been escalated, its escalation target
+    # may act on it too (in addition to, never instead of, the
+    # original approvers).
+    if instance.escalated_at is not None:
+        for step in candidates:
+            if step.escalate_to_user_id and str(step.escalate_to_user_id) == str(user_id):
+                return step
+            if step.escalate_to_role_id and role_id and str(step.escalate_to_role_id) == str(role_id):
+                return step
     return None
 
 
@@ -291,6 +337,7 @@ def approve_step(instance, *, actor_id, role_id, comment=None, ip_address=None, 
         next_number = _next_applicable_step_number(workflow, instance.current_step_number, instance.amount)
         if next_number is None:
             instance.status = "approved"
+            instance.step_due_at = None
             _notify_user(
                 instance, instance.initiated_by,
                 type="workflow.instance_approved",
@@ -298,7 +345,7 @@ def approve_step(instance, *, actor_id, role_id, comment=None, ip_address=None, 
                 body=f"Your {instance.entity_type.replace('_', ' ')} has been fully approved.",
             )
         else:
-            instance.current_step_number = next_number
+            _enter_step(instance, workflow, next_number)
             _notify_approvers_for_step(
                 instance, workflow, next_number,
                 event_title=f"Approval requested: {workflow.workflow_name}",
@@ -320,7 +367,7 @@ def reject_step(instance, *, actor_id, role_id, comment=None, ip_address=None, u
 
     old_status = instance.status
     if step.reject_to_step is not None:
-        instance.current_step_number = step.reject_to_step
+        _enter_step(instance, workflow, step.reject_to_step)
         new_status = "pending"
         _notify_approvers_for_step(
             instance, workflow, step.reject_to_step,
@@ -330,6 +377,7 @@ def reject_step(instance, *, actor_id, role_id, comment=None, ip_address=None, u
         )
     else:
         instance.status = "rejected"
+        instance.step_due_at = None
         new_status = "rejected"
         _notify_user(
             instance, instance.initiated_by,
@@ -390,6 +438,7 @@ def cancel_instance(instance, *, actor_id, comment=None, ip_address=None, user_a
 
     old_status = instance.status
     instance.status = "cancelled"
+    instance.step_due_at = None
 
     db.session.add(WorkflowAction(
         tenant_id=instance.tenant_id,
@@ -420,3 +469,141 @@ def add_comment(instance, *, actor_id, comment, ip_address=None, user_agent=None
     ))
     db.session.commit()
     return instance
+
+
+# --- Escalation ---------------------------------------------------------------
+
+def _escalation_user_ids(instance, workflow):
+    """Every real user the current step escalates to: the named user
+    and/or everyone in the named role, across the applicable steps of
+    the current step group."""
+    from app.models.core import User
+
+    user_ids = set()
+    for step in _applicable_steps_at_number(workflow, instance.current_step_number, instance.amount):
+        if step.escalate_to_user_id:
+            user_ids.add(step.escalate_to_user_id)
+        if step.escalate_to_role_id:
+            role_users = User.query.filter_by(tenant_id=instance.tenant_id, role_id=step.escalate_to_role_id).all()
+            user_ids.update(u.id for u in role_users)
+    return user_ids
+
+
+def _has_escalation_target(instance, workflow):
+    return any(
+        s.escalate_to_user_id or s.escalate_to_role_id
+        for s in _applicable_steps_at_number(workflow, instance.current_step_number, instance.amount)
+    )
+
+
+def can_user_escalate(instance, *, user_id, role_id, is_admin=False):
+    """Who may escalate by hand: the person who started the approval,
+    anyone who can currently act on it, or a workflow admin."""
+    if is_admin or str(instance.initiated_by) == str(user_id):
+        return True
+    return _find_actionable_step_for_user(instance, user_id=user_id, role_id=role_id) is not None
+
+
+def escalate_instance(instance, *, actor_id=None, comment=None, ip_address=None, user_agent=None):
+    """
+    Escalate the instance's current step to its configured escalation
+    target. actor_id=None means the scheduler did it (recorded under
+    SYSTEM_ACTOR_ID).
+
+    Rules, all enforced here rather than left to callers:
+      - only pending instances;
+      - the current step must actually have an escalation target
+        (escalating to nobody would be a fake action);
+      - at most once per step (the second call is a 400, not a second
+        notification storm).
+    """
+    if instance.status != "pending":
+        raise APIError(f"Cannot escalate an instance that is already {instance.status}", status=400)
+    if instance.escalated_at is not None:
+        raise APIError("This approval step has already been escalated", status=400)
+
+    workflow = db.session.get(WorkflowDefinition, instance.workflow_id)
+    if not _has_escalation_target(instance, workflow):
+        raise APIError("The current step has no escalation target configured", status=400)
+
+    instance.escalated_at = datetime.now(timezone.utc)
+
+    db.session.add(WorkflowAction(
+        tenant_id=instance.tenant_id,
+        instance_id=instance.id,
+        step_number=instance.current_step_number,
+        action_type="escalate",
+        actor_id=actor_id or SYSTEM_ACTOR_ID,
+        old_status=instance.status,
+        new_status=instance.status,
+        comment=comment or ("Escalated automatically: step was not actioned by its due date" if actor_id is None else None),
+        ip_address=ip_address,
+        user_agent=user_agent,
+    ))
+
+    target_ids = _escalation_user_ids(instance, workflow)
+    if target_ids:
+        notification_services.notify_many(
+            instance.tenant_id,
+            user_ids=target_ids,
+            type="workflow.escalated",
+            title=f"Escalated for your approval: {workflow.workflow_name}",
+            body=f"A {instance.entity_type.replace('_', ' ')} approval was escalated to you"
+            + (" because it was not actioned in time." if actor_id is None else "."),
+            channel="email",
+            data={
+                "workflow_instance_id": str(instance.id),
+                "module_name": instance.module_name,
+                "entity_type": instance.entity_type,
+                "entity_id": str(instance.entity_id),
+                "step_number": instance.current_step_number,
+            },
+        )
+    _notify_user(
+        instance, instance.initiated_by,
+        type="workflow.escalated_notice",
+        title=f"Escalated: {workflow.workflow_name}",
+        body=f"Your {instance.entity_type.replace('_', ' ')} approval was escalated.",
+    )
+
+    db.session.commit()
+    return instance
+
+
+def escalate_overdue_instances(tenant_id, *, now=None):
+    """
+    Escalate every pending instance of this tenant whose step is past
+    step_due_at, whose step has auto_escalate on, and that hasn't been
+    escalated yet. Returns a summary dict. An overdue instance whose
+    step has auto_escalate but no target is reported (not escalated,
+    not hidden) so a misconfigured workflow is visible in the logs.
+    """
+    now = now or datetime.now(timezone.utc)
+    escalated = 0
+    skipped_no_target = 0
+    errors = []
+
+    overdue = WorkflowInstance.query.filter(
+        WorkflowInstance.tenant_id == tenant_id,
+        WorkflowInstance.status == "pending",
+        WorkflowInstance.escalated_at.is_(None),
+        WorkflowInstance.step_due_at.isnot(None),
+        WorkflowInstance.step_due_at <= now,
+    ).all()
+
+    for instance in overdue:
+        try:
+            workflow = db.session.get(WorkflowDefinition, instance.workflow_id)
+            steps = _applicable_steps_at_number(workflow, instance.current_step_number, instance.amount)
+            if not any(s.auto_escalate for s in steps):
+                continue
+            if not _has_escalation_target(instance, workflow):
+                skipped_no_target += 1
+                continue
+            escalate_instance(instance, actor_id=None)
+            escalated += 1
+        except Exception as exc:  # noqa: BLE001 -- one instance's failure must not abort the rest
+            db.session.rollback()
+            errors.append({"instance_id": str(instance.id), "error": str(exc)})
+
+    return {"escalated": escalated, "skipped_no_target": skipped_no_target, "errors": errors}

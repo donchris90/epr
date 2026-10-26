@@ -16,6 +16,8 @@ class WorkflowStepInputSchema(Schema):
     allow_skip = fields.Bool(load_default=False)
     parallel = fields.Bool(load_default=False)
     reject_to_step = fields.Int(allow_none=True)
+    escalate_to_user_id = fields.UUID(allow_none=True)
+    escalate_to_role_id = fields.UUID(allow_none=True)
 
     @validates_schema
     def _require_matching_approver(self, data, **kwargs):
@@ -90,6 +92,8 @@ class WorkflowInstanceSchema(Schema):
     amount = fields.Decimal(dump_only=True, as_string=True)
     initiated_by = fields.UUID(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
+    step_due_at = fields.DateTime(dump_only=True, allow_none=True)
+    escalated_at = fields.DateTime(dump_only=True, allow_none=True)
     actions = fields.List(fields.Nested(WorkflowActionSchema), dump_only=True)
 
 

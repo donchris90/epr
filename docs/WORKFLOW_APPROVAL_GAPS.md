@@ -39,6 +39,35 @@ existing data.
   exactly rather than inventing a stricter rule the backend doesn't
   actually enforce.
 
+## Update (migration 0052): SLA due date and escalation are now real
+
+Two of the gaps below are closed on the backend:
+
+- `WorkflowInstance.step_due_at` is stored, set from the step's
+  `timeout_hours` whenever an instance enters a step (start, advance,
+  return-for-rework) and cleared when the instance finishes. For a
+  parallel group the strictest timeout wins. Delegation does not reset
+  it. Exposed on `WorkflowInstanceSchema` together with `escalated_at`.
+- `POST /v1/workflow/instances/<id>/escalate` exists, backed by new
+  `WorkflowStep.escalate_to_user_id` / `escalate_to_role_id` fields.
+  Allowed for the requester, a current approver, or a workflow admin;
+  400 if the step has no target or was already escalated. Escalating
+  lets the target act on the step in addition to the original
+  approvers; the grant ends when the instance moves to another step.
+- `workflow.escalate_overdue_approvals` (hourly) escalates overdue
+  steps that have `auto_escalate` on. Scheduler-driven escalations are
+  logged under the nil UUID `SYSTEM_ACTOR_ID` because the audit log's
+  `actor_id` is NOT NULL.
+
+Still true: the frontend does not yet use `step_due_at` (it still
+computes SLA client-side), has no "Escalate" button, and the step
+editor has no escalation-target fields. A step with `auto_escalate` on
+and no target is accepted at definition time (to avoid breaking the
+current builder) and is reported as `skipped_no_target` by the task.
+
+The two items below are kept for history; both are now addressed as
+described above.
+
 ## Genuine gaps — not built, and not faked
 
 **No SLA/due-date field exists on `WorkflowInstance` at all.**

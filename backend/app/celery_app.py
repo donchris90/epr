@@ -26,3 +26,4 @@ with flask_app.app_context():
     from app.modules.inv import tasks as inv_tasks  # noqa: F401
     from app.modules.eqp import tasks as eqp_tasks  # noqa: F401
     from app.notifications import tasks as notification_tasks  # noqa: F401
+    from app.workflow import tasks as workflow_tasks  # noqa: F401
