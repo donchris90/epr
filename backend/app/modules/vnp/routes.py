@@ -42,6 +42,7 @@ from app.modules.vnp.schemas import (
     SubmitBankingChangeSchema,
     RejectBankingChangeSchema,
     BankingChangeRequestSchema,
+    StaffBankingChangeRequestSchema,
     VendorLoginSchema,
     ChangeVendorPasswordSchema,
 )
@@ -345,5 +346,12 @@ def reject_banking_change(request_id):
 @require_permission("vnp:finance_approve")
 def list_banking_change_requests():
     status = request.args.get("status", "pending")
-    reqs = VendorBankingChangeRequest.query.filter_by(tenant_id=g.tenant_id, status=status).all()
-    return jsonify(envelope(banking_schema.dump(reqs, many=True)))
+    rows = services.list_banking_change_requests_for_review(g.tenant_id, status=status)
+    schema = StaffBankingChangeRequestSchema()
+    out = []
+    for row in rows:
+        item = schema.dump(row["request"])
+        item["vendor_name"] = row["vendor_name"]
+        item["current_banking_details"] = row["current_banking_details"]
+        out.append(item)
+    return jsonify(envelope(out))

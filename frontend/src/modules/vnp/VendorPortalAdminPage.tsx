@@ -1,16 +1,12 @@
 import { useState } from "react";
-import { PageHeader, Card, Button, Table, Th, Td, EmptyState, Input, Field } from "../../components/ui";
+import { PageHeader, Card, Button, Input, Field } from "../../components/ui";
 import { VendorSelect } from "../../components/VendorSelect";
-import { useCreateVendorUser, useBankingChangeRequests, useApproveBankingChange, useRejectBankingChange } from "./hooks";
+import { useCreateVendorUser } from "./hooks";
+import BankingChangeReview from "./BankingChangeReview";
 
 export default function VendorPortalAdminPage() {
   const createVendorUser = useCreateVendorUser();
   const [userForm, setUserForm] = useState({ vendor_id: "", email: "", password: "" });
-
-  const { data: requests, isLoading } = useBankingChangeRequests("pending");
-  const approve = useApproveBankingChange();
-  const reject = useRejectBankingChange();
-  const [rejectReason, setRejectReason] = useState<Record<string, string>>({});
 
   async function handleCreateUser(e: React.FormEvent) {
     e.preventDefault();
@@ -40,50 +36,7 @@ export default function VendorPortalAdminPage() {
         </form>
       </Card>
 
-      <Card>
-        <h3 style={{ fontSize: 14, marginBottom: 4 }}>Pending banking change requests</h3>
-        <p style={{ fontSize: 12, color: "var(--sf-navy-400)", marginBottom: 12 }}>
-          A vendor-submitted change never touches the live vendor record — it takes explicit approval here,
-          held behind a permission a vendor-portal session can never have.
-        </p>
-        {isLoading ? (
-          <p>Loading…</p>
-        ) : !requests?.length ? (
-          <EmptyState title="Nothing pending" hint="Banking detail changes submitted through the vendor portal appear here for review." />
-        ) : (
-          <Table>
-            <thead><tr><Th>Vendor</Th><Th>Proposed details</Th><Th></Th></tr></thead>
-            <tbody>
-              {requests.map((r: any) => (
-                <tr key={r.id}>
-                  <Td mono style={{ fontSize: 11 }}>{r.vendor_id.slice(0, 8)}…</Td>
-                  <Td mono style={{ fontSize: 11 }}>{JSON.stringify(r.proposed_banking_details)}</Td>
-                  <Td>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <button onClick={() => approve.mutate(r.id)} style={{ background: "none", border: "none", color: "var(--sf-green)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                        Approve
-                      </button>
-                      <Input
-                        placeholder="Rejection reason"
-                        value={rejectReason[r.id] || ""}
-                        onChange={(e) => setRejectReason({ ...rejectReason, [r.id]: e.target.value })}
-                        style={{ width: 130, fontSize: 11 }}
-                      />
-                      <button
-                        disabled={!rejectReason[r.id]}
-                        onClick={() => reject.mutate({ requestId: r.id, reason: rejectReason[r.id] })}
-                        style={{ background: "none", border: "none", color: "var(--sf-brick)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        )}
-      </Card>
+      <BankingChangeReview />
     </div>
   );
 }

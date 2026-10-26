@@ -143,3 +143,18 @@ dashboard summary where no real aggregation endpoint exists. Every
 omission above is either left out of the UI entirely or would require
 a new, clearly-specified backend capability -- never faked with mock
 data or a UI control that calls nothing real.
+
+**Finance review screen for banking changes -- upgraded.** The staff screen
+(Vendor Portal admin page) existed but showed a truncated vendor id and raw
+JSON. It now shows the vendor name and a field-by-field comparison of the
+details on file against the proposal (changed fields marked), a two-step
+approve, rejection with a required reason, visible errors, and a History tab.
+Approving now stores the replaced details in
+`vnp_banking_change_requests.previous_banking_details` (migration 0058), shown
+in History, so a bad approval can be audited. Staff list endpoint:
+`GET /v1/vnp/banking-change-requests?status=pending|approved|rejected|all`.
+Limits: the previous details are only recorded for approvals made after this
+deploy; there is no one-click "revert", a reviewer must have the vendor submit
+a new change; the proposed account number is shown in full to
+`vnp:finance_approve` holders (the vendor-facing view stays masked); and there
+is no notification to finance when a request arrives.
