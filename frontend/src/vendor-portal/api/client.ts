@@ -33,7 +33,7 @@ interface RetryableConfig extends InternalAxiosRequestConfig {
   _retried?: boolean;
 }
 
-const REFRESH_EXEMPT_PATHS = ["/vnp/auth/login", "/vnp/auth/refresh"];
+const REFRESH_EXEMPT_PATHS = ["/vnp/auth/login", "/vnp/auth/refresh", "/vnp/auth/forgot-password", "/vnp/auth/reset-password"];
 
 function isRefreshExempt(url?: string): boolean {
   return !!url && REFRESH_EXEMPT_PATHS.some((p) => url.includes(p));

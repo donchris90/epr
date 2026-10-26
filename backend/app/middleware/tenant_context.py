@@ -78,9 +78,13 @@ PUBLIC_PATHS = {
     # rather than an access token.
     "/v1/scp/auth/login",
     "/v1/scp/auth/refresh",
+    "/v1/scp/auth/forgot-password",
+    "/v1/scp/auth/reset-password",
     "/v1/scp/auth/logout",
     "/v1/vnp/auth/login",
     "/v1/vnp/auth/refresh",
+    "/v1/vnp/auth/forgot-password",
+    "/v1/vnp/auth/reset-password",
     "/v1/vnp/auth/logout",
 }
 
@@ -158,6 +162,19 @@ def register_tenant_context(app, db):
             from app.auth.jwt_utils import check_pwd_ts_claim
 
             if not check_pwd_ts_claim(tenant_id, g.user_id, claims.get("pwd_ts")):
+                from app.utils.errors import APIError
+
+                raise APIError("Session no longer valid", status=401)
+
+        # SCP/VNP tokens carry `portal_kind` + `pwd_ts` (migration 0053);
+        # a self-service reset bumps password_changed_at and so kills
+        # earlier sessions. Legacy tokens without portal_kind are
+        # skipped here and re-checked on their next refresh.
+        portal_kind = claims.get("portal_kind")
+        if tenant_id and g.user_id and g.is_portal_user and portal_kind in ("scp", "vnp"):
+            from app.auth.portal_reset import check_portal_pwd_ts
+
+            if not check_portal_pwd_ts(portal_kind, tenant_id, g.user_id, claims.get("pwd_ts")):
                 from app.utils.errors import APIError
 
                 raise APIError("Session no longer valid", status=401)

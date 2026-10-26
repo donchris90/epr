@@ -58,6 +58,9 @@ class VendorPortalUser(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
     # before a password is set simply cannot log in yet, a real,
     # visible state. Same Argon2id scheme as users.password_hash.
     password_hash = db.Column(db.String(255), nullable=True)
+    # Set by a self-service reset (migration 0053); embedded in portal
+    # tokens as `pwd_ts` so a reset invalidates every earlier session.
+    password_changed_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
     __table_args__ = (db.UniqueConstraint("tenant_id", "email", name="uq_vnp_portal_users_tenant_email"),)
 

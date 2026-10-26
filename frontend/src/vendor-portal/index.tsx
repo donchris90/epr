@@ -2,6 +2,8 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import VendorPortalProtectedRoute from "./lib/ProtectedRoute";
 import VendorPortalShell from "./VendorPortalShell";
 import LoginPage from "./pages/LoginPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import DashboardPage from "./pages/DashboardPage";
 import PurchaseOrdersPage from "./pages/PurchaseOrdersPage";
 import PurchaseOrderDetailPage from "./pages/PurchaseOrderDetailPage";
@@ -22,6 +24,8 @@ export default function VendorPortalApp() {
   return (
     <Routes>
       <Route path="login" element={<LoginPage />} />
+      <Route path="forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="reset-password" element={<ResetPasswordPage />} />
 
       <Route element={<VendorPortalProtectedRoute />}>
         <Route element={<VendorPortalShell />}>

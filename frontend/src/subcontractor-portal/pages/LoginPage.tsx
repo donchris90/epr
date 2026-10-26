@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Input, Field } from "../../components/ui";
 import { loginSubcontractor } from "../hooks";
 
@@ -100,7 +100,10 @@ export default function SubcontractorLoginPage() {
           <Button type="submit" disabled={loading} style={{ width: "100%" }}>
             {loading ? "Signing in…" : "Sign in"}
           </Button>
-          <p style={{ textAlign: "center", fontSize: 12, color: "var(--sf-navy-400)", marginTop: 14 }}>
+          <p style={{ textAlign: "center", fontSize: 12, marginTop: 14 }}>
+            <Link to="/subcontractor/forgot-password">Forgot password?</Link>
+          </p>
+          <p style={{ textAlign: "center", fontSize: 12, color: "var(--sf-navy-400)", marginTop: 8 }}>
             Don't have portal access? Contact your project manager.
           </p>
         </form>
