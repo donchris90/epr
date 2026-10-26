@@ -170,6 +170,45 @@ describe("AgreementDetailPage", () => {
     });
   });
 
+  it("opens a claim's supporting document via the real document endpoint", async () => {
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === "/sub/agreements/ag-1") return Promise.resolve({ data: AGREEMENT });
+      if (url === "/sub/agreements/ag-1/claims")
+        return Promise.resolve({ data: { data: [
+          { id: "c1", claim_type: "delay", description: "Late drawings", claimed_amount: "100", status: "submitted", supporting_document_id: "doc-1" },
+          { id: "c2", claim_type: "delay", description: "No evidence", claimed_amount: "50", status: "submitted", supporting_document_id: null },
+        ] } });
+      if (url === "/documents/doc-1") return Promise.resolve({ data: { download_url: "https://files.example/doc-1" } });
+      if (emptyEndpoints.includes(url)) return Promise.resolve({ data: { data: [] } });
+      return Promise.reject(new Error(`unexpected GET ${url}`));
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole("button", { name: "Claims" }));
+    const links = await screen.findAllByRole("button", { name: "View evidence" });
+    expect(links).toHaveLength(1);
+    await user.click(links[0]);
+    await waitFor(() => expect(open).toHaveBeenCalledWith("https://files.example/doc-1", "_blank", "noopener"));
+    open.mockRestore();
+  });
+
+  it("shows an error when the evidence cannot be fetched", async () => {
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === "/sub/agreements/ag-1") return Promise.resolve({ data: AGREEMENT });
+      if (url === "/sub/agreements/ag-1/claims")
+        return Promise.resolve({ data: { data: [{ id: "c1", claim_type: "delay", description: "x", claimed_amount: "1", status: "submitted", supporting_document_id: "doc-1" }] } });
+      if (url === "/documents/doc-1") return Promise.reject({ response: { data: { title: "Forbidden" } } });
+      if (emptyEndpoints.includes(url)) return Promise.resolve({ data: { data: [] } });
+      return Promise.reject(new Error(`unexpected GET ${url}`));
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole("button", { name: "Claims" }));
+    await user.click(await screen.findByRole("button", { name: "View evidence" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Forbidden");
+  });
+
   it("uploads a real compliance record via the real subcontractor-scoped endpoint", async () => {
     const user = userEvent.setup();
     renderPage();

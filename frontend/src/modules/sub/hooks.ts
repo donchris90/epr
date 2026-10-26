@@ -117,6 +117,7 @@ export interface SubcontractClaim {
   reviewed_by: string | null;
   reviewed_at: string | null;
   response_notes: string | null;
+  supporting_document_id?: string | null;
 }
 
 export interface PerformanceRating {

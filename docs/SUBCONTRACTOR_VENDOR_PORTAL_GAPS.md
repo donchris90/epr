@@ -100,7 +100,9 @@ Limits:
 - Subcontractor claims can now carry one supporting document
   (`sub_claims.supporting_document_id`, migration 0060), chosen from the
   organisation's own finished uploads and ownership-checked on submit; staff
-  fetch it through the normal documents API. Subcontractors have no invoice
+  see it as a "View evidence" link on the claim review table (Agreement > Claims; it
+  resolves the file through `GET /v1/documents/<id>`, so it needs
+  `documents:read` and shows the error inline without it). Subcontractors have no invoice
   object (payment certificates are issued by the contractor), so claims are
   the attachment point. Progress entries carry no attachment, and a claim
   holds a single file.

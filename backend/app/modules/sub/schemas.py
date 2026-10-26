@@ -142,8 +142,11 @@ class SubcontractClaimSchema(Schema):
     claim_type = fields.Str(dump_only=True)
     description = fields.Str(dump_only=True)
     claimed_amount = fields.Decimal(dump_only=True, as_string=True)
+    claimed_days = fields.Int(dump_only=True, allow_none=True)
     status = fields.Str(dump_only=True)
+    submitted_at = fields.DateTime(dump_only=True, allow_none=True)
     response_notes = fields.Str(dump_only=True)
+    supporting_document_id = fields.UUID(dump_only=True, allow_none=True)
 
 
 class ClaimReviewSchema(Schema):

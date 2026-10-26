@@ -276,6 +276,18 @@ class TestClaimSupportingDocument:
         assert listed[0]["supporting_document_id"] == doc_id
         assert client.delete(f"/v1/scp/portal-users/{uid}/documents/{doc_id}", headers=h).status_code == 409
 
+    def test_staff_claim_list_exposes_the_evidence_id(self, app, db, client, seed_tenants, s3_bucket, auth_headers):
+        uid, agreement_id = _scp_with_agreement(db, seed_tenants["a"])
+        h = _login(client, "scp", "sub@example.com")
+        _, doc_id = _upload(client, "scp", uid, h, doc_type="other")
+        assert self._claim(client, h, uid, agreement_id, doc_id).status_code == 201
+        staff = auth_headers("a", permissions=["sub:read", "documents:read"])
+        rows = client.get(f"/v1/sub/agreements/{agreement_id}/claims", headers=staff).get_json()["data"]
+        assert rows[0]["supporting_document_id"] == doc_id
+        # ...and staff can resolve it to a download link through the library API
+        d = client.get(f"/v1/documents/{doc_id}", headers=staff)
+        assert d.status_code == 200 and d.get_json().get("download_url")
+
     def test_claim_without_document_still_works(self, app, db, client, seed_tenants, s3_bucket):
         uid, agreement_id = _scp_with_agreement(db, seed_tenants["a"])
         h = _login(client, "scp", "sub@example.com")
