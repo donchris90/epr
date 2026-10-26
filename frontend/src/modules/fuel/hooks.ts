@@ -26,12 +26,39 @@ export function useReconcileTank() {
   });
 }
 
+export interface FuelPurchase {
+  id: string;
+  tank_id: string;
+  quantity_litres: string;
+  unit_price: string;
+  total_cost: string;
+  delivery_confirmed: boolean;
+  created_at?: string | null;
+}
+
+/** Purchases recorded but not yet confirmed as delivered. These have NOT
+ * changed the tank level -- only a confirmed delivery does. */
+export function usePendingPurchases() {
+  return useQuery({
+    queryKey: ["fuel", "purchases", "pending"],
+    queryFn: async (): Promise<FuelPurchase[]> => (await apiClient.get("/fuel/purchases", { params: { confirmed: false } })).data.data,
+  });
+}
+
 export function useCreatePurchase() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { tank_id: string; quantity_litres: string; unit_price: string }) =>
+    mutationFn: (payload: { tank_id: string; quantity_litres: string; unit_price: string; confirm_delivery?: boolean }) =>
       apiClient.post("/fuel/purchases", payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["fuel", "tanks"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["fuel"] }),
+  });
+}
+
+export function useConfirmDelivery() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (purchaseId: string) => apiClient.post(`/fuel/purchases/${purchaseId}/confirm-delivery`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["fuel"] }),
   });
 }
 

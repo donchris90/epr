@@ -34,7 +34,7 @@ DEFAULT_VARIANCE_THRESHOLD_PCT = Decimal("15")
 
 # --- Purchases (FUEL-01) ------------------------------------------------------
 
-def record_purchase(tenant_id, *, tank_id, vendor_id, quantity_litres, unit_price, delivered_at=None):
+def record_purchase(tenant_id, *, tank_id, vendor_id, quantity_litres, unit_price, delivered_at=None, confirm_delivery=False, confirmed_by=None):
     quantity_litres = Decimal(str(quantity_litres))
     unit_price = Decimal(str(unit_price))
 
@@ -52,8 +52,24 @@ def record_purchase(tenant_id, *, tank_id, vendor_id, quantity_litres, unit_pric
         delivered_at=delivered_at,
     )
     db.session.add(purchase)
+    db.session.flush()
+    if confirm_delivery:
+        # Same transaction as the record, so a purchase is never marked
+        # delivered without the tank level having moved.
+        _apply_confirmation(purchase, confirmed_by=confirmed_by)
     db.session.commit()
     return purchase
+
+
+def _apply_confirmation(purchase: FuelPurchase, *, confirmed_by):
+    # Lock the tank row so two confirmations at once can't both read the
+    # old level and lose one of the additions.
+    tank = FuelTank.query.filter_by(id=purchase.tank_id, tenant_id=purchase.tenant_id).with_for_update().first()
+    purchase.delivery_confirmed = True
+    purchase.confirmed_by = confirmed_by
+    if purchase.delivered_at is None:
+        purchase.delivered_at = datetime.now(timezone.utc)
+    tank.current_level_litres += purchase.quantity_litres
 
 
 def confirm_delivery(purchase: FuelPurchase, *, confirmed_by):
@@ -62,9 +78,7 @@ def confirm_delivery(purchase: FuelPurchase, *, confirmed_by):
     if purchase.delivery_confirmed:
         raise APIError("Delivery is already confirmed", status=409)
 
-    purchase.delivery_confirmed = True
-    purchase.confirmed_by = confirmed_by
-    purchase.tank.current_level_litres += purchase.quantity_litres
+    _apply_confirmation(purchase, confirmed_by=confirmed_by)
 
     db.session.commit()
     return purchase

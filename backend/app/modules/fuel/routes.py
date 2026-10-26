@@ -94,8 +94,26 @@ def reconcile_tank(tank_id):
 @require_permission("fuel:write")
 def create_purchase():
     data = _load(FuelPurchaseInputSchema())
-    purchase = services.record_purchase(g.tenant_id, **data)
+    purchase = services.record_purchase(g.tenant_id, confirmed_by=g.user_id, **data)
     return jsonify(purchase_schema.dump(purchase)), 201
+
+
+@bp.get("/purchases")
+@require_permission("fuel:read")
+def list_purchases():
+    """Purchases, newest first. ?confirmed=false lists deliveries still
+    waiting to be confirmed (these have NOT changed the tank level yet)."""
+    query = FuelPurchase.query.filter_by(tenant_id=g.tenant_id)
+    tank_id = request.args.get("tank_id")
+    if tank_id:
+        query = query.filter_by(tank_id=tank_id)
+    confirmed = request.args.get("confirmed")
+    if confirmed is not None:
+        if confirmed.lower() not in ("true", "false"):
+            raise APIError("confirmed must be true or false", status=400)
+        query = query.filter_by(delivery_confirmed=confirmed.lower() == "true")
+    purchases = query.order_by(FuelPurchase.created_at.desc()).all()
+    return jsonify(envelope(purchase_schema.dump(purchases, many=True)))
 
 
 @bp.post("/purchases/<uuid:purchase_id>/confirm-delivery")

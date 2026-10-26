@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, EmptyState, Input, Field, ErrorBanner } from "../../components/ui";
 import { getErrorMessage } from "../../api/client";
-import { useTanks, useCreateTank, useReconcileTank, useCreatePurchase } from "./hooks";
+import { useTanks, useCreateTank, useReconcileTank, useCreatePurchase, usePendingPurchases, useConfirmDelivery } from "./hooks";
 
 export default function TanksPage() {
   const { data: tanks, isLoading } = useTanks();
   const createTank = useCreateTank();
   const reconcileTank = useReconcileTank();
   const createPurchase = useCreatePurchase();
+  const { data: pending } = usePendingPurchases();
+  const confirmDelivery = useConfirmDelivery();
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", tank_type: "bulk_storage", capacity_litres: "" });
@@ -18,6 +21,7 @@ export default function TanksPage() {
 
   const [purchaseTankId, setPurchaseTankId] = useState<string | null>(null);
   const [purchaseForm, setPurchaseForm] = useState({ quantity_litres: "", unit_price: "" });
+  const [alreadyDelivered, setAlreadyDelivered] = useState(true);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -42,10 +46,26 @@ export default function TanksPage() {
   async function handlePurchase(e: React.FormEvent) {
     e.preventDefault();
     if (!purchaseTankId) return;
-    await createPurchase.mutateAsync({ tank_id: purchaseTankId, ...purchaseForm });
-    setPurchaseForm({ quantity_litres: "", unit_price: "" });
-    setPurchaseTankId(null);
+    setPurchaseError(null);
+    try {
+      await createPurchase.mutateAsync({ tank_id: purchaseTankId, ...purchaseForm, confirm_delivery: alreadyDelivered });
+      setPurchaseForm({ quantity_litres: "", unit_price: "" });
+      setPurchaseTankId(null);
+    } catch (err) {
+      setPurchaseError(getErrorMessage(err));
+    }
   }
+
+  async function handleConfirm(purchaseId: string) {
+    setPurchaseError(null);
+    try {
+      await confirmDelivery.mutateAsync(purchaseId);
+    } catch (err) {
+      setPurchaseError(getErrorMessage(err));
+    }
+  }
+
+  const tankName = (id: string) => tanks?.find((t: any) => t.id === id)?.name ?? "Unknown tank";
 
   return (
     <div>
@@ -104,6 +124,43 @@ export default function TanksPage() {
             <Button type="submit" disabled={createPurchase.isPending}>Record</Button>
             <Button type="button" variant="secondary" onClick={() => setPurchaseTankId(null)}>Cancel</Button>
           </form>
+          <label style={{ display: "flex", gap: 6, fontSize: 12, marginTop: 10 }}>
+            <input type="checkbox" checked={alreadyDelivered} onChange={(e) => setAlreadyDelivered(e.target.checked)} />
+            Fuel has already been delivered — add it to the tank now
+          </label>
+          {!alreadyDelivered && (
+            <p style={{ fontSize: 12, color: "var(--sf-navy-400)", marginTop: 6 }}>
+              It will be listed under Pending deliveries and only added to the tank once you confirm delivery.
+            </p>
+          )}
+        </Card>
+      )}
+
+      {purchaseError && <ErrorBanner title="Couldn't update fuel" detail={purchaseError} onDismiss={() => setPurchaseError(null)} />}
+
+      {!!pending?.length && (
+        <Card style={{ marginBottom: 20 }}>
+          <h3 style={{ fontSize: 14, marginBottom: 4 }}>Pending deliveries</h3>
+          <p style={{ fontSize: 12, color: "var(--sf-navy-400)", marginBottom: 10 }}>
+            Recorded but not yet in the tank. Confirm each once the fuel has actually arrived.
+          </p>
+          <Table ariaLabel="Pending fuel deliveries">
+            <thead><tr><Th>Tank</Th><Th>Quantity</Th><Th>Unit price</Th><Th></Th></tr></thead>
+            <tbody>
+              {pending.map((p) => (
+                <tr key={p.id}>
+                  <Td>{tankName(p.tank_id)}</Td>
+                  <Td mono>{p.quantity_litres} L</Td>
+                  <Td mono>{p.unit_price}</Td>
+                  <Td>
+                    <Button onClick={() => handleConfirm(p.id)} disabled={confirmDelivery.isPending}>
+                      Confirm delivery
+                    </Button>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
         </Card>
       )}
 

@@ -23,11 +23,16 @@ class FuelPurchaseInputSchema(Schema):
     quantity_litres = fields.Decimal(required=True, as_string=True)
     unit_price = fields.Decimal(required=True, as_string=True)
     delivered_at = fields.DateTime(allow_none=True)
+    # The fuel has already arrived: record the purchase and add it to the
+    # tank in one step (otherwise it waits as a pending delivery).
+    confirm_delivery = fields.Bool(load_default=False)
 
 
 class FuelPurchaseSchema(Schema):
     id = fields.UUID(dump_only=True)
     tank_id = fields.UUID(dump_only=True)
+    created_at = fields.DateTime(dump_only=True)
+    delivered_at = fields.DateTime(dump_only=True, allow_none=True)
     quantity_litres = fields.Decimal(dump_only=True, as_string=True)
     unit_price = fields.Decimal(dump_only=True, as_string=True)
     total_cost = fields.Decimal(dump_only=True, as_string=True)
