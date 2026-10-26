@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiClient } from "../../api/client";
-import type { WorkflowDefinition, WorkflowInstance, WorkflowStep } from "./types";
+import { KNOWN_MODULE_ENTITY_PAIRS, type WorkflowDefinition, type WorkflowInstance, type WorkflowStep } from "./types";
 
 function getErrorMessage(err: any): string {
   return err?.response?.data?.detail || err?.response?.data?.title || "Something went wrong.";
@@ -118,4 +118,26 @@ export function useWorkflowInstances(filters?: { module_name?: string; entity_ty
   }, [filters?.module_name, filters?.entity_type, filters?.status]);
 
   return { instances, error };
+}
+
+
+/** The module/entity pairs that really start a workflow, from GET
+ * /v1/workflow/valid-triggers. Falls back to the built-in list while
+ * loading or if the request fails, so the builder never loses its
+ * dropdown. */
+export function useValidTriggers() {
+  const [triggers, setTriggers] = useState(KNOWN_MODULE_ENTITY_PAIRS);
+  useEffect(() => {
+    let alive = true;
+    apiClient
+      .get("/workflow/valid-triggers")
+      .then((res) => {
+        if (alive && Array.isArray(res.data?.data) && res.data.data.length) setTriggers(res.data.data);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return triggers;
 }

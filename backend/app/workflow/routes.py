@@ -77,6 +77,16 @@ def list_definitions():
     return jsonify(envelope(definition_schema.dump(items, many=True)))
 
 
+@bp.get("/valid-triggers")
+@require_permission("workflow:admin")
+def valid_triggers():
+    """The module/entity pairs that actually start a workflow (see
+    app/workflow/triggers.py). A definition for any other pair never fires."""
+    from app.workflow.triggers import TRIGGERS
+
+    return jsonify(envelope(TRIGGERS))
+
+
 @bp.get("/definitions/<uuid:definition_id>")
 @require_permission("workflow:admin")
 def get_definition(definition_id):

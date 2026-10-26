@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ReactFlow, Background, Controls, type Node, type Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { createWorkflowDefinition, activateWorkflowDefinition } from "./hooks";
+import { createWorkflowDefinition, activateWorkflowDefinition, useValidTriggers } from "./hooks";
 import { validateWorkflowDraft } from "./validation";
 import { KNOWN_MODULE_ENTITY_PAIRS, type WorkflowDefinition, type WorkflowStep } from "./types";
 import { hasPermission } from "../../lib/permissions";
@@ -67,6 +67,7 @@ export default function WorkflowBuilderPage() {
   );
   // Real ids stripped -- these are new, unsaved steps once duplicated,
   // not references back to the original definition's own step rows.
+  const triggers = useValidTriggers();
   const [steps, setSteps] = useState<WorkflowStep[]>(
     duplicateFrom ? duplicateFrom.steps.map((s) => ({ ...s, id: undefined })) : []
   );
@@ -281,7 +282,7 @@ export default function WorkflowBuilderPage() {
               onChange={(e) => handleTriggerSelect(e.target.value)}
             >
               <option value="">Select a trigger…</option>
-              {KNOWN_MODULE_ENTITY_PAIRS.map((p) => (
+              {triggers.map((p) => (
                 <option key={`${p.module_name}::${p.entity_type}`} value={`${p.module_name}::${p.entity_type}`}>
                   {p.label}
                 </option>
