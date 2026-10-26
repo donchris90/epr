@@ -17,11 +17,13 @@ import {
   useCreateLeaveRequest,
   useCancelLeaveRequest,
   useLeaveBalance,
+  useSetLeaveEntitlement,
   useAddTrainingRecord,
   useAddCompetency,
   useAddCertification,
 } from "./hooks";
 import { getErrorMessage } from "../../api/client";
+import { hasPermission } from "../../lib/permissions";
 
 const TABS = [
   "Overview",
@@ -349,6 +351,9 @@ const LEAVE_TYPES = ["annual", "sick", "compassionate", "maternity", "paternity"
 function LeaveTab({ employee }: { employee: import("./hooks").Employee }) {
   const { data: leaves } = useLeaveRequests({ employeeId: employee.id });
   const { data: balance } = useLeaveBalance(employee.id);
+  const setEntitlement = useSetLeaveEntitlement(employee.id);
+  const canSetEntitlement = hasPermission("wfm:approve");
+  const [ent, setEnt] = useState({ leave_type: "annual", days: "" });
   const createLeave = useCreateLeaveRequest();
   const cancelLeave = useCancelLeaveRequest();
   const [form, setForm] = useState({ leave_type: "annual", start_date: "", end_date: "", reason: "" });
@@ -362,18 +367,43 @@ function LeaveTab({ employee }: { employee: import("./hooks").Employee }) {
   return (
     <div style={{ display: "grid", gap: 16 }}>
       <Card>
-        <h3 style={{ fontSize: 14, marginBottom: 8 }}>Days taken this year</h3>
-        {balance && Object.keys(balance).length ? (
-          <div style={{ display: "flex", gap: 16 }}>
-            {Object.entries(balance).map(([type, days]) => (
-              <div key={type}>
-                <div className="sf-mono" style={{ fontSize: 18, fontWeight: 700 }}>{days}</div>
-                <div style={{ fontSize: 11, color: "var(--sf-navy-400)" }}>{type}</div>
-              </div>
-            ))}
+        <h3 style={{ fontSize: 14, marginBottom: 8 }}>Leave balance {balance ? balance.year : ""}</h3>
+        {balance && (Object.keys(balance.taken).length || Object.keys(balance.entitlements).length) ? (
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+            {Array.from(new Set([...Object.keys(balance.entitlements), ...Object.keys(balance.taken)])).map((type) => {
+              const allowed = balance.entitlements[type];
+              const taken = balance.taken[type] ?? 0;
+              return (
+                <div key={type} data-testid={`balance-${type}`}>
+                  <div className="sf-mono" style={{ fontSize: 18, fontWeight: 700, color: allowed !== undefined && balance.remaining[type] < 0 ? "var(--sf-brick)" : undefined }}>
+                    {allowed !== undefined ? `${balance.remaining[type]} left` : `${taken} taken`}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--sf-navy-400)" }}>
+                    {type}
+                    {allowed !== undefined ? ` · ${taken} of ${allowed} used` : " · no allowance set"}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ) : (
-          <EmptyState compact title="No approved leave taken this year." />
+          <EmptyState compact title="No leave taken or allowance set this year." />
+        )}
+        {canSetEntitlement && (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              await setEntitlement.mutateAsync({ leave_type: ent.leave_type, days: Number(ent.days), year: balance?.year });
+              setEnt({ ...ent, days: "" });
+            }}
+            style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "center" }}
+          >
+            <Select aria-label="Allowance leave type" value={ent.leave_type} onChange={(e) => setEnt({ ...ent, leave_type: e.target.value })} style={{ width: 160 }}>
+              {LEAVE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </Select>
+            <Input aria-label="Allowance days" type="number" min={0} max={366} required placeholder="Days per year" value={ent.days} onChange={(e) => setEnt({ ...ent, days: e.target.value })} style={{ width: 140 }} />
+            <Button type="submit" variant="secondary" disabled={setEntitlement.isPending}>Set allowance</Button>
+          </form>
         )}
       </Card>
 

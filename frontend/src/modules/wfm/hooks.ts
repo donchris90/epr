@@ -196,12 +196,36 @@ export function useTransferProject(employeeId: string) {
   });
 }
 
+export interface LeaveBalance {
+  year: number;
+  taken: Record<string, number>;
+  /** Only leave types with an explicitly set allowance appear here. */
+  entitlements: Record<string, number>;
+  remaining: Record<string, number>;
+}
+
 export function useLeaveBalance(employeeId?: string) {
   return useQuery({
     queryKey: ["wfm", "employees", employeeId, "leave-balance"],
-    queryFn: async (): Promise<Record<string, number>> =>
-      (await apiClient.get(`/wfm/employees/${employeeId}/leave-balance`)).data.days_taken_this_year_by_type,
+    queryFn: async (): Promise<LeaveBalance> => {
+      const d = (await apiClient.get(`/wfm/employees/${employeeId}/leave-balance`)).data;
+      return {
+        year: d.year ?? new Date().getFullYear(),
+        taken: d.taken ?? d.days_taken_this_year_by_type ?? {},
+        entitlements: d.entitlements ?? {},
+        remaining: d.remaining ?? {},
+      };
+    },
     enabled: !!employeeId,
+  });
+}
+
+export function useSetLeaveEntitlement(employeeId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { leave_type: string; days: number; year?: number }) =>
+      apiClient.put(`/wfm/employees/${employeeId}/leave-entitlements`, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["wfm", "employees", employeeId, "leave-balance"] }),
   });
 }
 
