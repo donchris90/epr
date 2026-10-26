@@ -2,6 +2,7 @@ import { useState } from "react";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, EmptyState, Input, Field, ErrorBanner } from "../../components/ui";
 import { getErrorMessage } from "../../api/client";
 import { useUploadDocument } from "../../api/documents";
+import PortalOrgDocuments from "../../components/PortalOrgDocuments";
 import { useVendors, useCreateVendor, useAddComplianceDocument } from "./hooks";
 
 export default function VendorsPage() {
@@ -14,6 +15,7 @@ export default function VendorsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [docVendorId, setDocVendorId] = useState<string | null>(null);
+  const [portalDocsVendor, setPortalDocsVendor] = useState<{ id: string; name: string } | null>(null);
   const [docType, setDocType] = useState("");
   const [docValidUntil, setDocValidUntil] = useState("");
   const [docFile, setDocFile] = useState<File | null>(null);
@@ -114,6 +116,10 @@ export default function VendorsPage() {
         </Card>
       )}
 
+      {portalDocsVendor && (
+        <PortalOrgDocuments source="vendor" ownerId={portalDocsVendor.id} name={portalDocsVendor.name} onClose={() => setPortalDocsVendor(null)} />
+      )}
+
       {isLoading ? (
         <p>Loading…</p>
       ) : !vendors?.length ? (
@@ -143,6 +149,12 @@ export default function VendorsPage() {
                       style={{ background: "none", border: "none", color: "var(--sf-steel)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
                     >
                       Add compliance doc
+                    </button>
+                    <button
+                      onClick={() => setPortalDocsVendor({ id: v.id, name: v.name })}
+                      style={{ background: "none", border: "none", color: "var(--sf-steel)", fontSize: 12, fontWeight: 600, cursor: "pointer", marginLeft: 12 }}
+                    >
+                      Portal documents
                     </button>
                   </Td>
                 </tr>

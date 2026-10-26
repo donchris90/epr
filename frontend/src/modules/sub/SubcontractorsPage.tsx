@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, EmptyState, Input, Field } from "../../components/ui";
+import PortalOrgDocuments from "../../components/PortalOrgDocuments";
 import { SubcontractorSelect } from "../../components/SubcontractorSelect";
 import { useSubcontractors, useCreateSubcontractor, useAgreements, useCreateAgreement, type Subcontractor, type SubcontractAgreement } from "./hooks";
 
@@ -12,6 +13,8 @@ export default function SubcontractorsPage() {
 
   const [showSubForm, setShowSubForm] = useState(false);
   const [subForm, setSubForm] = useState({ name: "", trade_specialty: "" });
+
+  const [portalDocsSub, setPortalDocsSub] = useState<{ id: string; name: string } | null>(null);
 
   const [showAgForm, setShowAgForm] = useState(false);
   const [agForm, setAgForm] = useState({ subcontractor_id: "", agreement_number: "", value: "", retention_percentage: "5" });
@@ -71,6 +74,10 @@ export default function SubcontractorsPage() {
         </Card>
       )}
 
+      {portalDocsSub && (
+        <PortalOrgDocuments source="subcontractor" ownerId={portalDocsSub.id} name={portalDocsSub.name} onClose={() => setPortalDocsSub(null)} />
+      )}
+
       {isLoading ? (
         <p>Loading…</p>
       ) : !subcontractors?.length ? (
@@ -78,13 +85,21 @@ export default function SubcontractorsPage() {
       ) : (
         <Card style={{ padding: 0, marginBottom: 20 }}>
           <Table>
-            <thead><tr><Th>Name</Th><Th>Trade</Th><Th>Status</Th></tr></thead>
+            <thead><tr><Th>Name</Th><Th>Trade</Th><Th>Status</Th><Th /></tr></thead>
             <tbody>
               {subcontractors.map((s: Subcontractor) => (
                 <tr key={s.id}>
                   <Td>{s.name}</Td>
                   <Td>{s.trade_specialty || "—"}</Td>
                   <Td><Badge tone={s.status === "active" ? "green" : "neutral"}>{s.status}</Badge></Td>
+                  <Td>
+                    <button
+                      onClick={() => setPortalDocsSub({ id: s.id, name: s.name })}
+                      style={{ background: "none", border: "none", color: "var(--sf-steel)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                    >
+                      Portal documents
+                    </button>
+                  </Td>
                 </tr>
               ))}
             </tbody>

@@ -198,6 +198,14 @@ class TestStaffListing:
         assert set(self._names(client, h, f"?source=vendor&portal_owner_id={ids['v1']}")) == {"acme.pdf"}
         assert client.get("/v1/documents?source=bogus", headers=h).status_code == 400
 
+    def test_owner_filter_rejects_a_malformed_id_and_a_foreign_id_returns_nothing(self, app, db, client, seed_tenants, auth_headers):
+        import uuid
+
+        self._docs(db, seed_tenants["a"])
+        h = auth_headers("a", permissions=["documents:read"])
+        assert client.get("/v1/documents?source=vendor&portal_owner_id=not-a-uuid", headers=h).status_code == 400
+        assert self._names(client, h, f"?source=vendor&portal_owner_id={uuid.uuid4()}") == {}
+
     def test_other_tenants_documents_never_listed(self, app, db, client, seed_tenants, auth_headers):
         self._docs(db, seed_tenants["a"])
         h = auth_headers("b", permissions=["documents:read"])
