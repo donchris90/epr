@@ -15,6 +15,7 @@ import NotificationCenterPage from "./pages/NotificationCenterPage";
 import DataRequestsPage from "./modules/dsar/DataRequestsPage";
 import WorkflowListPage from "./modules/workflow/WorkflowListPage";
 import WorkflowDetailPage from "./modules/workflow/WorkflowDetailPage";
+import WorkflowEditPage from "./modules/workflow/WorkflowEditPage";
 import WorkflowBuilderPage from "./modules/workflow/WorkflowBuilderPage";
 import DocumentLibraryPage from "./pages/DocumentLibraryPage";
 import AcceptInvitationPage from "./pages/AcceptInvitationPage";
@@ -125,6 +126,7 @@ export default function App() {
             <Route path="workflows" element={<WorkflowListPage />} />
             <Route path="workflows/new" element={<WorkflowBuilderPage />} />
             <Route path="workflows/:id" element={<WorkflowDetailPage />} />
+            <Route path="workflows/:id/edit" element={<WorkflowEditPage />} />
             <Route path="documents" element={<DocumentLibraryPage />} />
             <Route path="projects/*" element={<ProjectsModule />} />
             <Route path="business-development/*" element={<BDCModule />} />

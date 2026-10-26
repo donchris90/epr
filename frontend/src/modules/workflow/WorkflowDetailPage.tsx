@@ -109,6 +109,11 @@ export default function WorkflowDetailPage() {
                   {busy ? "Deactivating…" : "Deactivate"}
                 </Button>
               )}
+              {definition.editable && (
+                <Link to={`/workflows/${definition.id}/edit`}>
+                  <Button variant="secondary">Edit draft</Button>
+                </Link>
+              )}
               <Link to={`/workflows/new?module_name=${definition.module_name}&entity_type=${definition.entity_type}`}>
                 <Button variant="ghost">New version</Button>
               </Link>

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ReactFlow, Background, Controls, type Node, type Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { createWorkflowDefinition, activateWorkflowDefinition, useValidTriggers } from "./hooks";
+import { createWorkflowDefinition, updateWorkflowDefinition, activateWorkflowDefinition, useValidTriggers } from "./hooks";
 import { validateWorkflowDraft } from "./validation";
 import { KNOWN_MODULE_ENTITY_PAIRS, type WorkflowDefinition, type WorkflowStep } from "./types";
 import { hasPermission } from "../../lib/permissions";
@@ -43,7 +43,7 @@ function newStep(stepNumber: number): WorkflowStep {
  * Rather than fake a generic condition/action node with nothing real
  * behind it, amount-range is exposed as part of each approval step's
  * own configuration, matching the real data model exactly. */
-export default function WorkflowBuilderPage() {
+export default function WorkflowBuilderPage({ editing }: { editing?: WorkflowDefinition } = {}) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const location = useLocation();
@@ -56,12 +56,16 @@ export default function WorkflowBuilderPage() {
   // genuine frontend convenience: pre-fill the builder, let the
   // person adjust anything, then a real, ordinary create call saves
   // it as its own new definition.
-  const duplicateFrom = (location.state as { duplicateFrom?: WorkflowDefinition } | null)?.duplicateFrom;
+  const duplicateFrom = editing
+    ? undefined
+    : (location.state as { duplicateFrom?: WorkflowDefinition } | null)?.duplicateFrom;
+  // Edit mode: the draft being changed in place. Its trigger is fixed.
+  const source = editing ?? duplicateFrom;
 
-  const [workflowName, setWorkflowName] = useState(duplicateFrom ? `${duplicateFrom.workflow_name} (Copy)` : "");
-  const [description, setDescription] = useState(duplicateFrom?.description ?? "");
-  const [moduleName, setModuleName] = useState(duplicateFrom?.module_name ?? searchParams.get("module_name") ?? "");
-  const [entityType, setEntityType] = useState(duplicateFrom?.entity_type ?? searchParams.get("entity_type") ?? "");
+  const [workflowName, setWorkflowName] = useState(editing ? editing.workflow_name : duplicateFrom ? `${duplicateFrom.workflow_name} (Copy)` : "");
+  const [description, setDescription] = useState(source?.description ?? "");
+  const [moduleName, setModuleName] = useState(source?.module_name ?? searchParams.get("module_name") ?? "");
+  const [entityType, setEntityType] = useState(source?.entity_type ?? searchParams.get("entity_type") ?? "");
   const [customTrigger, setCustomTrigger] = useState(
     !KNOWN_MODULE_ENTITY_PAIRS.some((p) => p.module_name === moduleName && p.entity_type === entityType)
   );
@@ -69,7 +73,7 @@ export default function WorkflowBuilderPage() {
   // not references back to the original definition's own step rows.
   const triggers = useValidTriggers();
   const [steps, setSteps] = useState<WorkflowStep[]>(
-    duplicateFrom ? duplicateFrom.steps.map((s) => ({ ...s, id: undefined })) : []
+    source ? source.steps.map((s) => ({ ...s, id: undefined })) : []
   );
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -210,7 +214,9 @@ export default function WorkflowBuilderPage() {
     setSaving(true);
     setSaveError(null);
     try {
-      const created = await createWorkflowDefinition(draft);
+      const created = editing
+        ? await updateWorkflowDefinition(editing.id, { workflow_name: workflowName, description, steps })
+        : await createWorkflowDefinition(draft);
       navigate(`/workflows/${created.id}`);
     } catch (err: any) {
       setSaveError(getErrorMessage(err));
@@ -224,7 +230,9 @@ export default function WorkflowBuilderPage() {
     setSaving(true);
     setSaveError(null);
     try {
-      const created = await createWorkflowDefinition(draft);
+      const created = editing
+        ? await updateWorkflowDefinition(editing.id, { workflow_name: workflowName, description, steps })
+        : await createWorkflowDefinition(draft);
       await activateWorkflowDefinition(created.id);
       navigate(`/workflows/${created.id}`);
     } catch (err: any) {
@@ -249,7 +257,7 @@ export default function WorkflowBuilderPage() {
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px" }}>
       <PageHeader
         eyebrow="Workflow Engine"
-        title={duplicateFrom ? `Duplicate: ${duplicateFrom.workflow_name}` : "New Workflow"}
+        title={editing ? `Edit draft: ${editing.workflow_name}` : duplicateFrom ? `Duplicate: ${duplicateFrom.workflow_name}` : "New Workflow"}
         action={
           <div style={{ display: "flex", gap: 8 }}>
             <Button variant="secondary" onClick={handleSaveDraft} disabled={saving}>
@@ -280,6 +288,7 @@ export default function WorkflowBuilderPage() {
             <Select
               value={customTrigger ? "__custom__" : `${moduleName}::${entityType}`}
               onChange={(e) => handleTriggerSelect(e.target.value)}
+              disabled={!!editing}
             >
               <option value="">Select a trigger…</option>
               {triggers.map((p) => (
@@ -294,10 +303,10 @@ export default function WorkflowBuilderPage() {
         {customTrigger && (
           <div className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 12 }}>
             <Field label="Module name">
-              <Input value={moduleName} onChange={(e) => setModuleName(e.target.value)} placeholder="e.g. prc" />
+              <Input value={moduleName} onChange={(e) => setModuleName(e.target.value)} placeholder="e.g. prc" disabled={!!editing} />
             </Field>
             <Field label="Entity type">
-              <Input value={entityType} onChange={(e) => setEntityType(e.target.value)} placeholder="e.g. purchase_request" />
+              <Input value={entityType} onChange={(e) => setEntityType(e.target.value)} placeholder="e.g. purchase_request" disabled={!!editing} />
             </Field>
           </div>
         )}

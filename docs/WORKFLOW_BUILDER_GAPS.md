@@ -28,19 +28,19 @@ whoever picks this up next, not a feature announcement.
 
 ## Backend gaps — genuinely missing, not silently worked around
 
-**BACKEND GAP: no update/edit endpoint for a workflow definition.**
-Endpoint: `PUT /v1/workflow/definitions/<id>`
-Expected request: any subset of `{workflow_name, description, steps}`
-Expected response: the updated `WorkflowDefinitionSchema`
-Why the frontend requires it: the brief asks for "edit draft" as a
-distinct operation from "publish." Today, every "edit" is actually a
-brand-new version (`POST /v1/workflow/definitions` auto-increments
-`version` for the same module/entity pair) — a real, working
-mechanism, but semantically different: there's no way to make a small
-correction to an unpublished draft without it becoming "version 2"
-even though version 1 was never live. The builder's "New version"
-action on `WorkflowDetailPage` is this workaround, clearly labeled as
-such, not hidden.
+**(Closed) Editing a draft in place.** `PUT /v1/workflow/definitions/<id>`
+(`workflow:admin`) accepts any subset of `workflow_name`, `description`,
+`steps` (steps, when sent, replace the whole chain; the trigger pair is fixed,
+and sending it is a 422). It is allowed only while the definition is a true
+draft: inactive, and never used by any approval instance (a used definition's
+steps are referenced by its history, so editing them would rewrite it). Both
+refusals are 409 with an explanation. The single-definition GET now returns
+`editable`, which drives an "Edit draft" button on the detail page and the
+`/workflows/:id/edit` page (the builder in edit mode, trigger locked, Save
+Draft = PUT, Publish = PUT then activate). Anything not editable still goes
+through "New version". Not done: the list view does not show an `editable`
+flag, and there is no edit-conflict detection if two admins edit the same
+draft at once (last save wins).
 
 **BACKEND GAP: no generic condition or action node types.**
 The brief asks for condition/action nodes representing arbitrary logic

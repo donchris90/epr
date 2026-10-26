@@ -7,7 +7,7 @@ import { apiClient } from "../../api/client";
 import * as permissions from "../../lib/permissions";
 
 vi.mock("../../api/client", () => ({
-  apiClient: { get: vi.fn(), post: vi.fn() },
+  apiClient: { get: vi.fn(), post: vi.fn(), put: vi.fn() },
 }));
 
 vi.mock("../../lib/permissions", () => ({
@@ -29,6 +29,7 @@ beforeEach(() => {
   vi.mocked(permissions.hasPermission).mockReturnValue(true);
   vi.mocked(apiClient.get).mockReset();
   vi.mocked(apiClient.post).mockReset();
+  vi.mocked(apiClient.put).mockReset();
   vi.mocked(apiClient.get).mockImplementation((url: string) => {
     if (url === "/org/members") return Promise.resolve({ data: { users: [REAL_USER] } });
     if (url === "/org/roles") return Promise.resolve({ data: { data: [REAL_ROLE] } });
@@ -328,3 +329,58 @@ describe("WorkflowBuilderPage — triggers", () => {
   });
 });
 
+describe("WorkflowBuilderPage — editing a draft", () => {
+  const draft = {
+    id: "wf-draft", module_name: "prc", entity_type: "purchase_request", workflow_name: "My Draft", description: "d",
+    active: false, version: 2, created_at: "2026-01-01T00:00:00Z", created_by: null, updated_at: "2026-01-01T00:00:00Z",
+    updated_by: null, editable: true,
+    steps: [{ id: "s1", step_number: 1, name: "Finance Approval", approver_type: "specific_role", required_role_id: "role-1", auto_escalate: false, allow_skip: false, parallel: false }],
+  } as any;
+
+  function renderEditing() {
+    return render(
+      <MemoryRouter>
+        <WorkflowBuilderPage editing={draft} />
+      </MemoryRouter>
+    );
+  }
+
+  it("loads the draft, locks the trigger, and saves with PUT -- never a new version", async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.put).mockResolvedValue({ data: { ...draft, workflow_name: "Renamed" } });
+    renderEditing();
+    expect(screen.getByText(/edit draft: my draft/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/trigger/i)).toBeDisabled();
+
+    const name = screen.getByDisplayValue("My Draft");
+    await user.clear(name);
+    await user.type(name, "Renamed");
+    await user.click(screen.getByRole("button", { name: "Save Draft" }));
+
+    await waitFor(() => expect(apiClient.put).toHaveBeenCalledTimes(1));
+    const [url, body] = vi.mocked(apiClient.put).mock.calls[0] as [string, any];
+    expect(url).toBe("/workflow/definitions/wf-draft");
+    expect(body.workflow_name).toBe("Renamed");
+    expect(body.steps).toHaveLength(1);
+    expect(body).not.toHaveProperty("module_name");
+    expect(apiClient.post).not.toHaveBeenCalled();
+  });
+
+  it("publish updates in place and then activates the same definition", async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.put).mockResolvedValue({ data: draft });
+    vi.mocked(apiClient.post).mockResolvedValue({ data: { ...draft, active: true } });
+    renderEditing();
+    await user.click(screen.getByRole("button", { name: "Publish" }));
+    await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith("/workflow/definitions/wf-draft/activate"));
+    expect(apiClient.put).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the server's refusal if the draft was used in the meantime", async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.put).mockRejectedValue({ response: { data: { title: "This workflow has already been used by an approval, so it can't be edited." } } });
+    renderEditing();
+    await user.click(screen.getByRole("button", { name: "Save Draft" }));
+    expect(await screen.findByText(/already been used/i)).toBeInTheDocument();
+  });
+});

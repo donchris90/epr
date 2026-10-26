@@ -106,6 +106,45 @@ def create_workflow_definition(tenant_id, *, module_name, entity_type, workflow_
     return definition
 
 
+def is_definition_editable(definition) -> bool:
+    """A definition can be edited in place only while it is a true draft:
+    not active, and never used by any approval (an instance that ran under
+    it keeps pointing at its steps, so changing them would rewrite history).
+    Anything else is changed by creating a new version."""
+    if definition.active:
+        return False
+    return WorkflowInstance.query.filter_by(tenant_id=definition.tenant_id, workflow_id=definition.id).first() is None
+
+
+def update_workflow_definition(definition, *, workflow_name=None, description=None, steps=None, actor_id=None):
+    """Edit a draft in place. module_name / entity_type are fixed (a
+    different trigger is a different workflow). `steps`, when given,
+    replaces the whole chain."""
+    if definition.active:
+        raise APIError("An active workflow can't be edited. Deactivate it or create a new version.", status=409)
+    if not is_definition_editable(definition):
+        raise APIError(
+            "This workflow has already been used by an approval, so it can't be edited. Create a new version instead.",
+            status=409,
+        )
+
+    if workflow_name is not None:
+        definition.workflow_name = workflow_name
+    if description is not None:
+        definition.description = description
+    if steps is not None:
+        for old in list(definition.steps):
+            db.session.delete(old)
+        db.session.flush()
+        for step_data in steps:
+            db.session.add(WorkflowStep(tenant_id=definition.tenant_id, workflow_id=definition.id, **step_data))
+    if actor_id:
+        definition.updated_by = actor_id
+    db.session.commit()
+    db.session.refresh(definition)
+    return definition
+
+
 def activate_workflow_definition(definition, *, actor_id=None):
     """
     Deactivates any other active definition for the same

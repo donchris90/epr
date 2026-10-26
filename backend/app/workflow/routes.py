@@ -18,6 +18,7 @@ from app.workflow import services
 from app.workflow.models import WorkflowDefinition, WorkflowInstance
 from app.workflow.schemas import (
     WorkflowDefinitionInputSchema,
+    WorkflowDefinitionUpdateSchema,
     WorkflowDefinitionSchema,
     WorkflowInstanceSchema,
     StartWorkflowInstanceSchema,
@@ -93,7 +94,24 @@ def get_definition(definition_id):
     definition = WorkflowDefinition.query.filter_by(id=definition_id, tenant_id=g.tenant_id).first()
     if not definition:
         raise APIError("Workflow definition not found", status=404)
-    return jsonify(definition_schema.dump(definition))
+    body = definition_schema.dump(definition)
+    body["editable"] = services.is_definition_editable(definition)
+    return jsonify(body)
+
+
+@bp.put("/definitions/<uuid:definition_id>")
+@require_permission("workflow:admin")
+def update_definition(definition_id):
+    definition = WorkflowDefinition.query.filter_by(id=definition_id, tenant_id=g.tenant_id).first()
+    if not definition:
+        raise APIError("Workflow definition not found", status=404)
+    data = _load(WorkflowDefinitionUpdateSchema())
+    if not data:
+        raise APIError("Nothing to update", status=400)
+    definition = services.update_workflow_definition(definition, actor_id=g.user_id, **data)
+    body = definition_schema.dump(definition)
+    body["editable"] = services.is_definition_editable(definition)
+    return jsonify(body)
 
 
 @bp.post("/definitions/<uuid:definition_id>/activate")
