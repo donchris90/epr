@@ -9,6 +9,7 @@ import { VendorNotificationBell } from "./notifications";
 const NAV = [
   { to: "/vendor/dashboard", label: "Dashboard", icon: "🏠" },
   { to: "/vendor/purchase-orders", label: "Purchase Orders", icon: "📦" },
+  { to: "/vendor/rfqs", label: "RFQs", icon: "📨" },
   { to: "/vendor/invoices", label: "Invoices", icon: "🧾" },
   { to: "/vendor/notifications", label: "Notifications", icon: "🔔" },
   { to: "/vendor/profile", label: "My Account", icon: "👤" },

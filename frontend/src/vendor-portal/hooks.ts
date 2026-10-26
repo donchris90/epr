@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { vendorPortalClient, getVendorPortalErrorMessage } from "./api/client";
 import { getPortalUserId, setPortalTokens, clearPortalSession } from "./lib/auth";
-import type { PurchaseOrder, OrderAcknowledgment, Quotation, InvoiceUpload, PortalUser, BankingDetails, BankingChangeRequest } from "./types";
+import type { RfqInvitation, PurchaseOrder, OrderAcknowledgment, Quotation, InvoiceUpload, PortalUser, BankingDetails, BankingChangeRequest } from "./types";
 
 /** Real login, backed by POST /v1/vnp/auth/login (built earlier this
  * session -- previously genuinely missing from the backend entirely,
@@ -86,6 +86,32 @@ export async function acknowledgeOrder(purchaseOrderId: string, expectedDelivery
     expected_delivery_date: expectedDeliveryDate || undefined,
   });
   return res.data;
+}
+
+/** The RFQs this vendor was invited to, from GET
+ * /v1/vnp/vendor-users/<id>/rfq-invitations (own invitations only). */
+export function useRfqInvitations() {
+  const [items, setItems] = useState<RfqInvitation[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  function reload() {
+    const userId = getPortalUserId();
+    if (!userId) {
+      setError("Not signed in.");
+      setLoading(false);
+      return;
+    }
+    vendorPortalClient
+      .get(`/vnp/vendor-users/${userId}/rfq-invitations`)
+      .then((res) => setItems(res.data.data))
+      .catch((err) => setError(getVendorPortalErrorMessage(err)))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(reload, []);
+
+  return { items, error, loading, reload };
 }
 
 export async function submitQuote(input: { rfq_id: string; price: string; lead_time_days?: number; payment_terms?: string }): Promise<Quotation> {

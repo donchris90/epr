@@ -36,6 +36,7 @@ from app.modules.vnp.schemas import (
     OrderAcknowledgmentSchema,
     SubmitQuoteSchema,
     QuotationSchema,
+    RFQInvitationSchema,
     UploadInvoiceSchema,
     InvoiceUploadSchema,
     SubmitBankingChangeSchema,
@@ -252,6 +253,14 @@ def acknowledge_order(vendor_user_id):
 
 
 # --- Quote submission (VNP-02) -------------------------------------------------------
+
+@bp.get("/vendor-users/<uuid:vendor_user_id>/rfq-invitations")
+@require_permission("vnp:read")
+def list_rfq_invitations(vendor_user_id):
+    vendor_user = _get_vendor_user_or_404(vendor_user_id)
+    items = services.list_rfq_invitations_for_vendor(g.tenant_id, vendor_user=vendor_user)
+    return jsonify(envelope(RFQInvitationSchema().dump(items, many=True)))
+
 
 @bp.post("/vendor-users/<uuid:vendor_user_id>/quotes")
 @require_permission("vnp:write")

@@ -111,26 +111,18 @@ paid, per the real `status` field), not integration with an actual
 payment/banking rail -- there is no real "payment processed on
 [date]" data anywhere in this backend to show honestly.
 
-**RFQ/quote submission (VNP-02) has no dedicated frontend page.** The
-real backend endpoint (`POST /vendor-users/<id>/quotes`) exists and
-was inspected, but building a genuine RFQ-invitation-aware UI (a
-vendor should only ever see RFQs they were actually invited to, per
-`assert_vendor_invited_to_rfq`) needs a real "list my RFQ invitations"
-endpoint, which does not exist -- the same class of gap as the
-purchase-order listing gap this batch already closed, but not
-addressed here to keep this batch's scope contained.
-
-```
-BACKEND GAP:
-Endpoint: GET /v1/vnp/vendor-users/<id>/rfq-invitations
-Expected response: the real RFQInvitation rows for this vendor,
-  matching the same real ownership-scoping pattern already
-  established for purchase-orders in this batch
-Why frontend requires it: without it, there is no honest way to show
-  a vendor "here are the RFQs you can quote on" -- only a form that
-  requires already knowing a real rfq_id, which isn't a genuine
-  self-service flow.
-```
+**RFQ invitations and quote submission -- now built.** `GET
+/v1/vnp/vendor-users/<id>/rfq-invitations` lists only the RFQs this vendor
+was invited to, each with the vendor's own quote (never another vendor's)
+and a `can_quote` flag. The vendor portal has an RFQs page that lists them
+and takes a quote (price, lead time, payment terms). Two rules were added to
+`POST .../quotes`, which previously had neither: it now refuses (409) an RFQ
+that is closed or past its response deadline, and it marks the invitation
+`responded`. Not built: declining an invitation (the `declined` status exists
+but nothing sets it), revising or withdrawing a submitted quote (one quote
+per vendor per RFQ, final), attaching a document to a quote, and any
+notification when a vendor is invited (the staff side that creates RFQs does
+not notify yet).
 
 **Banking change requests -- vendor UI now built.** My Account has a "Bank
 details" card: the vendor submits bank name, account name and account number,
