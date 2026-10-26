@@ -2199,10 +2199,10 @@ production deployment, roughly in the order it would actually bite:
 - NDPA/NDPR (Nigeria Data Protection Act/Regulation) compliance --
   `docs/DATA_PROTECTION.md` documents what data this platform actually
   stores and what backup/recovery tooling is real. A real DSAR search
-  tool now exists (see above) -- but data-retention scheduling, a
-  DSAR intake channel and response-time commitment, and the
-  "correct or delete" half of a DSAR (acting on what the search
-  finds) are all still missing. This remains engineering
+  tool now exists (see above), along with a staff-operated DSAR request
+  log (30-day due dates) and anonymisation-based erasure (see
+  `docs/DATA_PROTECTION.md`). Still missing: data-retention scheduling,
+  a public intake form, and a data export for access requests. This remains engineering
   documentation, not a legal compliance review -- qualified counsel
   should review this before the platform processes real personal
   data at scale.

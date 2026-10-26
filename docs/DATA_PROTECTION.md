@@ -43,20 +43,34 @@ in README.md's "What's left" section.
 
 ## Data Subject Access Requests (DSAR)
 
-No dedicated DSAR tooling exists. Today, fulfilling a request from an
-individual to see, correct, or delete their personal data would
-require a manual database query by tenant administrators or platform
-operators, scoped by the RLS tenant boundary already in place.
+Built (staff-operated, `Data Requests` in the app; permissions
+`dsar:search` and `dsar:manage`):
 
-A real DSAR process, before this matters in production, needs:
-1. An intake channel (a documented email address or in-app form) --
-   not built.
-2. A way to search across all modules a given email/name appears in
-   within one tenant -- not built; would need a cross-module search
-   utility, since personal data isn't centralized (it lives in
-   whichever module created it: BDC contacts, WFM employees, CLP
-   client users, etc.).
-3. A documented response-time commitment.
+1. **Request log** (`dsar_requests`, RLS-isolated): a staff member logs a
+   request (access, correction, erasure, restriction, objection,
+   portability) with the person's name and email/phone. A **30-day due
+   date** is set automatically (matching the public Privacy Policy) and
+   overdue open requests are flagged. A request is closed as completed, or
+   rejected with a recorded reason.
+2. **Search** across modules by email/phone: internal users, BDC clients and
+   contacts, casual workers, and the client, vendor and subcontractor portal
+   users. Not covered: permanent employees (no email/phone stored), free text.
+3. **Erasure by anonymisation** for erasure requests: BDC contacts, casual
+   workers and the three portal user types. Personal fields are blanked,
+   portal logins are closed and sessions invalidated, and each action is
+   logged on the request (ids only, never the erased data). Records are
+   anonymised, not deleted, because other business records reference them.
+
+Not built:
+- **Public intake.** Requests are logged by staff (e.g. from the privacy
+  contact mailbox); there is no public form, since a request must be tied to
+  a tenant first.
+- **Correction** is a manual edit in the owning module; the request log only
+  tracks it.
+- **Erasing internal staff users** and BDC client organisations is handled
+  outside this tool (organisation user removal / manual review).
+- **Access/portability export** (a downloadable copy of a person's data).
+- **Notifying the requester**; the outcome is recorded but not emailed.
 
 ## Backup & Disaster Recovery
 
