@@ -65,29 +65,36 @@ Why frontend requires it: without a real notify() call somewhere in
   ever show beyond an honest empty state.
 ```
 
-## Genuine gap -- Notification Preferences, not built at all
+## Notification Preferences -- built
 
-Confirmed directly: `NotificationSchema` has no preference fields,
-and no preferences table or model exists anywhere in
-`app/notifications/`. This batch's own brief is explicit: "Do not
-build settings that have no backend support." No preferences UI was
-built -- not a disabled placeholder, not a form that saves nowhere.
+`GET/PUT /v1/notifications/preferences` (any authenticated user, own
+preferences only) over a tenant-scoped `notification_preferences` table
+(migration 0056, RLS, unique per user and category). UI: Settings ->
+Notifications (`/settings/notifications`).
 
-```
-BACKEND GAP:
-Endpoint: e.g. GET/PUT /v1/notifications/preferences
-Expected model: a new NotificationPreference table (or columns on
-  the existing user profile), with real per-category and per-channel
-  (email vs in-app) toggles
-Why frontend requires it: there is no real state to read a
-  preferences UI's initial values from, and nowhere real to persist
-  a change -- building the UI without this would either fake the
-  data or silently do nothing when a person changes a setting.
-```
+- Categories are `approvals|projects|finance|hse|system`, derived from the
+  notification `type` prefix on the backend exactly as the frontend's
+  `categoryFor` does (`category_for_type` in `notifications/models.py`).
+  Keep the two mappings in step when adding a prefix.
+- No stored row means both channels on, so existing users see no change.
+- `notify()` skips the in-app row when in-app is off for the category, and
+  skips the email when email is off. `notify_many()` drops suppressed
+  recipients from its return value. Both channels are independent.
+
+Limits, stated plainly:
+
+- Preferences can only suppress. Email is still sent only for events whose
+  caller passes `channel="email"` (today the workflow events); the Email
+  toggle does nothing for events that never email (portal and CLP events).
+- Portal users have no preferences screen and always get the defaults.
+- SMS is not offered: nothing sends SMS.
+- Mandatory events are not exempt. A user can mute Approvals entirely.
+  If the business wants some events to be un-mutable, that needs a
+  per-type flag.
 
 ## What was deliberately not built as a fake feature
 
-No preferences screen with nothing behind it. No hidden or omitted
+No hidden or omitted
 Finance/HSE/System tabs pretending only Approvals and Projects exist
 as concepts -- they're real, valid categories per this batch's own
 brief, just honestly empty today rather than faked with placeholder

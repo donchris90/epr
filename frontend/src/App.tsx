@@ -8,6 +8,7 @@ import BillingPage from "./pages/BillingPage";
 import UsersManagementPage from "./pages/UsersManagementPage";
 import ProfilePage from "./pages/ProfilePage";
 import SecuritySettingsPage from "./pages/SecuritySettingsPage";
+import NotificationPreferencesPage from "./pages/NotificationPreferencesPage";
 import RolesPage from "./pages/RolesPage";
 import ApprovalCenterPage from "./pages/ApprovalCenterPage";
 import NotificationCenterPage from "./pages/NotificationCenterPage";
@@ -116,6 +117,7 @@ export default function App() {
             <Route path="settings/users" element={<UsersManagementPage />} />
             <Route path="settings/profile" element={<ProfilePage />} />
             <Route path="settings/security" element={<SecuritySettingsPage />} />
+            <Route path="settings/notifications" element={<NotificationPreferencesPage />} />
             <Route path="settings/roles" element={<RolesPage />} />
             <Route path="approvals" element={<ApprovalCenterPage />} />
             <Route path="notifications" element={<NotificationCenterPage />} />
