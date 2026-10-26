@@ -308,3 +308,23 @@ describe("WorkflowBuilderPage — duplicate", () => {
     });
   });
 });
+
+describe("WorkflowBuilderPage — triggers", () => {
+  it("offers the trigger list the backend reports", async () => {
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === "/workflow/valid-triggers")
+        return Promise.resolve({ data: { data: [{ module_name: "inv", entity_type: "stock_adjustment", label: "Inventory — Stock Adjustment" }] } });
+      if (url === "/org/members") return Promise.resolve({ data: { users: [REAL_USER] } });
+      if (url === "/org/roles") return Promise.resolve({ data: { data: [REAL_ROLE] } });
+      return Promise.reject(new Error(`unexpected GET ${url}`));
+    });
+    renderBuilder();
+    expect(await screen.findByRole("option", { name: "Inventory — Stock Adjustment" })).toBeInTheDocument();
+  });
+
+  it("falls back to the built-in list if the request fails", async () => {
+    renderBuilder();
+    expect(await screen.findByRole("option", { name: "Procurement — Purchase Request" })).toBeInTheDocument();
+  });
+});
+

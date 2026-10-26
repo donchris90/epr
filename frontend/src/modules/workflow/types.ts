@@ -96,12 +96,9 @@ export const SYSTEM_ACTOR_ID = "00000000-0000-0000-0000-000000000000";
  * actually trigger unless some module's code calls
  * start_workflow_instance for that exact pair.
  *
- * BACKEND GAP: there is no endpoint returning the real, valid set of
- * (module_name, entity_type) pairs a workflow could actually attach
- * to. This list is a frontend-maintained snapshot of what's
- * confirmed wired up today, not a live, verified-against-backend
- * source of truth -- it will silently go stale if a new module
- * integration is added without updating this list too. */
+ * Fallback snapshot only: the live list comes from
+ * GET /v1/workflow/valid-triggers (backend app/workflow/triggers.py,
+ * guarded by a test against the real call sites). */
 export const KNOWN_MODULE_ENTITY_PAIRS: { module_name: string; entity_type: string; label: string }[] = [
   { module_name: "prc", entity_type: "purchase_request", label: "Procurement — Purchase Request" },
   { module_name: "ctm", entity_type: "contract_amendment", label: "Contracts — Contract Amendment" },

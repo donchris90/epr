@@ -54,20 +54,16 @@ represents amount-range as part of a step's own configuration, exactly
 matching the real data model, rather than fabricating a condition/
 action node with nothing real behind it.
 
-**BACKEND GAP: no endpoint listing valid (module_name, entity_type)
-pairs a workflow could actually attach to.**
-Endpoint: `GET /v1/workflow/valid-triggers`
-Expected response: `{data: [{module_name, entity_type, label}]}`
-Why the frontend requires it: `frontend/src/modules/workflow/types.ts`
-hardcodes `KNOWN_MODULE_ENTITY_PAIRS`, verified by grepping real
-`get_active_workflow`/`start_workflow_instance` call sites in
-`backend/app/modules/*/services.py` at the time this was written
-(`prc/purchase_request`, `ctm/contract_amendment`,
-`est/budget_revision`, `hse/permit_to_work`). This list will silently
-go stale the next time a module integration is added without also
-updating it. A "custom" free-text option exists as an escape hatch,
-but a workflow built against a pair nothing actually calls will simply
-never trigger, with no warning.
+**(Closed) Valid trigger list.** `GET /v1/workflow/valid-triggers`
+(`workflow:admin`) returns the module/entity pairs that really start a
+workflow, from the registry in `backend/app/workflow/triggers.py`. The builder
+reads it and falls back to its built-in list if the request fails. The
+registry is hand-kept but guarded: `tests/test_workflow_triggers.py` scans the
+module services for `get_active_workflow(...)` call sites and fails if the
+registry and the code disagree, so adding an approval integration without
+registering it breaks the build instead of leaving the builder stale. The
+"custom" free-text option remains as an escape hatch, and a custom pair still
+never fires unless code calls it.
 
 **(Closed on the backend in migration 0052 -- see WORKFLOW_APPROVAL_GAPS.md. The builder UI does not yet expose the escalation target.) BACKEND GAP: no timeout/escalation scheduler.**
 `timeout_hours`/`auto_escalate` are real, storable fields — the
