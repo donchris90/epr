@@ -120,9 +120,10 @@ and takes a quote (price, lead time, payment terms). Two rules were added to
 that is closed or past its response deadline, and it marks the invitation
 `responded`. Not built: declining an invitation (the `declined` status exists
 but nothing sets it), revising or withdrawing a submitted quote (one quote
-per vendor per RFQ, final), attaching a document to a quote, and any
-notification when a vendor is invited (the staff side that creates RFQs does
-not notify yet).
+per vendor per RFQ, final), attaching a document to a quote, and
+invitation emails. A vendor is now notified in the portal (`vnp.rfq_invited`,
+linking to the RFQs page) when staff invite them; inviting the same vendor
+twice returns 409 instead of a database error.
 
 **Banking change requests -- vendor UI now built.** My Account has a "Bank
 details" card: the vendor submits bank name, account name and account number,

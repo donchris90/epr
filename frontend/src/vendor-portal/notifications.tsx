@@ -4,6 +4,7 @@ import { PortalNotificationBell, PortalNotificationsPage, type PortalNotificatio
 /** In-portal route for a notification, or null when it has none. */
 export function notificationLink(n: PortalNotification): string | null {
   if (n.type.startsWith("vnp.banking_change")) return "/vendor/profile";
+  if (n.type === "vnp.rfq_invited") return "/vendor/rfqs";
   return null;
 }
 

@@ -130,3 +130,39 @@ class TestRfqInvitations:
         rfq = _rfq(db, t, [v2])
         h = _login(client, "one@example.com")
         assert _quote(client, h, u1, rfq).status_code == 403
+
+
+class TestInviteNotifiesVendor:
+    def test_invite_notifies_only_that_vendors_users(self, app, db, client, seed_tenants, auth_headers):
+        from app.modules.prc.models import RFQ
+
+        t = seed_tenants["a"]
+        v1, _ = _vendor_with_user(db, t, "one@example.com")
+        v2, _ = _vendor_with_user(db, t, "two@example.com")
+        _as_tenant(db, t)
+        rfq = RFQ(tenant_id=t, title="Rebar", response_deadline=datetime.now(timezone.utc) + timedelta(days=3))
+        db.session.add(rfq)
+        db.session.flush()
+        rfq_id = rfq.id
+        db.session.commit()
+
+        staff = auth_headers("a", permissions=["prc:write"])
+        r = client.post(f"/v1/prc/rfqs/{rfq_id}/invite", json={"vendor_id": str(v1)}, headers=staff)
+        assert r.status_code == 201
+
+        n1 = client.get("/v1/notifications", headers=_login(client, "one@example.com")).get_json()["data"]
+        n2 = client.get("/v1/notifications", headers=_login(client, "two@example.com")).get_json()["data"]
+        assert [n["type"] for n in n1] == ["vnp.rfq_invited"]
+        assert "Rebar" in n1[0]["title"]
+        assert n1[0]["data"]["entity_id"] == str(rfq_id)
+        assert n2 == []
+
+    def test_duplicate_invite_creates_no_second_notification(self, app, db, client, seed_tenants, auth_headers):
+        t = seed_tenants["a"]
+        v1, _ = _vendor_with_user(db, t, "one@example.com")
+        rfq_id = _rfq(db, t, [])
+        staff = auth_headers("a", permissions=["prc:write"])
+        assert client.post(f"/v1/prc/rfqs/{rfq_id}/invite", json={"vendor_id": str(v1)}, headers=staff).status_code == 201
+        assert client.post(f"/v1/prc/rfqs/{rfq_id}/invite", json={"vendor_id": str(v1)}, headers=staff).status_code == 409
+        n = client.get("/v1/notifications", headers=_login(client, "one@example.com")).get_json()["data"]
+        assert len(n) == 1
