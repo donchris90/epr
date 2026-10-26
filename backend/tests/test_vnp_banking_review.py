@@ -66,3 +66,61 @@ class TestReviewList:
     def test_requires_finance_permission(self, app, db, client, seed_tenants, auth_headers):
         h = auth_headers("a", permissions=["prc:read"])
         assert client.get("/v1/vnp/banking-change-requests", headers=h).status_code == 403
+
+
+class TestFinanceAlert:
+    def _staff(self, db, tid, email, permissions, status="active"):
+        import uuid
+        from app.models.core import Role, User
+
+        _as_tenant(db, tid)
+        role = Role(tenant_id=tid, name=f"r-{email}", permission_set=permissions)
+        db.session.add(role)
+        db.session.flush()
+        u = User(tenant_id=tid, email=email, password_hash="x", role_id=role.id, status=status)
+        db.session.add(u)
+        db.session.flush()
+        uid = u.id
+        db.session.commit()
+        return uid
+
+    def _submit(self, client, db, tid):
+        from tests.test_portal_notifications import _vnp_user
+        from app.modules.prc.models import Vendor
+
+        _as_tenant(db, tid)
+        v = Vendor(tenant_id=tid, name="Acme Steel")
+        db.session.add(v)
+        db.session.flush()
+        vid = v.id
+        db.session.commit()
+        uid = _vnp_user(db, tid, vid, "v@x.com")
+        h = _login(client, "vnp", "v@x.com")
+        return client.post(
+            f"/v1/vnp/vendor-users/{uid}/banking-change-requests",
+            json={"proposed_banking_details": {"account_number": "222"}}, headers=h,
+        )
+
+    def test_only_active_finance_approvers_are_notified(self, app, db, client, seed_tenants, auth_headers):
+        t = seed_tenants["a"]
+        fin = self._staff(db, t, "fin@x.com", ["vnp:finance_approve"])
+        admin = self._staff(db, t, "admin@x.com", ["*"])
+        other = self._staff(db, t, "pm@x.com", ["prc:read"])
+        gone = self._staff(db, t, "gone@x.com", ["vnp:finance_approve"], status="removed")
+        assert self._submit(client, db, t).status_code == 201
+
+        def inbox(uid):
+            return client.get("/v1/notifications", headers=auth_headers("a", user_id=uid)).get_json()["data"]
+
+        for uid in (fin, admin):
+            items = inbox(uid)
+            assert [i["type"] for i in items] == ["fin.banking_change_submitted"]
+            assert "Acme Steel" in items[0]["title"]
+            assert items[0]["data"]["entity_type"] == "banking_change_request"
+        assert inbox(other) == []
+        assert inbox(gone) == []
+
+    def test_other_tenants_approvers_are_not_notified(self, app, db, client, seed_tenants, auth_headers):
+        fin_b = self._staff(db, seed_tenants["b"], "finb@x.com", ["vnp:finance_approve"])
+        assert self._submit(client, db, seed_tenants["a"]).status_code == 201
+        assert client.get("/v1/notifications", headers=auth_headers("b", user_id=fin_b)).get_json()["data"] == []

@@ -156,5 +156,13 @@ in History, so a bad approval can be audited. Staff list endpoint:
 Limits: the previous details are only recorded for approvals made after this
 deploy; there is no one-click "revert", a reviewer must have the vendor submit
 a new change; the proposed account number is shown in full to
-`vnp:finance_approve` holders (the vendor-facing view stays masked); and there
-is no notification to finance when a request arrives.
+`vnp:finance_approve` holders (the vendor-facing view stays masked); and
+finance is now alerted when a request arrives (see below).
+
+Finance alert: submitting a banking change notifies every active staff user in
+the tenant whose role holds `vnp:finance_approve` (or `*`), as
+`fin.banking_change_submitted` (Finance category), linking to the Vendor
+Portal admin page. Uses the new `notify_users_with_permission` helper in
+`app/notifications/services.py`, reusable for other "tell the approvers"
+cases. Notification preferences apply, so a user can mute the Finance
+category. Limit: it is in-app only; no email is sent.

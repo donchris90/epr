@@ -291,6 +291,23 @@ def submit_banking_change(tenant_id, *, vendor_user: VendorPortalUser, proposed_
         submitted_at=datetime.now(timezone.utc),
     )
     db.session.add(request)
+    db.session.flush()
+
+    # Tell the people who can act on it. "fin." prefix so it lands in
+    # the Finance category of the notification centre. Same transaction
+    # as the request itself.
+    from app.modules.prc.models import Vendor
+    from app.notifications.services import notify_users_with_permission
+
+    vendor = Vendor.query.filter_by(id=vendor_user.vendor_id, tenant_id=tenant_id).first()
+    notify_users_with_permission(
+        tenant_id,
+        permission="vnp:finance_approve",
+        type="fin.banking_change_submitted",
+        title=f"Banking change awaiting review: {vendor.name if vendor else 'a vendor'}",
+        body="Compare the proposed details with those on file before approving.",
+        data={"entity_type": "banking_change_request", "entity_id": str(request.id)},
+    )
     db.session.commit()
     return request
 

@@ -180,3 +180,29 @@ def set_preferences(tenant_id, *, user_id, items):
         pref.email = item["email"]
     db.session.commit()
     return get_preferences(tenant_id, user_id=user_id)
+
+
+def user_ids_with_permission(tenant_id, permission):
+    """Active staff users whose role grants `permission` (or the "*"
+    wildcard, matching app/utils/decorators.require_permission)."""
+    from app.models.core import Role, User
+
+    role_ids = [
+        r.id
+        for r in Role.query.filter_by(tenant_id=tenant_id).all()
+        if permission in (r.permission_set or []) or "*" in (r.permission_set or [])
+    ]
+    if not role_ids:
+        return []
+    users = User.query.filter(
+        User.tenant_id == tenant_id, User.role_id.in_(role_ids), User.status == "active"
+    ).all()
+    return [u.id for u in users]
+
+
+def notify_users_with_permission(tenant_id, *, permission, type, title, body=None, data=None):
+    """Notify every active staff user who can act on something (e.g. the
+    approvers of a pending request). Does not commit."""
+    return notify_many(
+        tenant_id, user_ids=user_ids_with_permission(tenant_id, permission), type=type, title=title, body=body, data=data
+    )
