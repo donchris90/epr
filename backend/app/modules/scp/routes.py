@@ -301,3 +301,55 @@ def list_claims(portal_user_id):
         raise APIError("agreement_id query parameter is required", status=400)
     claims = services.get_claims_for_subcontractor(g.tenant_id, portal_user=portal_user, agreement_id=agreement_id)
     return jsonify(envelope(claim_schema.dump(claims, many=True)))
+
+
+# --- Documents (portal) ---------------------------------------------------------------
+
+@bp.post("/portal-users/<uuid:portal_user_id>/documents/upload-request")
+@require_permission("scp:write")
+def request_document_upload(portal_user_id):
+    user = _get_portal_user_or_404(portal_user_id)
+    from app.documents import portal as doc_portal
+    from app.documents.schemas import PortalUploadRequestSchema, UploadRequestResponseSchema
+
+    data = _load(PortalUploadRequestSchema())
+    document, upload_url = doc_portal.create_upload(
+        g.tenant_id, owner_type="scp", owner_id=user.subcontractor_id, user_id=user.id, **data
+    )
+    body = UploadRequestResponseSchema().dump(document)
+    body["upload_url"] = upload_url
+    return jsonify(body), 201
+
+
+@bp.post("/portal-users/<uuid:portal_user_id>/documents/<uuid:document_id>/confirm")
+@require_permission("scp:write")
+def confirm_document_upload(portal_user_id, document_id):
+    user = _get_portal_user_or_404(portal_user_id)
+    from app.documents import portal as doc_portal
+    from app.documents.schemas import DocumentSchema
+
+    doc = doc_portal.confirm(
+        g.tenant_id, owner_type="scp", owner_id=user.subcontractor_id, user_id=user.id, document_id=document_id
+    )
+    return jsonify(DocumentSchema().dump(doc))
+
+
+@bp.get("/portal-users/<uuid:portal_user_id>/documents")
+@require_permission("scp:read")
+def list_documents(portal_user_id):
+    user = _get_portal_user_or_404(portal_user_id)
+    from app.documents import portal as doc_portal
+    from app.documents.schemas import DocumentSchema
+
+    docs = doc_portal.list_owned(g.tenant_id, owner_type="scp", owner_id=user.subcontractor_id)
+    return jsonify(envelope(DocumentSchema().dump(docs, many=True)))
+
+
+@bp.get("/portal-users/<uuid:portal_user_id>/documents/<uuid:document_id>/download")
+@require_permission("scp:read")
+def download_document(portal_user_id, document_id):
+    user = _get_portal_user_or_404(portal_user_id)
+    from app.documents import portal as doc_portal
+
+    url = doc_portal.download_url(g.tenant_id, owner_type="scp", owner_id=user.subcontractor_id, document_id=document_id)
+    return jsonify({"download_url": url})

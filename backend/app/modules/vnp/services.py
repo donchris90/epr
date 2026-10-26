@@ -247,6 +247,17 @@ def upload_vendor_invoice(
     if bool(purchase_order_id) == bool(subcontract_certificate_id):
         raise APIError("Exactly one of purchase_order_id or subcontract_certificate_id is required", status=400)
 
+    if invoice_document_id:
+        # An attached file must be one this vendor's organisation uploaded
+        # through the portal and that actually finished uploading.
+        from app.documents import portal as doc_portal
+
+        doc = doc_portal.get_owned(
+            tenant_id, owner_type="vnp", owner_id=vendor_user.vendor_id, document_id=invoice_document_id
+        )
+        if doc.status != "uploaded":
+            raise APIError("The attached document has not finished uploading", status=409)
+
     if purchase_order_id:
         assert_vendor_owns_purchase_order(tenant_id, vendor_user=vendor_user, purchase_order_id=purchase_order_id)
     else:

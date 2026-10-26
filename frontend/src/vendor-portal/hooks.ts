@@ -150,6 +150,7 @@ export async function uploadInvoice(input: {
   invoice_number: string;
   amount: string;
   purchase_order_id?: string;
+  invoice_document_id?: string;
 }): Promise<InvoiceUpload> {
   const userId = getPortalUserId();
   const res = await vendorPortalClient.post(`/vnp/vendor-users/${userId}/invoices`, input);

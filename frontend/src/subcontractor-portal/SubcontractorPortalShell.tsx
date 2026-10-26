@@ -10,6 +10,7 @@ const NAV = [
   { to: "/subcontractor/dashboard", label: "Dashboard", icon: "🏠" },
   { to: "/subcontractor/agreements", label: "Agreements", icon: "📄" },
   { to: "/subcontractor/claims", label: "Claims", icon: "📋" },
+  { to: "/subcontractor/documents", label: "Documents", icon: "📁" },
   { to: "/subcontractor/notifications", label: "Notifications", icon: "🔔" },
   { to: "/subcontractor/profile", label: "My Account", icon: "👤" },
 ];

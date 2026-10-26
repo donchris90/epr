@@ -8,6 +8,7 @@ import DashboardPage from "./pages/DashboardPage";
 import AgreementsPage from "./pages/AgreementsPage";
 import AgreementDetailPage from "./pages/AgreementDetailPage";
 import ClaimsPage from "./pages/ClaimsPage";
+import DocumentsPage from "./pages/DocumentsPage";
 import NotificationsPage from "./notifications";
 import ProfilePage from "./pages/ProfilePage";
 
@@ -33,6 +34,7 @@ export default function SubcontractorPortalApp() {
           <Route path="agreements" element={<AgreementsPage />} />
           <Route path="agreements/:id" element={<AgreementDetailPage />} />
           <Route path="claims" element={<ClaimsPage />} />
+          <Route path="documents" element={<DocumentsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>

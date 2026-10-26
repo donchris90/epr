@@ -1,5 +1,9 @@
 import { useState } from "react";
 import { PageHeader, Card, Table, Th, Td, Badge, Button, Input, Field, Select, ErrorBanner, formatMoney } from "../../components/ui";
+import { Link } from "react-router-dom";
+import { usePortalDocuments } from "../../components/PortalDocuments";
+import { vendorPortalClient } from "../api/client";
+import { getPortalUserId } from "../lib/auth";
 import { useInvoices, uploadInvoice, usePurchaseOrders } from "../hooks";
 import { getVendorPortalErrorMessage } from "../api/client";
 
@@ -24,6 +28,8 @@ export default function InvoicesPage() {
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [purchaseOrderId, setPurchaseOrderId] = useState("");
+  const [documentId, setDocumentId] = useState("");
+  const { documents } = usePortalDocuments(vendorPortalClient, `/vnp/vendor-users/${getPortalUserId()}`);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -36,10 +42,12 @@ export default function InvoicesPage() {
         invoice_number: invoiceNumber,
         amount,
         purchase_order_id: purchaseOrderId || undefined,
+        invoice_document_id: documentId || undefined,
       });
       setInvoiceNumber("");
       setAmount("");
       setPurchaseOrderId("");
+      setDocumentId("");
       reload();
     } catch (err: any) {
       setSubmitError(getVendorPortalErrorMessage(err));
@@ -72,6 +80,19 @@ export default function InvoicesPage() {
                 </option>
               ))}
             </Select>
+          </Field>
+          <Field label="Attach a document (optional)">
+            <Select value={documentId} onChange={(e) => setDocumentId(e.target.value)}>
+              <option value="">No attachment</option>
+              {documents?.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.original_filename}
+                </option>
+              ))}
+            </Select>
+            <span style={{ fontSize: 12, color: "var(--sf-navy-400)" }}>
+              Upload the file first on the <Link to="/vendor/documents">Documents</Link> page.
+            </span>
           </Field>
           {submitError && <ErrorBanner title="Could not submit invoice" detail={submitError} onDismiss={() => setSubmitError(null)} />}
           <Button type="submit" disabled={submitting}>
