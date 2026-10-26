@@ -1,4 +1,4 @@
-# Render Blueprint -- deploys this app as 5 services:
+# Render Blueprint -- deploys this app as 5 services (plus 3 cron jobs, below):
 #   1. siteforge-db       Postgres (managed)
 #   2. siteforge-redis    Key Value / Redis-compatible (managed)
 #   3. siteforge-api      Flask backend (Docker, gunicorn)
@@ -16,13 +16,16 @@
 #     only needs an S3-compatible API. Fill in the four `sync: false`
 #     placeholders on siteforge-api once you have one.
 #
-#   - Celery beat (the scheduler that actually triggers
-#     app/modules/inv/tasks.py's daily reorder check): this Blueprint
-#     runs a worker, which executes tasks, but nothing currently
-#     enqueues them on a schedule. Add a `type: cron` service running
-#     `celery -A app.celery_app.celery beat` (or use Render's own Cron
-#     Jobs to call the task directly) if you need the scheduled check
-#     to actually fire.
+#   - Celery beat: still not run as a service (it needs a long-lived
+#     worker, which Render's free tier doesn't offer). Scheduling is
+#     instead done by the three Render Cron Jobs near the bottom of
+#     this file, each of which starts this same image, runs ONE
+#     command and exits: the two daily tasks from the beat schedule
+#     (backend/scripts/run_scheduled_task.py) and the nightly
+#     database backup (backend/scripts/backup.sh). Cron Jobs have no
+#     free plan on Render -- they are the one paid addition here
+#     (`starter`, billed per run-minute with a small monthly minimum).
+#     Delete a job's block to opt out of it.
 #
 #   - ANTHROPIC_API_KEY (Module 25, AI Assistant): left as sync:false;
 #     the module works without it, just without live LLM calls.
@@ -152,7 +155,9 @@ services:
   # app/modules/inv/tasks.py's reorder-check task -- and per this
   # file's own top-of-file note, nothing was scheduling that task
   # automatically yet anyway (no Celery beat set up), so this doesn't
-  # regress anything that was actually working.
+  # regress anything that was actually working. (The scheduled tasks
+  # themselves are now triggered by the cron jobs further down, which
+  # call them directly and don't need this worker.)
   #
   # To add it back once you're ready to put a paid plan on this one
   # service specifically: the full service definition (type: worker,
@@ -161,6 +166,112 @@ services:
   # this repo's git history at commit 6f7b89f, or ask whoever's
   # maintaining this to regenerate it -- it's a small, mechanical
   # addition once plan: starter is acceptable.
+
+  # --- Scheduled jobs (Render Cron Jobs) -------------------------------
+  # Schedules are UTC. Lagos is UTC+1, so e.g. "0 2 * * *" = 03:00 WAT.
+  #
+  # Each job runs the same image as siteforge-api with a different
+  # dockerCommand. dockerCommand is whitespace-split by Render and NOT
+  # run through a shell (see the note on siteforge-api above), so every
+  # command here is a plain argv with no &&, pipes or quoting.
+  #
+  # CELERY_TASK_ALWAYS_EAGER stays "true": run_scheduled_task.py calls
+  # the task function directly and needs no broker or worker.
+  #
+  # Failures are visible: run_scheduled_task.py exits non-zero if the
+  # task reports ANY per-tenant error, and backup.sh runs under
+  # `set -e`, so Render shows the run as failed rather than green.
+
+  # INV-05: raise draft Purchase Requests for items below reorder point.
+  - type: cron
+    name: siteforge-cron-reorder-check
+    runtime: docker
+    region: oregon
+    plan: starter
+    schedule: "0 5 * * *"   # 06:00 WAT
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    dockerCommand: python -m scripts.run_scheduled_task inv.check_and_create_reorder_purchase_requests
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: siteforge-db
+          property: connectionString
+      - key: CELERY_TASK_ALWAYS_EAGER
+        value: "true"
+      - key: SENTRY_DSN
+        sync: false
+
+  # EQP-12: apply approved equipment-transfer cost cutovers that are due.
+  - type: cron
+    name: siteforge-cron-equipment-cutovers
+    runtime: docker
+    region: oregon
+    plan: starter
+    schedule: "10 0 * * *"   # 01:10 WAT, just after the date rolls over
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    dockerCommand: python -m scripts.run_scheduled_task eqp.apply_due_transfer_cutovers
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: siteforge-db
+          property: connectionString
+      - key: CELERY_TASK_ALWAYS_EAGER
+        value: "true"
+      - key: SENTRY_DSN
+        sync: false
+
+  # Nightly pg_dump -> verified upload to the S3-compatible backup bucket.
+  # Needs the same four S3_* values as siteforge-api (set them in the
+  # dashboard after the first apply -- they are sync:false on purpose).
+  # Without them the upload step fails and the job is marked failed,
+  # which is the intended loud behaviour: an unconfigured backup must
+  # not look like a working one.
+  - type: cron
+    name: siteforge-cron-db-backup
+    runtime: docker
+    region: oregon
+    plan: starter
+    schedule: "0 2 * * *"   # 03:00 WAT
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    dockerCommand: bash scripts/backup.sh /tmp/backups
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: siteforge-db
+          property: connectionString
+      - key: CELERY_TASK_ALWAYS_EAGER
+        value: "true"
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_BACKUP_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
 
   # --- Frontend (static site, NOT the dev-mode Dockerfile) ---
   - type: web
