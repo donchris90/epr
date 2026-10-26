@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { LegalLinks } from "./legal/LegalLayout";
+
 import { apiClient } from "../api/client";
 import { setTokens } from "../lib/auth";
 import { Button, Input, Field } from "../components/ui";
@@ -92,6 +94,7 @@ export default function LoginPage() {
           <p style={{ textAlign: "center", fontSize: 12, color: "var(--sf-navy-400)", marginTop: 14 }}>
             New here? <Link to="/signup">Create a workspace</Link>
           </p>
+          <LegalLinks />
         </form>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Input, Field } from "../../components/ui";
+import { LegalLinks } from "../../pages/legal/LegalLayout";
 import { useClientLogin } from "../hooks";
 import { setClientTokens, setClientOrgName } from "../lib/auth";
 
@@ -104,6 +105,7 @@ export default function ClientLoginPage() {
           <p style={{ textAlign: "center", fontSize: 12, color: "var(--sf-navy-400)", marginTop: 14 }}>
             Don't have portal access? Contact your project manager.
           </p>
+          <LegalLinks />
         </form>
       </div>
     </div>

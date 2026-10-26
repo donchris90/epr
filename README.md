@@ -2206,5 +2206,8 @@ production deployment, roughly in the order it would actually bite:
   documentation, not a legal compliance review -- qualified counsel
   should review this before the platform processes real personal
   data at scale.
-- No terms of service / privacy policy pages.
+- Terms of Service and Privacy Policy pages exist (`/terms`, `/privacy`, linked from every sign-in and sign-up screen) but are a
+  first draft written from what the platform actually does -- they must be reviewed by qualified counsel, and the
+  `VITE_LEGAL_*` variables (company name, contact email, address) set, before launch. Sign-up states agreement but does
+  not yet record consent.
 
