@@ -132,14 +132,14 @@ Why frontend requires it: without it, there is no honest way to show
   self-service flow.
 ```
 
-**Banking change requests have no vendor-facing UI in this build.**
-The real submission endpoint exists
-(`POST /vendor-users/<id>/banking-change-requests`) and was
-inspected, but approval/rejection is explicitly staff-only
-(`vnp:finance_approve`, a real, deliberate business rule per that
-route's own docstring) -- a vendor-facing submission form was judged
-out of this batch's contained scope, not because of a missing
-capability.
+**Banking change requests -- vendor UI now built.** My Account has a "Bank
+details" card: the vendor submits bank name, account name and account number,
+sees the status of past requests (account numbers shown masked, rejection
+reason shown) and can't stack a second request while one is pending. A
+request only stages the change; finance approval (`vnp:finance_approve`,
+staff-only) still applies it, and the vendor is notified of the decision. New
+endpoint: `GET /v1/vnp/vendor-users/<id>/banking-change-requests` (own
+requests only). Not built: the finance-side review screen in the staff app.
 
 ## What was deliberately not built as a fake feature
 

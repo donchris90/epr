@@ -45,12 +45,18 @@ export interface InvoiceUpload {
   status: string;
 }
 
+export interface BankingDetails {
+  bank_name: string;
+  account_name: string;
+  account_number: string;
+}
+
 export interface BankingChangeRequest {
   id: string;
   vendor_id: string;
-  proposed_banking_details: Record<string, string>;
-  status: string;
-  submitted_at: string;
-  reviewed_by: string | null;
+  proposed_banking_details: Partial<BankingDetails>;
+  status: "pending" | "approved" | "rejected" | string;
+  submitted_at: string | null;
+  reviewed_at: string | null;
   rejection_reason: string | null;
 }

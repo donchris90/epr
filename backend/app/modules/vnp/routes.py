@@ -295,6 +295,22 @@ def submit_banking_change(vendor_user_id):
     return jsonify(banking_schema.dump(req)), 201
 
 
+@bp.get("/vendor-users/<uuid:vendor_user_id>/banking-change-requests")
+@require_permission("vnp:read")
+def list_own_banking_change_requests(vendor_user_id):
+    """The vendor's own requests (newest first), so the portal can show
+    status and any rejection reason. Ownership-scoped like every other
+    vendor-user route; the staff queue below is a separate, finance-only
+    endpoint."""
+    vendor_user = _get_vendor_user_or_404(vendor_user_id)
+    reqs = (
+        VendorBankingChangeRequest.query.filter_by(tenant_id=g.tenant_id, vendor_user_id=vendor_user.id)
+        .order_by(VendorBankingChangeRequest.submitted_at.desc())
+        .all()
+    )
+    return jsonify(envelope(banking_schema.dump(reqs, many=True)))
+
+
 @bp.post("/banking-change-requests/<uuid:request_id>/approve")
 @require_permission("vnp:finance_approve")
 def approve_banking_change(request_id):

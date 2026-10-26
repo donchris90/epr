@@ -88,4 +88,5 @@ class BankingChangeRequestSchema(Schema):
     status = fields.Str(dump_only=True)
     submitted_at = fields.DateTime(dump_only=True)
     reviewed_by = fields.UUID(dump_only=True)
+    reviewed_at = fields.DateTime(dump_only=True)
     rejection_reason = fields.Str(dump_only=True)

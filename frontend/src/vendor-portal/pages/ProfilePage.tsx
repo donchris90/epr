@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { PageHeader, Card, Button, Input, Field } from "../../components/ui";
 import { useVendorProfile, changeVendorPassword, logoutVendor } from "../hooks";
 import { getVendorPortalErrorMessage } from "../api/client";
+import BankingDetailsCard from "../BankingDetailsCard";
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -58,6 +59,8 @@ export default function ProfilePage() {
         </div>
         {profileError && <div style={{ color: "var(--sf-brick)", fontSize: 12, marginTop: 8 }}>{profileError}</div>}
       </Card>
+
+      <BankingDetailsCard />
 
       <Card style={{ marginTop: 16 }}>
         <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Change password</h3>

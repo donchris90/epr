@@ -133,3 +133,33 @@ class TestVendorNotifications:
         items = client.get("/v1/notifications", headers=_login(client, "vnp", "v2@vendor.com")).get_json()["data"]
         assert items[0]["type"] == "vnp.banking_change_rejected"
         assert items[0]["body"] == "Account name mismatch"
+
+
+class TestVendorOwnBankingRequests:
+    def test_vendor_lists_only_own_requests_with_status_and_reason(self, app, db, client, seed_tenants, auth_headers):
+        helper = TestVendorNotifications()
+        tid = seed_tenants["a"]
+        rid = helper._request(db, tid, "mine@vendor.com")
+        helper._request(db, tid, "other@vendor.com")
+        fin = auth_headers("a", permissions=["vnp:finance_approve"])
+        client.post(f"/v1/vnp/banking-change-requests/{rid}/reject", headers=fin, json={"reason": "Name mismatch"})
+
+        login = client.post("/v1/vnp/auth/login", json={"email": "mine@vendor.com", "password": "a real password"}).get_json()
+        h = {"Authorization": f"Bearer {login['access_token']}"}
+        me = client.get("/v1/vnp/auth/me", headers=h).get_json()["id"]
+
+        r = client.get(f"/v1/vnp/vendor-users/{me}/banking-change-requests", headers=h)
+        assert r.status_code == 200
+        rows = r.get_json()["data"]
+        assert [x["id"] for x in rows] == [str(rid)]
+        assert rows[0]["status"] == "rejected" and rows[0]["rejection_reason"] == "Name mismatch"
+        assert rows[0]["reviewed_at"]
+
+    def test_vendor_cannot_list_another_vendors_requests(self, app, db, client, seed_tenants):
+        helper = TestVendorNotifications()
+        tid = seed_tenants["a"]
+        helper._request(db, tid, "mine@vendor.com")
+        other = _vnp_user(db, tid, uuid.uuid4(), "other2@vendor.com")
+        login = client.post("/v1/vnp/auth/login", json={"email": "mine@vendor.com", "password": "a real password"}).get_json()
+        h = {"Authorization": f"Bearer {login['access_token']}"}
+        assert client.get(f"/v1/vnp/vendor-users/{other}/banking-change-requests", headers=h).status_code == 403
