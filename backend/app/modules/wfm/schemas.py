@@ -116,6 +116,12 @@ class TimesheetUpdateSchema(Schema):
     rate_applied = fields.Decimal(allow_none=True, as_string=True)
 
 
+class LeaveEntitlementInputSchema(Schema):
+    leave_type = fields.Str(required=True)
+    days = fields.Int(required=True, validate=validate.Range(min=0, max=366))
+    year = fields.Int(load_default=None, validate=validate.Range(min=2000, max=2100))
+
+
 class LeaveRequestInputSchema(Schema):
     employee_id = fields.UUID(required=True)
     leave_type = fields.Str(required=True)

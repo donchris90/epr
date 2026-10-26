@@ -122,11 +122,14 @@ real audit-log endpoint to read from (WFM's own `AuditMixin` records
 `created_by`/`updated_by`/timestamps on each row, but there is no
 endpoint that assembles a real, ordered history feed from them).
 
-**Leave Balance shows real days taken this year by type, not a "days
-remaining" figure.** No annual leave entitlement field exists
-anywhere in this codebase (`Employee` has no entitlement column of
-any kind) — inventing a number (e.g., a hardcoded "21 days/year")
-would be fabricated data, not a real balance.
+**Leave Balance now shows days remaining where an allowance has been set.**
+Annual allowances are stored per employee, leave type and year
+(`wfm_leave_entitlements`, migration 0055) and set by someone holding
+`wfm:approve` from the employee's Leave tab. A leave type with no allowance
+shows days taken and "no allowance set" -- there is deliberately no default
+number. Remaining can go negative and is shown as such. Not built: requests
+are not blocked or flagged when they would exceed the allowance, there is no
+carry-over or accrual, and half days are not supported (whole days only).
 
 **Payroll's "Approval" step is honestly mapped onto the real
 `PAYROLL_STATUSES` state machine, which only has `("draft",

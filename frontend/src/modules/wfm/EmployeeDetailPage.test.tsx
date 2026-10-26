@@ -161,7 +161,54 @@ describe("EmployeeDetailPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Leave" }));
 
-    expect(await screen.findByText("No approved leave taken this year.")).toBeInTheDocument();
+    expect(await screen.findByText("No leave taken or allowance set this year.")).toBeInTheDocument();
+  });
+
+  it("shows days remaining where an allowance is set, and plain days taken where it is not", async () => {
+    const user = userEvent.setup();
+    const base = vi.mocked(apiClient.get).getMockImplementation()!;
+    vi.mocked(apiClient.get).mockImplementation((url: string, ...rest: any[]) =>
+      url === "/wfm/employees/emp-1/leave-balance"
+        ? Promise.resolve({
+            data: { year: 2026, taken: { annual: 5, sick: 2 }, entitlements: { annual: 21 }, remaining: { annual: 16 } },
+          })
+        : (base as any)(url, ...rest)
+    );
+    renderPage();
+    await screen.findByText("Chidi Okafor");
+    await user.click(screen.getByRole("button", { name: "Leave" }));
+
+    const annual = await screen.findByTestId("balance-annual");
+    expect(annual).toHaveTextContent("16 left");
+    expect(annual).toHaveTextContent("5 of 21 used");
+    const sick = screen.getByTestId("balance-sick");
+    expect(sick).toHaveTextContent("2 taken");
+    expect(sick).toHaveTextContent("no allowance set");
+  });
+
+  it("lets someone with wfm:approve set an allowance, and hides the form from others", async () => {
+    const user = userEvent.setup();
+    const token = (perms: string[]) => `x.${btoa(JSON.stringify({ permissions: perms }))}.y`;
+
+    localStorage.setItem("access_token", token(["wfm:read"]));
+    const first = renderPage();
+    await screen.findByText("Chidi Okafor");
+    await user.click(screen.getByRole("button", { name: "Leave" }));
+    await screen.findByText(/Leave balance/);
+    expect(screen.queryByLabelText("Allowance days")).not.toBeInTheDocument();
+    first.unmount();
+
+    localStorage.setItem("access_token", token(["wfm:approve"]));
+    vi.mocked(apiClient.put).mockResolvedValue({ data: {} } as any);
+    renderPage();
+    await screen.findByText("Chidi Okafor");
+    await user.click(screen.getByRole("button", { name: "Leave" }));
+    await user.type(await screen.findByLabelText("Allowance days"), "21");
+    await user.click(screen.getByRole("button", { name: "Set allowance" }));
+    await waitFor(() =>
+      expect(apiClient.put).toHaveBeenCalledWith("/wfm/employees/emp-1/leave-entitlements", expect.objectContaining({ leave_type: "annual", days: 21 }))
+    );
+    localStorage.removeItem("access_token");
   });
 
   it("submits a real leave request via the real endpoint", async () => {

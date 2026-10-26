@@ -21,6 +21,7 @@ from app.modules.wfm.models import (
     AttendanceRecord,
     Timesheet,
     LeaveRequest,
+    LeaveEntitlement,
     Certification,
     PayrollRun,
     PayrollLine,
@@ -259,7 +260,7 @@ def list_leave_requests(tenant_id, *, employee_id=None, status=None):
     return query.order_by(LeaveRequest.start_date.desc()).all()
 
 
-def get_leave_balance(tenant_id, *, employee_id):
+def get_leave_balance(tenant_id, *, employee_id, year=None):
     """Real, honest balance -- deliberately shows real days TAKEN this
     calendar year, grouped by leave_type, from real approved
     LeaveRequest rows. Does NOT show a "days remaining" figure: no
@@ -269,12 +270,13 @@ def get_leave_balance(tenant_id, *, employee_id):
     data, not a real balance. See docs/WFM_SUB_GAPS.md."""
     from datetime import date
 
-    year_start = date(date.today().year, 1, 1)
+    year = year or date.today().year
     approved = LeaveRequest.query.filter(
         LeaveRequest.tenant_id == tenant_id,
         LeaveRequest.employee_id == employee_id,
         LeaveRequest.status == "approved",
-        LeaveRequest.start_date >= year_start,
+        LeaveRequest.start_date >= date(year, 1, 1),
+        LeaveRequest.start_date < date(year + 1, 1, 1),
     ).all()
 
     days_taken_by_type = {}
@@ -283,6 +285,39 @@ def get_leave_balance(tenant_id, *, employee_id):
         days_taken_by_type[leave.leave_type] = days_taken_by_type.get(leave.leave_type, 0) + days
 
     return days_taken_by_type
+
+
+def get_leave_balance_detail(tenant_id, *, employee_id, year=None):
+    """Taken days plus any explicitly set entitlements and the resulting
+    remaining days. `remaining` only has entries for leave types that have
+    an entitlement row; it can go negative if more leave was approved than
+    allowed (shown as-is rather than hidden)."""
+    from datetime import date
+
+    year = year or date.today().year
+    taken = get_leave_balance(tenant_id, employee_id=employee_id, year=year)
+    rows = LeaveEntitlement.query.filter_by(tenant_id=tenant_id, employee_id=employee_id, year=year).all()
+    entitlements = {r.leave_type: r.days for r in rows}
+    remaining = {t: d - taken.get(t, 0) for t, d in entitlements.items()}
+    return {"year": year, "taken": taken, "entitlements": entitlements, "remaining": remaining}
+
+
+def set_leave_entitlement(tenant_id, *, employee_id, leave_type, year, days):
+    if days < 0:
+        raise APIError("Days cannot be negative", status=400)
+    leave_type = leave_type.strip().lower()
+    if not leave_type:
+        raise APIError("Leave type is required", status=400)
+    row = LeaveEntitlement.query.filter_by(
+        tenant_id=tenant_id, employee_id=employee_id, leave_type=leave_type, year=year
+    ).first()
+    if row:
+        row.days = days
+    else:
+        row = LeaveEntitlement(tenant_id=tenant_id, employee_id=employee_id, leave_type=leave_type, year=year, days=days)
+        db.session.add(row)
+    db.session.commit()
+    return row
 
 
 # --- Attendance (WFM-03) --------------------------------------------------------

@@ -165,6 +165,25 @@ class LeaveRequest(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
     __table_args__ = (db.CheckConstraint(f"status IN {LEAVE_STATUSES}", name="ck_wfm_leave_requests_status"),)
 
 
+class LeaveEntitlement(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
+    """Annual leave allowance (in days) for one employee, one leave type
+    and one calendar year. Set explicitly per tenant policy -- there is
+    no built-in default, so a type with no row simply has no stated
+    allowance and no "remaining" figure is shown for it."""
+
+    __tablename__ = "wfm_leave_entitlements"
+
+    employee_id = db.Column(UUID(as_uuid=True), db.ForeignKey("wfm_employees.id"), nullable=False, index=True)
+    leave_type = db.Column(db.String(64), nullable=False)
+    year = db.Column(db.Integer, nullable=False)
+    days = db.Column(db.Integer, nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint("tenant_id", "employee_id", "leave_type", "year", name="uq_wfm_leave_entitlements_emp_type_year"),
+        db.CheckConstraint("days >= 0", name="ck_wfm_leave_entitlements_days"),
+    )
+
+
 class TrainingRecord(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
     """WFM-06: course/provider/completion, with optional expiry (e.g.
     first-aid refreshers)."""

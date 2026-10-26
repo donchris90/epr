@@ -36,6 +36,7 @@ from app.modules.wfm.schemas import (
     GenerateTimesheetSchema,
     TimesheetSchema,
     TimesheetUpdateSchema,
+    LeaveEntitlementInputSchema,
     LeaveRequestInputSchema,
     LeaveRequestSchema,
     LeaveDecisionSchema,
@@ -390,8 +391,27 @@ def cancel_leave_request(leave_id):
 @require_permission("wfm:read")
 def get_leave_balance(employee_id):
     _get_employee_or_404(employee_id)
-    balance = services.get_leave_balance(g.tenant_id, employee_id=employee_id)
-    return jsonify({"days_taken_this_year_by_type": balance})
+    year = request.args.get("year", type=int)
+    detail = services.get_leave_balance_detail(g.tenant_id, employee_id=employee_id, year=year)
+    # `days_taken_this_year_by_type` kept for existing clients.
+    return jsonify({"days_taken_this_year_by_type": detail["taken"], **detail})
+
+
+@bp.put("/employees/<uuid:employee_id>/leave-entitlements")
+@require_permission("wfm:approve")
+def set_leave_entitlement(employee_id):
+    """Sets (or updates) one leave type's annual allowance. Needs
+    wfm:approve -- the allowance is HR policy, not something an
+    employee or supervisor should edit."""
+    from datetime import date
+
+    _get_employee_or_404(employee_id)
+    data = _load(LeaveEntitlementInputSchema())
+    row = services.set_leave_entitlement(
+        g.tenant_id, employee_id=employee_id, leave_type=data["leave_type"],
+        year=data["year"] or date.today().year, days=data["days"],
+    )
+    return jsonify({"employee_id": str(employee_id), "leave_type": row.leave_type, "year": row.year, "days": row.days})
 
 
 # --- Training (WFM-06) -----------------------------------------------------------
