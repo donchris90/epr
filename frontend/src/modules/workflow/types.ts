@@ -44,6 +44,8 @@ export interface WorkflowDefinition {
   updated_at: string;
   updated_by: string | null;
   steps: WorkflowStep[];
+  /** Present on the single-definition GET: true for a draft that no approval has used. */
+  editable?: boolean;
 }
 
 export interface WorkflowAction {

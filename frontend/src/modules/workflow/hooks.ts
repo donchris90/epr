@@ -79,6 +79,16 @@ export async function createWorkflowDefinition(input: {
   return res.data;
 }
 
+/** Edit a draft in place (PUT /v1/workflow/definitions/<id>). The backend
+ * refuses an active definition or one an approval has used. */
+export async function updateWorkflowDefinition(
+  id: string,
+  input: { workflow_name: string; description?: string; steps: WorkflowStep[] }
+): Promise<WorkflowDefinition> {
+  const res = await apiClient.put(`/workflow/definitions/${id}`, input);
+  return res.data;
+}
+
 export async function activateWorkflowDefinition(id: string): Promise<WorkflowDefinition> {
   const res = await apiClient.post(`/workflow/definitions/${id}/activate`);
   return res.data;

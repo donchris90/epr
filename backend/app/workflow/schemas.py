@@ -48,6 +48,15 @@ class WorkflowDefinitionInputSchema(Schema):
     steps = fields.List(fields.Nested(WorkflowStepInputSchema), required=True, validate=validate.Length(min=1))
 
 
+class WorkflowDefinitionUpdateSchema(Schema):
+    """Any subset of name / description / steps. Trigger (module_name,
+    entity_type) is deliberately not editable."""
+
+    workflow_name = fields.Str(validate=validate.Length(min=1))
+    description = fields.Str(allow_none=True)
+    steps = fields.List(fields.Nested(WorkflowStepInputSchema), validate=validate.Length(min=1))
+
+
 class WorkflowDefinitionSchema(Schema):
     id = fields.UUID(dump_only=True)
     module_name = fields.Str(dump_only=True)
