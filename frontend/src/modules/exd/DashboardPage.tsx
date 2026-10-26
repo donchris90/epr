@@ -7,6 +7,7 @@ import {
   useEquipmentUtilization,
   useProjectNames,
   useIncidents,
+  useSafetyRates,
   sumAgingBands,
 } from "./hooks";
 import { useTenders } from "../tbm/hooks";
@@ -61,6 +62,7 @@ export default function DashboardPage() {
   const { data: projectNames } = useProjectNames();
   const { data: tenders } = useTenders();
   const { data: incidents } = useIncidents();
+  const { data: safetyRates } = useSafetyRates();
   const { data: employees } = useEmployees();
 
   const projectNameById = new Map((projectNames ?? []).map((p) => [p.id, p.name]));
@@ -272,6 +274,43 @@ export default function DashboardPage() {
               </div>
             ) : (
               <EmptyState compact title="Not enough dated incidents to show a trend." />
+            )}
+          </Card>
+        </div>
+      </div>
+
+      <div className="row g-3" style={{ marginTop: 0 }}>
+        <div className="col-12">
+          <Card>
+            {metricLabel("Safety rates, year to date")}
+            {safetyRates && safetyRates.trir !== null ? (
+              <div data-testid="safety-rates">
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 28 }}>
+                  <div>
+                    <div className="sf-mono" style={{ fontSize: 20, fontWeight: 700 }}>{Number(safetyRates.trir).toFixed(2)}</div>
+                    <div style={{ fontSize: 11, color: "var(--sf-navy-400)" }}>TRIR · {safetyRates.recordable_incidents} recordable</div>
+                  </div>
+                  <div>
+                    <div className="sf-mono" style={{ fontSize: 20, fontWeight: 700 }}>{Number(safetyRates.ltifr ?? 0).toFixed(2)}</div>
+                    <div style={{ fontSize: 11, color: "var(--sf-navy-400)" }}>LTIFR · {safetyRates.lost_time_incidents} lost-time</div>
+                  </div>
+                  <div>
+                    <div className="sf-mono" style={{ fontSize: 20, fontWeight: 700 }}>{Number(safetyRates.total_hours_worked).toLocaleString()}</div>
+                    <div style={{ fontSize: 11, color: "var(--sf-navy-400)" }}>hours worked</div>
+                  </div>
+                  <div>
+                    <div className="sf-mono" style={{ fontSize: 20, fontWeight: 700 }}>{safetyRates.near_misses}</div>
+                    <div style={{ fontSize: 11, color: "var(--sf-navy-400)" }}>near misses</div>
+                  </div>
+                </div>
+                <p style={{ fontSize: 11, color: "var(--sf-navy-400)", marginTop: 10 }}>
+                  {safetyRates.hours_basis}
+                  {safetyRates.records_missing_check_out > 0 &&
+                    ` ${safetyRates.records_missing_check_out} attendance record(s) have no check-out and add no hours, so the rates may be overstated.`}
+                </p>
+              </div>
+            ) : (
+              <EmptyState compact title="No hours recorded yet." hint="TRIR and LTIFR need hours worked. They appear once attendance with check-in and check-out times is recorded." />
             )}
           </Card>
         </div>

@@ -208,3 +208,61 @@ def get_equipment_utilization_by_category(tenant_id, *, period_start, period_end
         }
         for ownership_type, operated, scheduled in rows
     ]
+
+
+# --- Safety rates (EXD-05): TRIR / LTIFR from recorded hours --------------------------
+
+def get_hours_worked(tenant_id, *, period_start, period_end, project_id=None):
+    """Hours actually recorded in WFM attendance: check-out minus check-in,
+    summed over employees and casual workers for the period. Records with
+    no check-out (or an absence) add no hours and are counted separately so
+    a caller can see how complete the figure is. Subcontractor labour is not
+    in WFM attendance and is therefore NOT included."""
+    from app.modules.wfm.models import AttendanceRecord
+
+    base = db.session.query(AttendanceRecord).filter(
+        AttendanceRecord.tenant_id == tenant_id,
+        AttendanceRecord.attendance_date >= period_start,
+        AttendanceRecord.attendance_date <= period_end,
+    )
+    if project_id:
+        base = base.filter(AttendanceRecord.project_id == project_id)
+
+    complete = base.filter(
+        AttendanceRecord.check_in_at.isnot(None),
+        AttendanceRecord.check_out_at.isnot(None),
+        AttendanceRecord.check_out_at > AttendanceRecord.check_in_at,
+    )
+    seconds = complete.with_entities(
+        db.func.coalesce(db.func.sum(db.func.extract("epoch", AttendanceRecord.check_out_at - AttendanceRecord.check_in_at)), 0)
+    ).scalar()
+    incomplete = base.filter(AttendanceRecord.check_in_at.isnot(None), AttendanceRecord.check_out_at.is_(None)).count()
+
+    return {
+        "hours": (Decimal(str(seconds)) / Decimal(3600)).quantize(Decimal("0.01")),
+        "records_counted": complete.count(),
+        "records_missing_check_out": incomplete,
+    }
+
+
+def get_safety_rates(tenant_id, *, period_start, period_end, project_id=None):
+    """TRIR/LTIFR using HSE's own calculation with hours from attendance.
+    Rates are None (not zero) when no hours are recorded for the period."""
+    from datetime import datetime, time, timezone
+
+    from app.modules.hse.services import calculate_safety_indicators
+
+    hours = get_hours_worked(tenant_id, period_start=period_start, period_end=period_end, project_id=project_id)
+    indicators = calculate_safety_indicators(
+        tenant_id,
+        project_id=project_id,
+        period_start=datetime.combine(period_start, time.min, tzinfo=timezone.utc),
+        period_end=datetime.combine(period_end, time.max, tzinfo=timezone.utc),
+        total_hours_worked=hours["hours"],
+    )
+    return {
+        **indicators,
+        "records_counted": hours["records_counted"],
+        "records_missing_check_out": hours["records_missing_check_out"],
+        "hours_basis": "Recorded attendance (check-out minus check-in) for employees and casual workers. Subcontractor labour is not included.",
+    }

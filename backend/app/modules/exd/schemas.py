@@ -40,6 +40,12 @@ class CompanyRevenueQuerySchema(Schema):
     budget_amount = fields.Decimal(allow_none=True, as_string=True, load_default=None)
 
 
+class SafetyRatesQuerySchema(Schema):
+    period_start = fields.Date(required=True)
+    period_end = fields.Date(required=True)
+    project_id = fields.UUID(allow_none=True, load_default=None)
+
+
 class EquipmentUtilizationQuerySchema(Schema):
     period_start = fields.Date(required=True)
     period_end = fields.Date(required=True)
