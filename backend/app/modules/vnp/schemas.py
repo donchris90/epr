@@ -105,3 +105,11 @@ class BankingChangeRequestSchema(Schema):
     reviewed_by = fields.UUID(dump_only=True)
     reviewed_at = fields.DateTime(dump_only=True)
     rejection_reason = fields.Str(dump_only=True)
+
+
+class StaffBankingChangeRequestSchema(BankingChangeRequestSchema):
+    """Review-screen view: adds what the vendor must never see."""
+
+    vendor_name = fields.Str(dump_only=True, allow_none=True)
+    current_banking_details = fields.Dict(dump_only=True, allow_none=True)
+    previous_banking_details = fields.Dict(dump_only=True, allow_none=True)

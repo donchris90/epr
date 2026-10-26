@@ -312,6 +312,7 @@ def approve_banking_change(request: VendorBankingChangeRequest, *, approved_by):
     if not vendor:
         raise APIError("Vendor not found", status=404)
 
+    request.previous_banking_details = vendor.banking_details
     vendor.banking_details = request.proposed_banking_details
     request.status = "approved"
     request.reviewed_by = approved_by
@@ -348,3 +349,34 @@ def reject_banking_change(request: VendorBankingChangeRequest, *, reviewed_by, r
     )
     db.session.commit()
     return request
+
+
+def list_banking_change_requests_for_review(tenant_id, *, status="pending"):
+    """Staff review list. `status` is one of the request statuses or
+    "all". Each row carries the vendor's name and its CURRENT live
+    banking details so the reviewer can compare against what is being
+    proposed (the main fraud control on a payment-detail change)."""
+    from app.modules.prc.models import Vendor
+    from app.modules.vnp.models import BANKING_CHANGE_STATUSES
+
+    if status != "all" and status not in BANKING_CHANGE_STATUSES:
+        raise APIError("Unknown status filter", status=400)
+    query = VendorBankingChangeRequest.query.filter_by(tenant_id=tenant_id)
+    if status != "all":
+        query = query.filter_by(status=status)
+    reqs = query.order_by(VendorBankingChangeRequest.submitted_at.desc()).all()
+    vendors = {
+        v.id: v
+        for v in Vendor.query.filter(Vendor.tenant_id == tenant_id, Vendor.id.in_({r.vendor_id for r in reqs})).all()
+    } if reqs else {}
+    rows = []
+    for r in reqs:
+        v = vendors.get(r.vendor_id)
+        rows.append(
+            {
+                "request": r,
+                "vendor_name": v.name if v else None,
+                "current_banking_details": v.banking_details if v else None,
+            }
+        )
+    return rows

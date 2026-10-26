@@ -144,5 +144,9 @@ class VendorBankingChangeRequest(db.Model, UUIDPrimaryKeyMixin, TenantMixin, Aud
     reviewed_by = db.Column(UUID(as_uuid=True), nullable=True)
     reviewed_at = db.Column(db.DateTime(timezone=True), nullable=True)
     rejection_reason = db.Column(db.Text, nullable=True)
+    # The vendor's live banking details immediately before an approval
+    # overwrote them (migration 0058), so a bad approval can be audited
+    # and reversed. Staff-only; never returned to the vendor.
+    previous_banking_details = db.Column(JSONB, nullable=True)
 
     __table_args__ = (db.CheckConstraint(f"status IN {BANKING_CHANGE_STATUSES}", name="ck_vnp_banking_change_status"),)
