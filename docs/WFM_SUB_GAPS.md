@@ -57,29 +57,19 @@ implied).
 
 ## Real, honest gaps — not built, and not faked
 
-**Correct Attendance's backend endpoint and hook existed but had no
-frontend UI wired to it when this document was first drafted** — found
-while writing it, and closed in the same pass: `EmployeeDetailPage`'s
-Attendance tab now has a real inline "Correct" action per row, using
-the already-existing, already-tested `useCorrectAttendance` hook.**Bulk attendance was never built at all** — no backend endpoint, no
-service function. `record_attendance` and `mark_absent` both operate
-on one person at a time. A real bulk-entry screen (e.g., a whole
-project's crew for one day, in one table) needs a new, real backend
-endpoint that accepts a list and validates each row the same way the
-single-record path does.
+**Correct Attendance** has an inline "Correct" action per row on the employee's
+Attendance tab (existing `useCorrectAttendance` hook).
 
-```
-BACKEND GAP:
-Endpoint: POST /v1/wfm/attendance/bulk
-Expected behavior: accept a list of {employee_id or
-  casual_worker_id, attendance_date, check_in_at?, check_out_at?}
-  for one real project, applying the same real validation
-  (record_attendance's own exactly-one-worker constraint) per row
-Why frontend requires it: without it, a real bulk-entry UI would
-  either fire N individual requests (a real, if inefficient, option
-  not yet built) or fabricate a bulk capability the backend doesn't
-  have
-```
+**Bulk attendance -- now built.** `POST /v1/wfm/attendance/bulk` takes one
+project, one day and up to 200 rows (employee or casual worker, optional
+check-in/out; no times = explicit absence). Each row gets the single-record
+validation plus: worker must exist in the tenant, check-out after check-in,
+and an existing record for that person/project/day is skipped, not duplicated.
+Valid rows are saved even if others fail; the response lists each row's
+outcome by index. The new Attendance tab (Workforce > Attendance) shows the
+crew for a project (assigned employees + casual workers), marks all present,
+and shows people already recorded that day. Not built: copy from the previous
+day, per-worker activity or overtime, and offline entry.
 
 **Approve Attendance has no real state to represent it.**
 `AttendanceRecord` has no `status` column at all (confirmed directly

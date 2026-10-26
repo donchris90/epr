@@ -32,6 +32,7 @@ from app.modules.wfm.schemas import (
     CasualWorkerSchema,
     AttendanceRecordSchema,
     AttendanceCorrectionSchema,
+    BulkAttendanceSchema,
     MarkAbsentSchema,
     GenerateTimesheetSchema,
     TimesheetSchema,
@@ -217,6 +218,19 @@ def correct_attendance(record_id):
     data = _load(AttendanceCorrectionSchema())
     record = services.correct_attendance(record, **data)
     return jsonify(attendance_schema.dump(record))
+
+
+@bp.post("/attendance/bulk")
+@require_permission("wfm:write")
+def record_attendance_bulk():
+    """A whole crew's day in one request (max 200 rows). Partial success:
+    see services.record_attendance_bulk. 201 if anything was created,
+    otherwise 200 with every row's reason."""
+    data = _load(BulkAttendanceSchema())
+    outcome = services.record_attendance_bulk(
+        g.tenant_id, project_id=data["project_id"], attendance_date=data["attendance_date"], rows=data["rows"]
+    )
+    return jsonify(outcome), (201 if outcome["created"] else 200)
 
 
 @bp.post("/attendance/mark-absent")
