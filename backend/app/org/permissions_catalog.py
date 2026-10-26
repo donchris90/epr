@@ -85,7 +85,7 @@ ALL_PERMISSIONS = [
     "clp:approve", "clp:read", "clp:write",
     "ctm:approve", "ctm:read", "ctm:write",
     "documents:read", "documents:write",
-    "dsar:search",
+    "dsar:manage", "dsar:search",
     "eqp:approve", "eqp:read", "eqp:write",
     "est:approve", "est:read", "est:write",
     "exd:approve", "exd:read",

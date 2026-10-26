@@ -8,7 +8,7 @@ import { UserAvatar } from "../components/UserAvatar";
 
 const NAV = [
   { section: "Projects", items: [{ to: "/projects", label: "All Projects" }] },
-  { section: "Approvals & Documents", items: [{ to: "/approvals", label: "Approval Center" }, { to: "/workflows", label: "Workflows" }, { to: "/documents", label: "Document Library" }, { to: "/notifications", label: "Notifications" }] },
+  { section: "Approvals & Documents", items: [{ to: "/approvals", label: "Approval Center" }, { to: "/workflows", label: "Workflows" }, { to: "/documents", label: "Document Library" }, { to: "/notifications", label: "Notifications" }, { to: "/data-requests", label: "Data Requests" }] },
   { section: "Pipeline", items: [{ to: "/business-development", label: "Business Development" }] },
   {
     section: "Tender-to-Contract",
