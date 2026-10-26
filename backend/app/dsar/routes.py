@@ -119,6 +119,19 @@ def update_request(request_id):
     return jsonify(request_schema.dump(req))
 
 
+@bp.get("/requests/<uuid:request_id>/export")
+@require_permission("dsar:manage")
+def export(request_id):
+    """Download a JSON copy of the person's data (access/portability)."""
+    import json
+
+    req = _get_request_or_404(request_id)
+    payload = services.export_subject_data(g.tenant_id, req, user_id=g.user_id)
+    resp = jsonify(payload)
+    resp.headers["Content-Disposition"] = f'attachment; filename="data-export-{req.id}.json"'
+    return resp
+
+
 @bp.post("/requests/<uuid:request_id>/erase")
 @require_permission("dsar:manage")
 def erase(request_id):

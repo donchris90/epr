@@ -130,7 +130,7 @@ def is_overdue(req: DSARRequest, now=None) -> bool:
     return req.status in ("open", "in_progress") and req.due_at < now
 
 
-def update_request(req: DSARRequest, *, user_id, status=None, resolution_notes=None):
+def update_request(req: DSARRequest, *, user_id, status=None, resolution_notes=None, notify_requester=True):
     if req.status in ("completed", "rejected"):
         raise APIError("This request has already been closed", status=409)
     if status is not None:
@@ -144,8 +144,209 @@ def update_request(req: DSARRequest, *, user_id, status=None, resolution_notes=N
             req.resolved_by = user_id
     if resolution_notes is not None:
         req.resolution_notes = resolution_notes
+    closing = status in ("completed", "rejected")
     db.session.commit()
+    if closing and notify_requester:
+        notify_requester_of_outcome(req)
     return req
+
+
+# --- Emailing the requester ------------------------------------------------------
+
+def _send_email(to_address, subject, body) -> bool:
+    """Queue a plain email; never raises (a mail outage must not fail the
+    request that triggered it). Returns whether it was queued."""
+    import logging
+
+    from app.notifications.tasks import send_email_notification
+
+    try:
+        send_email_notification.delay(to_address=to_address, subject=subject, body=body)
+        return True
+    except Exception:
+        logging.getLogger(__name__).exception("Could not queue DSAR email")
+        return False
+
+
+def notify_requester_of_outcome(req: DSARRequest) -> bool:
+    """Tell the person their request was completed or rejected. For a public
+    request whose email was never confirmed, the staff's notes are left out
+    (the address is unproven); the outcome and the contact route remain."""
+    if not req.subject_email or req.status not in ("completed", "rejected"):
+        return False
+    kind = req.request_type
+    outcome = "completed" if req.status == "completed" else "not able to be fulfilled"
+    lines = [
+        f"Hello {req.subject_name},",
+        "",
+        f"Your data protection request ({kind}), received on {req.received_at.strftime('%d %b %Y')}, has been {outcome}.",
+    ]
+    trusted = req.source == "staff" or req.email_verified_at is not None
+    if req.resolution_notes and trusted:
+        lines += ["", "Notes from our team:", req.resolution_notes]
+    elif req.resolution_notes:
+        lines += ["", "Please reply to the privacy contact in our policy for details; we could not confirm this email address."]
+    lines += ["", "If you have questions, contact the privacy contact listed in our Privacy Policy."]
+    ok = _send_email(req.subject_email, f"Your data request has been {'completed' if req.status == 'completed' else 'closed'}", "\n".join(lines))
+    if ok:
+        req.requester_notified_at = datetime.now(timezone.utc)
+        db.session.commit()
+    return ok
+
+
+# --- Public intake ---------------------------------------------------------------
+
+import hashlib
+import secrets
+
+VERIFY_TOKEN_TTL_DAYS = RESPONSE_DAYS  # the link stays valid for the response window
+
+
+def _hash_token(raw: str) -> str:
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def submit_public_request(tenant, *, request_type, subject_name, subject_email, subject_phone=None, details=None, frontend_url=""):
+    """File a request from the public form. The tenant's id comes from the
+    link, the requester's email is unproven until they click the link we
+    email them, and the response is deliberately identical whether or not
+    a duplicate was found so the form can't be used to probe."""
+    from sqlalchemy import func
+
+    if request_type not in REQUEST_TYPES:
+        raise APIError("Invalid request type", status=400)
+    email = subject_email.strip().lower()
+
+    since = datetime.now(timezone.utc) - timedelta(hours=24)
+    dup = DSARRequest.query.filter(
+        DSARRequest.tenant_id == tenant.id,
+        DSARRequest.source == "public",
+        DSARRequest.request_type == request_type,
+        func.lower(DSARRequest.subject_email) == email,
+        DSARRequest.status.in_(("open", "in_progress")),
+        DSARRequest.received_at >= since,
+    ).first()
+    if dup:
+        return None
+
+    raw = secrets.token_urlsafe(32)
+    received = datetime.now(timezone.utc)
+    req = DSARRequest(
+        tenant_id=tenant.id,
+        request_type=request_type,
+        subject_name=subject_name.strip(),
+        subject_email=email,
+        subject_phone=(subject_phone or "").strip() or None,
+        details=(details or "").strip() or None,
+        status="open",
+        source="public",
+        received_at=received,
+        due_at=received + timedelta(days=RESPONSE_DAYS),
+        actions=[],
+        verification_token_hash=_hash_token(raw),
+    )
+    db.session.add(req)
+    db.session.commit()
+
+    link = f"{frontend_url.rstrip('/')}/privacy-request/{tenant.id}/verify?token={raw}"
+    _send_email(
+        email,
+        f"Confirm your data request to {tenant.name}",
+        (
+            f"Hello {req.subject_name},\n\n"
+            f"We received your data protection request ({request_type}) for {tenant.name}.\n"
+            f"Please confirm it is you by opening this link:\n{link}\n\n"
+            f"We aim to respond within {RESPONSE_DAYS} days of receiving your request "
+            f"(by {req.due_at.strftime('%d %b %Y')}). If you did not make this request, ignore this email."
+        ),
+    )
+    return req
+
+
+def verify_public_request(tenant_id, token: str) -> DSARRequest:
+    """Confirm the requester controls the email address. Single use."""
+    req = DSARRequest.query.filter_by(tenant_id=tenant_id, verification_token_hash=_hash_token(token or "")).first()
+    if not req:
+        raise APIError("This confirmation link is invalid or has expired", status=400)
+    if datetime.now(timezone.utc) > req.received_at + timedelta(days=VERIFY_TOKEN_TTL_DAYS):
+        raise APIError("This confirmation link is invalid or has expired", status=400)
+    if req.email_verified_at is None:
+        req.email_verified_at = datetime.now(timezone.utc)
+        db.session.commit()
+    return req
+
+
+def _require_identity_proven(req: DSARRequest, what: str):
+    if req.source == "public" and req.email_verified_at is None:
+        raise APIError(
+            f"This request came through the public form and the requester has not confirmed their email yet; {what} is blocked until they do",
+            status=409,
+        )
+
+
+# --- Access / portability export -------------------------------------------------
+
+EXPORT_FIELDS = {
+    "users": ["email", "department", "job_title", "status", "last_login_at", "created_at"],
+    "bdc_clients": ["name", "billing_address", "billing_email"],
+    "bdc_contacts": ["name", "title", "email", "phone"],
+    "wfm_casual_workers": ["name", "phone", "id_number", "daily_rate", "status", "onboarded_at"],
+    "clp_portal_users": ["client_organization_name", "email", "is_active", "created_at"],
+    "vnp_portal_users": ["email", "is_active", "created_at"],
+    "scp_portal_users": ["email", "is_active", "created_at"],
+}
+
+
+def _jsonable(v):
+    from decimal import Decimal
+    from uuid import UUID
+
+    if isinstance(v, (datetime,)):
+        return v.isoformat()
+    if isinstance(v, (Decimal, UUID)):
+        return str(v)
+    return v
+
+
+def export_subject_data(tenant_id, req: DSARRequest, *, user_id) -> dict:
+    """A copy of the personal data held about the requester, for access and
+    portability requests: allow-listed fields only (never password hashes
+    or tokens), matched on the request's email/phone like the search. The
+    export itself is logged on the request (no data is stored in the log)."""
+    if req.request_type not in ("access", "portability"):
+        raise APIError("Only access and portability requests can export data", status=400)
+    if req.status in ("completed", "rejected"):
+        raise APIError("This request has already been closed", status=409)
+    if not req.subject_email and not req.subject_phone:
+        raise APIError("The request has no email or phone to find records with", status=400)
+    _require_identity_proven(req, "exporting their data")
+
+    found = search_by_identifier(tenant_id, email=req.subject_email, phone=req.subject_phone)
+    records = {
+        table: [{"id": str(r.id), **{f: _jsonable(getattr(r, f, None)) for f in EXPORT_FIELDS[table]}} for r in rows]
+        for table, rows in found["results"].items()
+    }
+    now = datetime.now(timezone.utc)
+    req.actions = list(req.actions or []) + [
+        {"table": "personal data", "id": "", "action": "exported", "at": now.isoformat(), "by": str(user_id)}
+    ]
+    if req.status == "open":
+        req.status = "in_progress"
+    db.session.commit()
+    return {
+        "request": {
+            "id": str(req.id),
+            "type": req.request_type,
+            "subject_name": req.subject_name,
+            "subject_email": req.subject_email,
+            "subject_phone": req.subject_phone,
+            "received_at": req.received_at.isoformat(),
+        },
+        "generated_at": now.isoformat(),
+        "total_records": found["total_matches"],
+        "records": records,
+        "note": "Covers the structured contact fields the platform searches. Free-text mentions and permanent-employee records (no email/phone stored) are not included.",
+    }
 
 
 # --- Erasure (anonymisation) -----------------------------------------------------
@@ -223,6 +424,7 @@ def erase_records(tenant_id, req: DSARRequest, *, user_id, records):
         raise APIError("This request has already been closed", status=409)
     if not records:
         raise APIError("No records given", status=400)
+    _require_identity_proven(req, "erasure")
 
     # Resolve everything first so a bad entry aborts before anything is touched.
     resolved = []

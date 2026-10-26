@@ -16,6 +16,21 @@ export interface DsarRequest {
   resolution_notes: string | null;
   actions: { table: string; id: string; action: string; at: string }[];
   is_overdue: boolean;
+  source?: "staff" | "public";
+  email_verified?: boolean;
+  requester_notified_at?: string | null;
+}
+
+/** The tenant id from the signed-in session's token, for the public form link. */
+function currentTenantId(): string | null {
+  try {
+    const t = localStorage.getItem("access_token");
+    if (!t) return null;
+    const payload = JSON.parse(atob(t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return payload.tenant_id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 interface SearchHit {
@@ -43,6 +58,7 @@ export default function DataRequestsPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const tenantId = currentTenantId();
 
   const load = useCallback(() => {
     apiClient
@@ -66,6 +82,13 @@ export default function DataRequestsPage() {
         action={<Button onClick={() => setShowNew((v) => !v)}>{showNew ? "Cancel" : "Log request"}</Button>}
       />
       {error && <ErrorBanner title={error} />}
+
+      {tenantId && (
+        <p style={{ fontSize: 12, color: "var(--sf-navy-600)", marginBottom: 12 }}>
+          Public request form to share (e.g. in your privacy policy):{" "}
+          <code data-testid="public-form-link">{`${window.location.origin}/privacy-request/${tenantId}`}</code>
+        </p>
+      )}
 
       {showNew && (
         <NewRequestForm
@@ -94,7 +117,10 @@ export default function DataRequestsPage() {
           <tbody>
             {requests.map((r) => (
               <tr key={r.id} onClick={() => setSelectedId(r.id)} style={{ cursor: "pointer", background: r.id === selectedId ? "var(--sf-steel-dim)" : undefined }}>
-                <Td>{r.subject_name}</Td>
+                <Td>
+                  {r.subject_name}{" "}
+                  {r.source === "public" && <Badge tone={r.email_verified ? "green" : "neutral"}>{r.email_verified ? "Public · verified" : "Public · unverified"}</Badge>}
+                </Td>
                 <Td>{r.request_type}</Td>
                 <Td>
                   <Badge tone={TONE[r.status] ?? "neutral"}>{r.status.replace("_", " ")}</Badge>
@@ -183,6 +209,7 @@ function RequestDetail({ request, onChanged }: { request: DsarRequest; onChanged
   const [hits, setHits] = useState<SearchHit[] | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState(false);
+  const [notify, setNotify] = useState(true);
   const [notes, setNotes] = useState(request.resolution_notes ?? "");
   const [error, setError] = useState<string | null>(null);
   const closed = request.status === "completed" || request.status === "rejected";
@@ -233,7 +260,7 @@ function RequestDetail({ request, onChanged }: { request: DsarRequest; onChanged
   async function close(status: "completed" | "rejected") {
     setError(null);
     try {
-      await apiClient.patch(`/dsar/requests/${request.id}`, { status, resolution_notes: notes || null });
+      await apiClient.patch(`/dsar/requests/${request.id}`, { status, resolution_notes: notes || null, notify_requester: notify });
       onChanged();
     } catch (err) {
       setError(msg(err));
@@ -241,6 +268,25 @@ function RequestDetail({ request, onChanged }: { request: DsarRequest; onChanged
   }
 
   const canErase = request.request_type === "erasure" && !closed;
+  const canExport = (request.request_type === "access" || request.request_type === "portability") && !closed;
+  const unverified = request.source === "public" && !request.email_verified;
+
+  async function downloadExport() {
+    setError(null);
+    try {
+      const res = await apiClient.get(`/dsar/requests/${request.id}/export`);
+      const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `data-export-${request.id}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      onChanged();
+    } catch (err) {
+      setError(msg(err));
+    }
+  }
 
   return (
     <Card style={{ marginTop: 16 }}>
@@ -252,6 +298,11 @@ function RequestDetail({ request, onChanged }: { request: DsarRequest; onChanged
         {new Date(request.received_at).toLocaleDateString()} · due {new Date(request.due_at).toLocaleDateString()}
       </p>
       {request.details && <p style={{ fontSize: 13, marginBottom: 12 }}>{request.details}</p>}
+      {unverified && (
+        <p role="note" style={{ fontSize: 12, color: "var(--sf-brick)", marginBottom: 12 }}>
+          Filed through the public form — the requester hasn't confirmed their email yet. Exporting or erasing their data is blocked until they do.
+        </p>
+      )}
       {error && <ErrorBanner title={error} />}
 
       <h4 style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Records found</h4>
@@ -272,6 +323,12 @@ function RequestDetail({ request, onChanged }: { request: DsarRequest; onChanged
             );
           })}
         </div>
+      )}
+
+      {canExport && (
+        <Button variant="secondary" onClick={downloadExport} disabled={unverified} style={{ marginBottom: 12 }}>
+          Download data export
+        </Button>
       )}
 
       {canErase && picked.size > 0 &&
@@ -298,7 +355,8 @@ function RequestDetail({ request, onChanged }: { request: DsarRequest; onChanged
           <h4 style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Actions taken</h4>
           {request.actions.map((a, i) => (
             <div key={i} style={{ fontSize: 12, color: "var(--sf-navy-600)" }}>
-              {new Date(a.at).toLocaleString()} — {a.action} {a.table} record
+              {new Date(a.at).toLocaleString()} —{" "}
+              {a.action === "exported" ? "exported a copy of the person's data" : `${a.action} ${a.table} record`}
             </div>
           ))}
         </div>
@@ -308,12 +366,19 @@ function RequestDetail({ request, onChanged }: { request: DsarRequest; onChanged
         <p style={{ fontSize: 13 }}>
           <strong>{request.status}</strong>
           {request.resolution_notes ? ` — ${request.resolution_notes}` : ""}
+          {request.requester_notified_at ? ` · requester emailed ${new Date(request.requester_notified_at).toLocaleDateString()}` : ""}
         </p>
       ) : (
         <div>
           <Field label="Outcome notes (required to reject)">
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Field>
+          {request.subject_email && (
+            <label style={{ display: "flex", gap: 6, fontSize: 12, marginBottom: 8 }}>
+              <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+              Email the requester the outcome
+            </label>
+          )}
           <Button onClick={() => close("completed")}>Mark completed</Button>{" "}
           <Button variant="secondary" onClick={() => close("rejected")}>
             Reject

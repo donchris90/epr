@@ -24,6 +24,22 @@ class DSARRequestInputSchema(Schema):
 class DSARRequestUpdateSchema(Schema):
     status = fields.Str()
     resolution_notes = fields.Str(allow_none=True)
+    # Email the requester the outcome when this closes the request.
+    notify_requester = fields.Bool(load_default=True)
+
+
+class PublicDSARRequestSchema(Schema):
+    request_type = fields.Str(required=True)
+    subject_name = fields.Str(required=True, validate=validate.Length(min=1, max=255))
+    subject_email = fields.Email(required=True)
+    subject_phone = fields.Str(allow_none=True, validate=validate.Length(max=64))
+    details = fields.Str(allow_none=True, validate=validate.Length(max=4000))
+    # Honeypot: real people never see or fill this.
+    website = fields.Str(allow_none=True, load_default=None)
+
+
+class PublicVerifySchema(Schema):
+    token = fields.Str(required=True)
 
 
 class DSARRecordRefSchema(Schema):
@@ -48,9 +64,15 @@ class DSARRequestSchema(Schema):
     resolved_at = fields.DateTime(dump_only=True)
     resolution_notes = fields.Str(dump_only=True)
     actions = fields.List(fields.Dict(), dump_only=True)
+    source = fields.Str(dump_only=True)
+    email_verified = fields.Method("get_email_verified", dump_only=True)
+    requester_notified_at = fields.DateTime(dump_only=True, allow_none=True)
     is_overdue = fields.Method("get_is_overdue", dump_only=True)
 
     def get_is_overdue(self, obj):
         from app.dsar.services import is_overdue
 
         return is_overdue(obj)
+
+    def get_email_verified(self, obj):
+        return obj.email_verified_at is not None
