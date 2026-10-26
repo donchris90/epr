@@ -480,3 +480,28 @@ export function usePostPayrollToFinance() {
       }),
   });
 }
+
+// --- Bulk attendance ----------------------------------------------------------------
+
+export interface BulkAttendanceRow {
+  employee_id?: string;
+  casual_worker_id?: string;
+  check_in_at?: string | null;
+  check_out_at?: string | null;
+}
+
+export interface BulkAttendanceResult {
+  created: number;
+  skipped: number;
+  error: number;
+  results: { index: number; status: "created" | "skipped" | "error"; error?: string }[];
+}
+
+export function useBulkAttendance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { project_id: string; attendance_date: string; rows: BulkAttendanceRow[] }): Promise<BulkAttendanceResult> =>
+      (await apiClient.post("/wfm/attendance/bulk", payload)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["wfm", "attendance"] }),
+  });
+}

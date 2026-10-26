@@ -373,6 +373,71 @@ def mark_absent(tenant_id, *, project_id, attendance_date, employee_id=None, cas
     return record
 
 
+def record_attendance_bulk(tenant_id, *, project_id, attendance_date, rows):
+    """Records one day's attendance for a whole crew in one call. Each row
+    is validated the way the single-record path does (exactly one worker;
+    the worker must exist in this tenant; check-out after check-in) and,
+    like mark_absent, a person who already has a record for this project
+    and day is skipped rather than duplicated. Valid rows are saved even if
+    others fail; the result lists every row's outcome by index."""
+    results = []
+    seen = set()
+    to_add = []
+    for i, row in enumerate(rows):
+        eid, cid = row.get("employee_id"), row.get("casual_worker_id")
+        cin, cout = row.get("check_in_at"), row.get("check_out_at")
+
+        def fail(msg):
+            results.append({"index": i, "status": "error", "error": msg})
+
+        if bool(eid) == bool(cid):
+            fail("Exactly one of employee_id or casual_worker_id is required")
+            continue
+        if cout and not cin:
+            fail("check_out_at needs a check_in_at")
+            continue
+        if cin and cout and cout <= cin:
+            fail("check_out_at must be after check_in_at")
+            continue
+        if cin and cin.date() != attendance_date and abs((cin.date() - attendance_date).days) > 1:
+            fail("check_in_at is not on the attendance date")
+            continue
+
+        key = (eid, cid)
+        if key in seen:
+            results.append({"index": i, "status": "skipped", "error": "Listed more than once"})
+            continue
+        seen.add(key)
+
+        worker_model = Employee if eid else CasualWorker
+        if not worker_model.query.filter_by(id=eid or cid, tenant_id=tenant_id).first():
+            fail("Worker not found")
+            continue
+
+        if AttendanceRecord.query.filter_by(
+            tenant_id=tenant_id, project_id=project_id, attendance_date=attendance_date,
+            employee_id=eid, casual_worker_id=cid,
+        ).first():
+            results.append({"index": i, "status": "skipped", "error": "A record already exists for this person and date"})
+            continue
+
+        to_add.append((i, AttendanceRecord(
+            tenant_id=tenant_id, project_id=project_id, attendance_date=attendance_date,
+            employee_id=eid, casual_worker_id=cid, check_in_at=cin, check_out_at=cout, capture_method="manual",
+        )))
+
+    for i, record in to_add:
+        db.session.add(record)
+    db.session.flush()
+    for i, record in to_add:
+        results.append({"index": i, "status": "created", "id": str(record.id)})
+    db.session.commit()
+
+    results.sort(key=lambda r: r["index"])
+    counts = {s: sum(1 for r in results if r["status"] == s) for s in ("created", "skipped", "error")}
+    return {"results": results, **counts}
+
+
 # --- Certification lookup (WFM-08/09, feeds Module 9) -------------------------
 
 def get_active_certification(tenant_id, *, employee_id, certification_type, as_of=None):

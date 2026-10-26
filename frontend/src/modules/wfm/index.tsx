@@ -2,6 +2,7 @@ import { NavLink, Route, Routes, Navigate } from "react-router-dom";
 import WorkforceDashboardPage from "./WorkforceDashboardPage";
 import EmployeesPage from "./EmployeesPage";
 import EmployeeDetailPage from "./EmployeeDetailPage";
+import AttendancePage from "./AttendancePage";
 import TimesheetsPage from "./TimesheetsPage";
 import PayrollPage from "./PayrollPage";
 import PayrollRunDetailPage from "./PayrollRunDetailPage";
@@ -9,6 +10,7 @@ import PayrollRunDetailPage from "./PayrollRunDetailPage";
 const TABS = [
   { to: "/workforce/dashboard", label: "Dashboard" },
   { to: "/workforce/employees", label: "Employees" },
+  { to: "/workforce/attendance", label: "Attendance" },
   { to: "/workforce/timesheets", label: "Timesheets & Leave" },
   { to: "/workforce/payroll", label: "Payroll" },
 ];
@@ -39,6 +41,7 @@ export default function WFMModule() {
         <Route path="dashboard" element={<WorkforceDashboardPage />} />
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="employees/:employeeId" element={<EmployeeDetailPage />} />
+        <Route path="attendance" element={<AttendancePage />} />
         <Route path="timesheets" element={<TimesheetsPage />} />
         <Route path="payroll" element={<PayrollPage />} />
         <Route path="payroll/:runId" element={<PayrollRunDetailPage />} />

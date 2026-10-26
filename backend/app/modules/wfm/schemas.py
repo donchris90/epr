@@ -74,6 +74,28 @@ class AttendanceCorrectionSchema(Schema):
     check_out_at = fields.DateTime(allow_none=True)
 
 
+BULK_ATTENDANCE_MAX_ROWS = 200
+
+
+class BulkAttendanceRowSchema(Schema):
+    employee_id = fields.UUID(allow_none=True, load_default=None)
+    casual_worker_id = fields.UUID(allow_none=True, load_default=None)
+    check_in_at = fields.DateTime(allow_none=True, load_default=None)
+    check_out_at = fields.DateTime(allow_none=True, load_default=None)
+
+
+class BulkAttendanceSchema(Schema):
+    """One project and one day, many workers. A row with no times records
+    an explicit absence, the same as POST /attendance/mark-absent."""
+
+    project_id = fields.UUID(required=True)
+    attendance_date = fields.Date(required=True)
+    rows = fields.List(
+        fields.Nested(BulkAttendanceRowSchema), required=True,
+        validate=validate.Length(min=1, max=BULK_ATTENDANCE_MAX_ROWS),
+    )
+
+
 class MarkAbsentSchema(Schema):
     project_id = fields.UUID(required=True)
     attendance_date = fields.Date(required=True)
