@@ -29,6 +29,9 @@ export interface SalesInvoice {
   net_amount: string;
   vat_amount: string;
   amount: string;
+  amount_paid: string;
+  balance: string;
+  payment_status: "unpaid" | "partially_paid" | "paid";
 }
 
 export interface SalesOrder {
@@ -56,6 +59,9 @@ export interface SalesSettings {
   receivable_account_id: string;
   revenue_account_id: string;
   vat_account_id: string | null;
+  cogs_account_id: string | null;
+  inventory_account_id: string | null;
+  receipt_account_id: string | null;
   vat_percent: string;
   payment_terms_days: number;
 }
@@ -97,6 +103,9 @@ export function useSaveSalesSettings() {
       receivable_account_id: string;
       revenue_account_id: string;
       vat_account_id: string | null;
+      cogs_account_id: string | null;
+      inventory_account_id: string | null;
+      receipt_account_id: string | null;
       vat_percent: string;
       payment_terms_days: number;
     }) => apiClient.put("/sal/settings", payload),
@@ -138,6 +147,19 @@ export function useDeliver() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["sal"] });
       qc.invalidateQueries({ queryKey: ["inv"] });
+    },
+  });
+}
+
+export function useRecordPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ invoiceId, ...payload }: { invoiceId: string; amount: string; method: string; reference: string | null; deposit_account_id: string | null }) =>
+      apiClient.post(`/sal/invoices/${invoiceId}/payments`, payload),
+    // Receipts post to the ledger and mark the finance invoice paid.
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sal"] });
+      qc.invalidateQueries({ queryKey: ["fin"] });
     },
   });
 }

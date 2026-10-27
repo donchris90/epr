@@ -88,8 +88,14 @@ export default function SalesDocumentPage({ kind }: { kind: "invoice" | "deliver
             <div style={{ display: "flex", justifyContent: "space-between" }}><span>Subtotal</span><span>{formatMoney(doc.net_amount)}</span></div>
             <div style={{ display: "flex", justifyContent: "space-between" }}><span>VAT ({num(order.vat_percent)}%)</span><span>{formatMoney(doc.vat_amount)}</span></div>
             <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, borderTop: "1px solid #111", marginTop: 4, paddingTop: 4 }}>
-              <span>Total due</span><span>{formatMoney(doc.amount)}</span>
+              <span>Total</span><span>{formatMoney(doc.amount)}</span>
             </div>
+            {num(doc.amount_paid) > 0 && (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Paid</span><span>{formatMoney(doc.amount_paid)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700 }}><span>Balance due</span><span>{formatMoney(doc.balance)}</span></div>
+              </>
+            )}
           </div>
         ) : (
           <div style={{ display: "flex", gap: 48, marginTop: 48, fontSize: 13 }}>
