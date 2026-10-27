@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { PageHeader, Card, Button, Table, Th, Td, Badge, EmptyState, Input, Field, ErrorBanner, formatMoney } from "../../components/ui";
 import { getErrorMessage } from "../../api/client";
 import { useClients } from "../bdc/hooks";
@@ -94,11 +95,22 @@ function OrderDetail({ order, itemCode }: { order: SalesOrder; itemCode: (id: st
       </p>
       {order.deliveries.length > 0 && (
         <p style={{ fontSize: 12, marginBottom: 4 }}>
-          Delivery notes: {order.deliveries.map((d) => d.number).join(", ")}. Delivered goods are worth {formatMoney(order.delivered_value)} against a stock cost of{" "}
+          Delivery notes:{" "}
+          {order.deliveries.map((d) => (
+            <Link key={d.id} to={`/sales/print/${order.id}/delivery/${d.id}`} style={{ marginRight: 6 }}>{d.number}</Link>
+          ))}
+          Delivered goods are worth {formatMoney(order.delivered_value)} against a stock cost of{" "}
           {formatMoney(order.delivered_cost)} — margin <strong>{formatMoney(order.gross_margin)}</strong>.
         </p>
       )}
-      {order.invoices.length > 0 && <p style={{ fontSize: 12 }}>Invoices: {order.invoices.map((i) => `${i.number} (${formatMoney(i.amount)})`).join(", ")}.</p>}
+      {order.invoices.length > 0 && (
+        <p style={{ fontSize: 12 }}>
+          Invoices:{" "}
+          {order.invoices.map((i) => (
+            <Link key={i.id} to={`/sales/print/${order.id}/invoice/${i.id}`} style={{ marginRight: 6 }}>{`${i.number} (${formatMoney(i.amount)})`}</Link>
+          ))}
+        </p>
+      )}
     </Card>
   );
 }

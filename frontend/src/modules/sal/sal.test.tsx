@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import SalesDocumentPage from "./SalesDocumentPage";
 import SalesOrdersPage from "./SalesOrdersPage";
 import SalesSettingsPage from "./SalesSettingsPage";
 import { apiClient } from "../../api/client";
@@ -12,7 +14,7 @@ vi.mock("../../api/client", () => ({
 }));
 
 const ITEMS = [{ id: "i-bread", code: "BREAD", description: "Bread", unit: "pc", is_batch_tracked: false, is_serial_tracked: false }];
-const CLIENTS = [{ id: "c1", name: "Shoprite" }];
+const CLIENTS = [{ id: "c1", name: "Shoprite", billing_address: "12 Allen Avenue\nIkeja, Lagos", billing_email: "ap@shoprite.example" }];
 const WH = [{ id: "w1", name: "Factory store" }];
 const order = (over: any = {}) => ({
   id: "o1", number: "SO-00001", client_id: "c1", warehouse_id: "w1", status: "draft", order_date: "2026-10-27", delivery_date: null,
@@ -35,6 +37,7 @@ function mockGets(orders: any[], settings: any = null) {
         { id: "a-vat", code: "2200", name: "VAT payable" },
       ],
     };
+    if (url === "/sal/sales-orders/o1") return Promise.resolve({ data: orders[0] } as any);
     if (url === "/sal/settings") return Promise.resolve({ data: { data: settings } } as any);
     return url in data ? Promise.resolve({ data: { data: data[url] } } as any) : Promise.reject(new Error(`unexpected GET ${url}`));
   });
@@ -42,7 +45,7 @@ function mockGets(orders: any[], settings: any = null) {
 
 function renderIn(ui: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+  return render(<QueryClientProvider client={client}><MemoryRouter>{ui}</MemoryRouter></QueryClientProvider>);
 }
 
 beforeEach(() => vi.resetAllMocks());
@@ -164,5 +167,66 @@ describe("SalesSettingsPage", () => {
     await waitFor(() => expect(screen.getByLabelText("Company")).toHaveValue("co1"));
     expect(screen.getByLabelText("VAT account (output VAT payable)")).toHaveValue("");
     expect(screen.getByLabelText("Payment terms (days)")).toHaveValue("14");
+  });
+});
+
+const DOC_ORDER = order({
+  status: "delivered",
+  deliveries: [{ id: "d1", number: "DN-00001", delivered_at: "2026-10-27", lines: [{ order_line_id: "l1", material_item_id: "i-bread", quantity: "10.0000", valued_cost: "4000" }] }],
+  invoices: [{
+    id: "s1", number: "SI-00001", order_id: "o1", invoice_date: "2026-10-27", due_date: "2026-11-10",
+    net_amount: "5000.00", vat_amount: "375.00", amount: "5375.00",
+    lines: [{ order_line_id: "l1", material_item_id: "i-bread", quantity: "10.0000", unit_price: "500.0000", line_total: "5000.00" }],
+  }],
+});
+
+function renderDoc(kind: "invoice" | "delivery", docId: string) {
+  mockGets([DOC_ORDER], { company_id: "co1", receivable_account_id: "a", revenue_account_id: "b", vat_account_id: null, vat_percent: "7.5", payment_terms_days: 14 });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[`/sales/print/o1/${kind}/${docId}`]}>
+        <Routes>
+          <Route path="/sales/print/:orderId/invoice/:docId" element={<SalesDocumentPage kind="invoice" />} />
+          <Route path="/sales/print/:orderId/delivery/:docId" element={<SalesDocumentPage kind="delivery" />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+describe("SalesDocumentPage", () => {
+  it("renders an invoice with company, client, lines, VAT and total", async () => {
+    renderDoc("invoice", "s1");
+    const doc = await screen.findByRole("article", { name: "Invoice" });
+    expect(doc).toHaveTextContent("SI-00001");
+    expect(doc).toHaveTextContent("Acme Foods");
+    expect(doc).toHaveTextContent("Shoprite");
+    expect(doc).toHaveTextContent("12 Allen Avenue");
+    expect(doc).toHaveTextContent("BREAD — Bread");
+    expect(doc).toHaveTextContent("VAT (7.5%)");
+    expect(doc).toHaveTextContent(/Total due.*5,375\.00/);
+    expect(doc).toHaveTextContent("Due: 2026-11-10");
+  });
+
+  it("renders a delivery note without prices and with signature lines", async () => {
+    renderDoc("delivery", "d1");
+    const doc = await screen.findByRole("article", { name: "Delivery note" });
+    expect(doc).toHaveTextContent("DN-00001");
+    expect(doc).toHaveTextContent("Received by");
+    expect(doc).not.toHaveTextContent("Unit price");
+    expect(doc).not.toHaveTextContent("5,375");
+  });
+
+  it("says so when the document is not on the order", async () => {
+    renderDoc("invoice", "nope");
+    expect(await screen.findByText("Document not found")).toBeInTheDocument();
+  });
+
+  it("opens the browser print dialog", async () => {
+    const print = vi.spyOn(window, "print").mockImplementation(() => {});
+    renderDoc("invoice", "s1");
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Print / save as PDF" }));
+    expect(print).toHaveBeenCalled();
   });
 });

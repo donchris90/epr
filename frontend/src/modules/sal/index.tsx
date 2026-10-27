@@ -2,6 +2,7 @@ import { NavLink, Route, Routes, Navigate } from "react-router-dom";
 import SalesOrdersPage from "./SalesOrdersPage";
 import SalesInvoicesPage from "./SalesInvoicesPage";
 import SalesSettingsPage from "./SalesSettingsPage";
+import SalesDocumentPage from "./SalesDocumentPage";
 
 const TABS = [
   { to: "/sales/orders", label: "Sales orders" },
@@ -35,6 +36,8 @@ export default function SALModule() {
         <Route path="orders" element={<SalesOrdersPage />} />
         <Route path="invoices" element={<SalesInvoicesPage />} />
         <Route path="settings" element={<SalesSettingsPage />} />
+        <Route path="print/:orderId/invoice/:docId" element={<SalesDocumentPage kind="invoice" />} />
+        <Route path="print/:orderId/delivery/:docId" element={<SalesDocumentPage kind="delivery" />} />
       </Routes>
     </div>
   );

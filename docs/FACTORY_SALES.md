@@ -16,6 +16,10 @@ Permissions: `sal:read`, `sal:write` (orders, deliveries), `sal:approve` (invoic
 
 UI: **Sales** in the Supply Chain menu → Sales orders / Invoices / Accounting settings.
 
+## Printing
+
+In an order's **Details**, each delivery note and invoice number is a link to a print-ready page (`/sales/print/<order>/invoice|delivery/<id>`): company, client name and billing address, lines, VAT and total (invoice), or quantities and signature lines (delivery note, no prices). The app menu is hidden when printing.
+
 ## Not built (honest limits)
 
 - **No cost-of-goods-sold posting.** Delivery records the cost on the delivery line, but no journal entry moves it from inventory to COGS. Only the sales invoice posts (receivable, revenue, VAT).
@@ -23,7 +27,7 @@ UI: **Sales** in the Supply Chain menu → Sales orders / Invoices / Accounting 
 - **No credit notes or returns.** A delivered/invoiced order cannot be reversed from here.
 - **No customer credit limits, discounts, price lists or quotations.** One price per line.
 - **No stock reservation on confirm.** Stock is only checked at delivery.
-- **No printable delivery note or invoice document**, and no emailing to the customer.
+- **Printing is the browser's print dialog** (Print / save as PDF), not a generated PDF file. The document shows the company *name* only (no logo, address or tax ID, which SiteForge does not store for companies yet). No emailing to the customer.
 - **VAT is one rate per order**; no zero-rated or exempt lines.
 - **Single currency** (NGN): the AR invoice is always posted in the default currency.
 - **Order, delivery and invoice numbers** (`SO-`, `DN-`, `SI-`) are allocated by counting existing rows; two simultaneous creations can collide and one gets a retry message.

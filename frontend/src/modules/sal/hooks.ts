@@ -67,6 +67,14 @@ export function useSalesOrders() {
   });
 }
 
+export function useSalesOrder(id: string | undefined) {
+  return useQuery({
+    queryKey: ["sal", "orders", id],
+    enabled: !!id,
+    queryFn: async (): Promise<SalesOrder> => (await apiClient.get(`/sal/sales-orders/${id}`)).data,
+  });
+}
+
 export function useSalesInvoices() {
   return useQuery({
     queryKey: ["sal", "invoices"],
