@@ -242,3 +242,24 @@ button {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* Printable documents (invoices, delivery notes): print only the page,
+   not the app chrome around it. */
+@media print {
+  .sf-sidebar,
+  .sf-mobile-header,
+  .sf-sidebar-backdrop,
+  .sf-no-print {
+    display: none !important;
+  }
+  .sf-shell {
+    display: block !important;
+  }
+  .sf-main {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  body {
+    background: #fff !important;
+  }
+}

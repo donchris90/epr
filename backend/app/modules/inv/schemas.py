@@ -38,6 +38,7 @@ class MaterialItemSchema(Schema):
     is_batch_tracked = fields.Bool(load_default=False)
     is_serial_tracked = fields.Bool(load_default=False)
     item_type = fields.Str(load_default="other", validate=validate.OneOf(ITEM_TYPES))
+    sale_price = fields.Decimal(allow_none=True, load_default=None, as_string=True, validate=validate.Range(min=0))
 
 
 class StockItemSchema(Schema):

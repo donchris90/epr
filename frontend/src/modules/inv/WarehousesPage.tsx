@@ -14,7 +14,7 @@ export default function WarehousesPage() {
   const [whForm, setWhForm] = useState({ name: "", warehouse_type: "site_store", location: "" });
 
   const [showItemForm, setShowItemForm] = useState(false);
-  const [itemForm, setItemForm] = useState({ code: "", description: "", unit: "", item_type: "other", is_batch_tracked: false });
+  const [itemForm, setItemForm] = useState({ code: "", description: "", unit: "", item_type: "other", is_batch_tracked: false, sale_price: "" });
 
   const [selectedWarehouse, setSelectedWarehouse] = useState<string | null>(null);
   const { data: stock } = useWarehouseStock(selectedWarehouse || undefined);
@@ -28,8 +28,8 @@ export default function WarehousesPage() {
 
   async function handleCreateItem(e: React.FormEvent) {
     e.preventDefault();
-    await createMaterialItem.mutateAsync(itemForm);
-    setItemForm({ code: "", description: "", unit: "", item_type: "other", is_batch_tracked: false });
+    await createMaterialItem.mutateAsync({ ...itemForm, sale_price: itemForm.sale_price || null });
+    setItemForm({ code: "", description: "", unit: "", item_type: "other", is_batch_tracked: false, sale_price: "" });
     setShowItemForm(false);
   }
 
@@ -75,7 +75,7 @@ export default function WarehousesPage() {
 
       {showItemForm && (
         <Card style={{ marginBottom: 20 }}>
-          <form onSubmit={handleCreateItem} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr 1fr auto", gap: 12 }}>
+          <form onSubmit={handleCreateItem} className="sf-grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr 1fr 1fr auto", gap: 12 }}>
             <Field label="Code">
               <Input required value={itemForm.code} onChange={(e) => setItemForm({ ...itemForm, code: e.target.value })} />
             </Field>
@@ -98,6 +98,9 @@ export default function WarehousesPage() {
                 <option value="finished_good">Finished good</option>
                 <option value="consumable">Consumable</option>
               </select>
+            </Field>
+            <Field label="Selling price">
+              <Input inputMode="decimal" value={itemForm.sale_price} onChange={(e) => setItemForm({ ...itemForm, sale_price: e.target.value })} placeholder="optional" />
             </Field>
             <Button type="submit" disabled={createMaterialItem.isPending} style={{ height: 38, alignSelf: "end" }}>Add</Button>
             <label style={{ display: "flex", gap: 6, fontSize: 12, gridColumn: "1 / -1" }}>

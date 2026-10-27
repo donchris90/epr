@@ -95,6 +95,8 @@ class MaterialItem(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
     # only finished/semi-finished goods as products and raw materials as
     # BOM components. "other" keeps every pre-existing item valid.
     item_type = db.Column(db.String(24), nullable=False, default="other", server_default="other")
+    # Default selling price per unit, used to pre-fill sales order lines.
+    sale_price = db.Column(db.Numeric(18, 4), nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint("tenant_id", "code", name="uq_inv_material_items_tenant_code"),

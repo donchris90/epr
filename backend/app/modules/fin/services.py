@@ -59,7 +59,7 @@ def _require_tenant_account(tenant_id, account_id):
 
 # --- Core double-entry posting (private -- business rule) ---------------------
 
-def _post_journal_entry(tenant_id, *, company_id, source_module, lines, source_reference=None, description=None, entry_date=None, currency="NGN", exchange_rate=Decimal("1"), posted_by=None):
+def _post_journal_entry(tenant_id, *, company_id, source_module, lines, source_reference=None, description=None, entry_date=None, currency="NGN", exchange_rate=Decimal("1"), posted_by=None, commit=True):
     """
     `lines` is a list of dicts: {account_id, debit_amount=0, credit_amount=0, project_id=None, cost_code=None}.
     Raises if the entry does not balance -- this is checked BEFORE any
@@ -114,7 +114,8 @@ def _post_journal_entry(tenant_id, *, company_id, source_module, lines, source_r
             )
         )
 
-    db.session.commit()
+    if commit:
+        db.session.commit()
     return entry
 
 
@@ -250,10 +251,21 @@ def post_accounts_receivable_invoice(
     due_date=None,
     project_id=None,
     posted_by=None,
+    vat_amount=0,
+    vat_account_id=None,
+    commit=True,
 ):
     """Dr Accounts Receivable, Cr Revenue. `source_module` should be
-    "BIL" (Module 18) once that module exists to call this."""
+    "BIL" (Module 18) once that module exists to call this.
+
+    `amount` is the NET (revenue) amount. With a `vat_amount`, the
+    receivable is net + VAT and the VAT is credited to `vat_account_id`
+    (output VAT payable); the stored invoice amount is the gross."""
     amount = Decimal(str(amount))
+    vat_amount = Decimal(str(vat_amount or 0))
+    if vat_amount and not vat_account_id:
+        raise APIError("A VAT account is required to post VAT", status=400)
+    gross = amount + vat_amount
 
     entry = _post_journal_entry(
         tenant_id,
@@ -263,9 +275,11 @@ def post_accounts_receivable_invoice(
         description=f"AR invoice {invoice_number}",
         currency=currency,
         posted_by=posted_by,
+        commit=False,
         lines=[
-            {"account_id": receivable_account_id, "debit_amount": amount, "project_id": project_id},
+            {"account_id": receivable_account_id, "debit_amount": gross, "project_id": project_id},
             {"account_id": revenue_account_id, "credit_amount": amount, "project_id": project_id},
+            *([{"account_id": vat_account_id, "credit_amount": vat_amount, "project_id": project_id}] if vat_amount else []),
         ],
     )
 
@@ -276,12 +290,15 @@ def post_accounts_receivable_invoice(
         client_reference=client_reference,
         source_reference=source_reference,
         invoice_number=invoice_number,
-        amount=amount,
+        amount=gross,
         currency=currency,
         due_date=due_date,
     )
     db.session.add(invoice)
-    db.session.commit()
+    if commit:
+        db.session.commit()
+    else:
+        db.session.flush()
     return invoice
 
 

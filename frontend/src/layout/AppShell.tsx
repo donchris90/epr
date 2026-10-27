@@ -32,6 +32,7 @@ const NAV = [
       { to: "/procurement", label: "Procurement" },
       { to: "/inventory", label: "Inventory & Warehouse" },
       { to: "/manufacturing", label: "Manufacturing" },
+      { to: "/sales", label: "Sales" },
       { to: "/equipment", label: "Equipment & Fleet" },
       { to: "/fuel", label: "Fuel Management" },
       { to: "/workforce", label: "Workforce" },
