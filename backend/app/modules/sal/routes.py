@@ -12,6 +12,8 @@ from app.modules.sal.schemas import (
     DeliveryInputSchema,
     DeliverySchema,
     InvoiceSchema,
+    PaymentInputSchema,
+    PaymentSchema,
     OrderInputSchema,
     OrderSchema,
     SalesSettingsSchema,
@@ -23,6 +25,7 @@ settings_schema = SalesSettingsSchema()
 order_schema = OrderSchema()
 delivery_schema = DeliverySchema()
 invoice_schema = InvoiceSchema()
+payment_schema = PaymentSchema()
 
 
 def _load(schema):
@@ -125,3 +128,26 @@ def invoice_order(order_id):
 def list_invoices():
     rows = SalesInvoice.query.filter_by(tenant_id=g.tenant_id).order_by(SalesInvoice.number.desc()).all()
     return jsonify(envelope(invoice_schema.dump(rows, many=True)))
+
+
+def _invoice_or_404(invoice_id) -> SalesInvoice:
+    invoice = SalesInvoice.query.filter_by(id=invoice_id, tenant_id=g.tenant_id).first()
+    if not invoice:
+        raise APIError("Invoice not found", status=404)
+    return invoice
+
+
+@bp.get("/invoices/<uuid:invoice_id>/payments")
+@require_permission("sal:read")
+def list_payments(invoice_id):
+    invoice = _invoice_or_404(invoice_id)
+    return jsonify(envelope(payment_schema.dump(invoice.payments, many=True)))
+
+
+@bp.post("/invoices/<uuid:invoice_id>/payments")
+@require_permission("sal:approve")
+def record_payment(invoice_id):
+    invoice = _invoice_or_404(invoice_id)
+    data = _load(PaymentInputSchema())
+    payment = services.record_payment(g.tenant_id, invoice, actor_id=g.user_id, **data)
+    return jsonify(payment_schema.dump(payment)), 201

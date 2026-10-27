@@ -1,6 +1,6 @@
 # Factory sales (SAL)
 
-Step 2 of making SiteForge usable by factories. Branch `factory-sales-orders`
+Step 2 (with payments and COGS added in `factory-sales-payments-cogs`) of making SiteForge usable by factories. Branch `factory-sales-orders`
 (built on `factory-manufacturing`). Migration `0064_sales_orders`.
 
 ## What it does
@@ -16,14 +16,21 @@ Permissions: `sal:read`, `sal:write` (orders, deliveries), `sal:approve` (invoic
 
 UI: **Sales** in the Supply Chain menu → Sales orders / Invoices / Accounting settings.
 
+## Payments and cost of goods sold (migration `0065_sales_payments_cogs`)
+
+- **Cost of goods sold:** with both a COGS account and an inventory account in the sales settings, every delivery posts **Dr COGS / Cr inventory** for the cost of what left stock, inside the delivery's transaction (if the posting fails, the delivery is cancelled and the stock stays). Without them nothing is posted (the cost is still recorded on the delivery line).
+- **Customer payments** (`POST /v1/sal/invoices/<id>/payments`, `sal:approve`): amount, date, method (cash, transfer, cheque, card, other), reference and the bank/cash account paid into (or the default receipt account from the settings). Posts **Dr bank/cash / Cr receivable**. The invoice shows paid, balance and status (unpaid, part paid, paid); a fully paid invoice also marks its finance (AR) invoice `paid`. The invoice row is locked while paying, so two payments cannot together exceed the balance, and over-payment is refused.
+- The printed invoice shows paid and balance due once something has been paid.
+
 ## Printing
 
 In an order's **Details**, each delivery note and invoice number is a link to a print-ready page (`/sales/print/<order>/invoice|delivery/<id>`): company, client name and billing address, lines, VAT and total (invoice), or quantities and signature lines (delivery note, no prices). The app menu is hidden when printing.
 
 ## Not built (honest limits)
 
-- **No cost-of-goods-sold posting.** Delivery records the cost on the delivery line, but no journal entry moves it from inventory to COGS. Only the sales invoice posts (receivable, revenue, VAT).
-- **No payments or receipts.** Invoices are created `unpaid` in FIN; recording a customer payment against them is not part of this step.
+- **Payments are per invoice.** A customer payment is recorded against one invoice; there is no single receipt allocated across several invoices, no customer account balance or statement, and no bank-statement matching to payments.
+- **No refunds or payment reversals**: a recorded payment cannot be edited or deleted from here.
+- **COGS and receipts post only if the accounts are set.** Without the cost-of-goods and inventory accounts, deliveries do not post cost; without a default receipt account every payment must name one.
 - **No credit notes or returns.** A delivered/invoiced order cannot be reversed from here.
 - **No customer credit limits, discounts, price lists or quotations.** One price per line.
 - **No stock reservation on confirm.** Stock is only checked at delivery.

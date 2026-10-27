@@ -20,6 +20,7 @@ from sqlalchemy.orm import relationship
 from app.extensions import db
 from app.models.base import TenantMixin, AuditMixin, UUIDPrimaryKeyMixin
 
+PAYMENT_METHODS = ("cash", "transfer", "cheque", "card", "other")
 ORDER_STATUSES = ("draft", "confirmed", "partially_delivered", "delivered", "cancelled")
 
 
@@ -33,6 +34,11 @@ class SalesSettings(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
     receivable_account_id = db.Column(UUID(as_uuid=True), db.ForeignKey("fin_chart_of_accounts.id"), nullable=False)
     revenue_account_id = db.Column(UUID(as_uuid=True), db.ForeignKey("fin_chart_of_accounts.id"), nullable=False)
     vat_account_id = db.Column(UUID(as_uuid=True), db.ForeignKey("fin_chart_of_accounts.id"), nullable=True)
+    # Optional: with both set, every delivery posts Dr COGS / Cr inventory.
+    cogs_account_id = db.Column(UUID(as_uuid=True), db.ForeignKey("fin_chart_of_accounts.id"), nullable=True)
+    inventory_account_id = db.Column(UUID(as_uuid=True), db.ForeignKey("fin_chart_of_accounts.id"), nullable=True)
+    # Default bank/cash account that customer payments are deposited to.
+    receipt_account_id = db.Column(UUID(as_uuid=True), db.ForeignKey("fin_chart_of_accounts.id"), nullable=True)
     vat_percent = db.Column(db.Numeric(5, 2), nullable=False, default=7.5)
     payment_terms_days = db.Column(db.Integer, nullable=False, default=30)
 
@@ -98,6 +104,7 @@ class Delivery(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
     order_id = db.Column(UUID(as_uuid=True), db.ForeignKey("sal_sales_orders.id"), nullable=False, index=True)
     delivered_at = db.Column(db.Date, nullable=False)
     notes = db.Column(db.Text, nullable=True)
+    journal_entry_id = db.Column(UUID(as_uuid=True), db.ForeignKey("fin_journal_entries.id"), nullable=True)  # COGS entry
 
     order = relationship("SalesOrder", back_populates="deliveries")
     lines = relationship("DeliveryLine", back_populates="delivery", cascade="all, delete-orphan", order_by="DeliveryLine.created_at")
@@ -133,11 +140,47 @@ class SalesInvoice(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
     net_amount = db.Column(db.Numeric(18, 2), nullable=False)
     vat_amount = db.Column(db.Numeric(18, 2), nullable=False, default=0)
     amount = db.Column(db.Numeric(18, 2), nullable=False)
+    amount_paid = db.Column(db.Numeric(18, 2), nullable=False, default=0)
 
     order = relationship("SalesOrder", back_populates="invoices")
     lines = relationship("SalesInvoiceLine", back_populates="invoice", cascade="all, delete-orphan", order_by="SalesInvoiceLine.created_at")
+    payments = relationship("SalesPayment", back_populates="invoice", order_by="SalesPayment.created_at")
 
-    __table_args__ = (db.UniqueConstraint("tenant_id", "number", name="uq_sal_invoices_tenant_number"),)
+    __table_args__ = (
+        db.UniqueConstraint("tenant_id", "number", name="uq_sal_invoices_tenant_number"),
+        db.CheckConstraint("amount_paid >= 0 AND amount_paid <= amount", name="ck_sal_invoices_paid"),
+    )
+
+    @property
+    def balance(self):
+        return self.amount - self.amount_paid
+
+    @property
+    def payment_status(self):
+        if self.amount_paid <= 0:
+            return "unpaid"
+        return "paid" if self.amount_paid >= self.amount else "partially_paid"
+
+
+class SalesPayment(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):
+    """A customer payment against one invoice."""
+
+    __tablename__ = "sal_payments"
+
+    invoice_id = db.Column(UUID(as_uuid=True), db.ForeignKey("sal_invoices.id"), nullable=False, index=True)
+    amount = db.Column(db.Numeric(18, 2), nullable=False)
+    paid_at = db.Column(db.Date, nullable=False)
+    method = db.Column(db.String(16), nullable=False, default="transfer")
+    reference = db.Column(db.String(128), nullable=True)
+    deposit_account_id = db.Column(UUID(as_uuid=True), db.ForeignKey("fin_chart_of_accounts.id"), nullable=False)
+    journal_entry_id = db.Column(UUID(as_uuid=True), db.ForeignKey("fin_journal_entries.id"), nullable=False)
+
+    invoice = relationship("SalesInvoice", back_populates="payments")
+
+    __table_args__ = (
+        db.CheckConstraint("amount > 0", name="ck_sal_payments_amount"),
+        db.CheckConstraint(f"method IN {PAYMENT_METHODS}", name="ck_sal_payments_method"),
+    )
 
 
 class SalesInvoiceLine(db.Model, UUIDPrimaryKeyMixin, TenantMixin, AuditMixin):

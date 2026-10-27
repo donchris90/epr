@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import SalesDocumentPage from "./SalesDocumentPage";
 import SalesOrdersPage from "./SalesOrdersPage";
 import SalesSettingsPage from "./SalesSettingsPage";
+import SalesInvoicesPage from "./SalesInvoicesPage";
 import { apiClient } from "../../api/client";
 
 vi.mock("../../api/client", () => ({
@@ -155,6 +156,7 @@ describe("SalesSettingsPage", () => {
     await waitFor(() =>
       expect(apiClient.put).toHaveBeenCalledWith("/sal/settings", {
         company_id: "co1", receivable_account_id: "a-ar", revenue_account_id: "a-rev", vat_account_id: "a-vat",
+        cogs_account_id: null, inventory_account_id: null, receipt_account_id: null,
         vat_percent: "7.5", payment_terms_days: 30,
       }),
     );
@@ -205,7 +207,7 @@ describe("SalesDocumentPage", () => {
     expect(doc).toHaveTextContent("12 Allen Avenue");
     expect(doc).toHaveTextContent("BREAD — Bread");
     expect(doc).toHaveTextContent("VAT (7.5%)");
-    expect(doc).toHaveTextContent(/Total due.*5,375\.00/);
+    expect(doc).toHaveTextContent(/Total.*5,375\.00/);
     expect(doc).toHaveTextContent("Due: 2026-11-10");
   });
 
@@ -228,5 +230,84 @@ describe("SalesDocumentPage", () => {
     renderDoc("invoice", "s1");
     await userEvent.setup().click(await screen.findByRole("button", { name: "Print / save as PDF" }));
     expect(print).toHaveBeenCalled();
+  });
+});
+
+const INVOICE = (over: any = {}) => ({
+  id: "s1", number: "SI-00001", order_id: "o1", invoice_date: "2026-10-27", due_date: "2026-11-10",
+  net_amount: "5000.00", vat_amount: "375.00", amount: "5375.00", amount_paid: "0.00", balance: "5375.00", payment_status: "unpaid", ...over,
+});
+
+function mockInvoiceGets(invoices: any[], settings: any) {
+  vi.mocked(apiClient.get).mockImplementation((url: string) => {
+    if (url === "/sal/settings") return Promise.resolve({ data: { data: settings } } as any);
+    const data: Record<string, any> = {
+      "/sal/invoices": invoices,
+      "/sal/sales-orders": [order()],
+      "/fin/chart-of-accounts": [{ id: "a-bank", code: "1000", name: "GTB Current" }],
+    };
+    return url in data ? Promise.resolve({ data: { data: data[url] } } as any) : Promise.reject(new Error(`unexpected GET ${url}`));
+  });
+}
+
+const SETTINGS = { company_id: "co1", receivable_account_id: "a", revenue_account_id: "b", vat_account_id: null, cogs_account_id: null, inventory_account_id: null, receipt_account_id: null, vat_percent: "7.5", payment_terms_days: 14 };
+
+describe("SalesInvoicesPage payments", () => {
+  it("shows paid, balance and status, and hides the button once paid", async () => {
+    mockInvoiceGets([INVOICE(), INVOICE({ id: "s2", number: "SI-00002", amount_paid: "5375.00", balance: "0.00", payment_status: "paid" })], SETTINGS);
+    renderIn(<SalesInvoicesPage />);
+    await screen.findByText("SI-00001");
+    expect(screen.getByText("Unpaid")).toBeInTheDocument();
+    const paidRow = screen.getByText("SI-00002").closest("tr")!;
+    expect(within(paidRow).getByText("Paid")).toBeInTheDocument();
+    expect(within(paidRow).queryByRole("button", { name: "Record payment" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Record payment" })).toHaveLength(1);
+  });
+
+  it("records a payment into a chosen account", async () => {
+    mockInvoiceGets([INVOICE()], SETTINGS); // no default receipt account -> must choose one
+    vi.mocked(apiClient.post).mockResolvedValue({ data: {} } as any);
+    const user = userEvent.setup();
+    renderIn(<SalesInvoicesPage />);
+    await user.click(await screen.findByRole("button", { name: "Record payment" }));
+    expect(await screen.findByLabelText("Amount received")).toHaveValue("5375");
+    await screen.findByRole("option", { name: "1000 — GTB Current" });
+    await user.clear(screen.getByLabelText("Amount received"));
+    await user.type(screen.getByLabelText("Amount received"), "2000");
+    await user.type(screen.getByLabelText("Reference"), "NIP-9");
+    await user.selectOptions(screen.getByLabelText("Paid into"), "a-bank");
+    await user.click(screen.getAllByRole("button", { name: "Record payment" })[0]);
+    await waitFor(() =>
+      expect(apiClient.post).toHaveBeenCalledWith("/sal/invoices/s1/payments", {
+        amount: "2000", method: "transfer", reference: "NIP-9", deposit_account_id: "a-bank",
+      }),
+    );
+  });
+
+  it("leaves the account blank to use the default when one is set", async () => {
+    mockInvoiceGets([INVOICE()], { ...SETTINGS, receipt_account_id: "a-bank" });
+    vi.mocked(apiClient.post).mockResolvedValue({ data: {} } as any);
+    const user = userEvent.setup();
+    renderIn(<SalesInvoicesPage />);
+    await user.click(await screen.findByRole("button", { name: "Record payment" }));
+    await screen.findByRole("option", { name: "Default account" });
+    await user.click(screen.getAllByRole("button", { name: "Record payment" })[0]);
+    await waitFor(() =>
+      expect(apiClient.post).toHaveBeenCalledWith("/sal/invoices/s1/payments", {
+        amount: "5375", method: "transfer", reference: null, deposit_account_id: null,
+      }),
+    );
+  });
+
+  it("shows the server's reason when the payment is refused and keeps the panel open", async () => {
+    mockInvoiceGets([INVOICE()], { ...SETTINGS, receipt_account_id: "a-bank" });
+    vi.mocked(apiClient.post).mockRejectedValue({ response: { data: { title: "Payment is more than the balance owed", detail: "Balance due is 100.00." } } });
+    const user = userEvent.setup();
+    renderIn(<SalesInvoicesPage />);
+    await user.click(await screen.findByRole("button", { name: "Record payment" }));
+    await screen.findByLabelText("Amount received");
+    await user.click(screen.getAllByRole("button", { name: "Record payment" })[0]);
+    expect(await screen.findByText(/Balance due is 100/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Amount received")).toBeInTheDocument();
   });
 });

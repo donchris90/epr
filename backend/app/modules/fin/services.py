@@ -119,6 +119,15 @@ def _post_journal_entry(tenant_id, *, company_id, source_module, lines, source_r
     return entry
 
 
+def post_journal_entry(tenant_id, **kwargs):
+    """Public entry point for other modules to post a balanced journal
+    entry (e.g. SAL's cost of goods sold and customer receipts). Same
+    rules as every posting: it must balance, accounts and company must
+    belong to the tenant. Pass `commit=False` to post inside the caller's
+    transaction."""
+    return _post_journal_entry(tenant_id, **kwargs)
+
+
 # --- Budget control (FIN-04, business rule) ------------------------------------
 
 def check_budget_control(tenant_id, *, cost_code, posting_amount, cbs_budget_amount, cost_category=None):

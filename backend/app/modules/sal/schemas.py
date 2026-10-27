@@ -1,7 +1,7 @@
 """Sales request/response schemas."""
 from marshmallow import Schema, fields, validate
 
-from app.modules.sal.models import ORDER_STATUSES
+from app.modules.sal.models import ORDER_STATUSES, PAYMENT_METHODS
 
 
 class SalesSettingsSchema(Schema):
@@ -10,6 +10,9 @@ class SalesSettingsSchema(Schema):
     receivable_account_id = fields.UUID(required=True)
     revenue_account_id = fields.UUID(required=True)
     vat_account_id = fields.UUID(allow_none=True, load_default=None)
+    cogs_account_id = fields.UUID(allow_none=True, load_default=None)
+    inventory_account_id = fields.UUID(allow_none=True, load_default=None)
+    receipt_account_id = fields.UUID(allow_none=True, load_default=None)
     vat_percent = fields.Decimal(load_default="7.5", as_string=True, validate=validate.Range(min=0, max=100))
     payment_terms_days = fields.Int(load_default=30, validate=validate.Range(min=0, max=365))
 
@@ -73,6 +76,24 @@ class InvoiceLineSchema(Schema):
     line_total = fields.Decimal(dump_only=True, as_string=True)
 
 
+class PaymentInputSchema(Schema):
+    amount = fields.Decimal(required=True, as_string=True)
+    paid_at = fields.Date(allow_none=True, load_default=None)
+    method = fields.Str(load_default="transfer", validate=validate.OneOf(PAYMENT_METHODS))
+    reference = fields.Str(allow_none=True, load_default=None)
+    deposit_account_id = fields.UUID(allow_none=True, load_default=None)
+
+
+class PaymentSchema(Schema):
+    id = fields.UUID(dump_only=True)
+    invoice_id = fields.UUID(dump_only=True)
+    amount = fields.Decimal(dump_only=True, as_string=True)
+    paid_at = fields.Date(dump_only=True)
+    method = fields.Str(dump_only=True)
+    reference = fields.Str(dump_only=True, allow_none=True)
+    deposit_account_id = fields.UUID(dump_only=True)
+
+
 class InvoiceSchema(Schema):
     id = fields.UUID(dump_only=True)
     number = fields.Str(dump_only=True)
@@ -83,6 +104,9 @@ class InvoiceSchema(Schema):
     net_amount = fields.Decimal(dump_only=True, as_string=True)
     vat_amount = fields.Decimal(dump_only=True, as_string=True)
     amount = fields.Decimal(dump_only=True, as_string=True)
+    amount_paid = fields.Decimal(dump_only=True, as_string=True)
+    balance = fields.Decimal(dump_only=True, as_string=True)
+    payment_status = fields.Str(dump_only=True)
     lines = fields.List(fields.Nested(InvoiceLineSchema), dump_only=True)
 
 

@@ -16,6 +16,9 @@ export default function SalesSettingsPage() {
     receivable_account_id: "",
     revenue_account_id: "",
     vat_account_id: "",
+    cogs_account_id: "",
+    inventory_account_id: "",
+    receipt_account_id: "",
     vat_percent: "7.5",
     payment_terms_days: "30",
   });
@@ -29,6 +32,9 @@ export default function SalesSettingsPage() {
         receivable_account_id: settings.receivable_account_id,
         revenue_account_id: settings.revenue_account_id,
         vat_account_id: settings.vat_account_id ?? "",
+        cogs_account_id: settings.cogs_account_id ?? "",
+        inventory_account_id: settings.inventory_account_id ?? "",
+        receipt_account_id: settings.receipt_account_id ?? "",
         vat_percent: String(Number(settings.vat_percent)),
         payment_terms_days: String(settings.payment_terms_days),
       });
@@ -42,6 +48,9 @@ export default function SalesSettingsPage() {
       await save.mutateAsync({
         ...form,
         vat_account_id: form.vat_account_id || null,
+        cogs_account_id: form.cogs_account_id || null,
+        inventory_account_id: form.inventory_account_id || null,
+        receipt_account_id: form.receipt_account_id || null,
         payment_terms_days: Number(form.payment_terms_days),
       });
       setSaved(true);
@@ -50,7 +59,7 @@ export default function SalesSettingsPage() {
     }
   }
 
-  const accountSelect = (key: "receivable_account_id" | "revenue_account_id" | "vat_account_id", label: string, required: boolean) => (
+  const accountSelect = (key: "receivable_account_id" | "revenue_account_id" | "vat_account_id" | "cogs_account_id" | "inventory_account_id" | "receipt_account_id", label: string, required: boolean) => (
     <Field label={label}>
       <select aria-label={label} required={required} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} style={selectStyle}>
         <option value="">{required ? "Select account…" : "None"}</option>
@@ -66,7 +75,7 @@ export default function SalesSettingsPage() {
       <PageHeader eyebrow="Sales" title="Accounting settings" />
       <Card>
         <p style={{ fontSize: 12, color: "var(--sf-navy-400)", marginBottom: 12 }}>
-          Sales invoices post to the ledger: the customer owes the total, revenue is credited with the net amount, and VAT is credited to the VAT account.
+          Sales invoices post to the ledger: the customer owes the total, revenue is credited with the net amount, and VAT is credited to the VAT account. Set the cost of goods sold and inventory accounts (both) to also post the cost of goods on every delivery; set a bank / cash account to record customer payments against it by default.
         </p>
         {error && <ErrorBanner title="Couldn't save settings" detail={error} onDismiss={() => setError(null)} />}
         {saved && <p role="status" style={{ fontSize: 12, color: "var(--sf-green)", marginBottom: 8 }}>Settings saved.</p>}
@@ -82,6 +91,9 @@ export default function SalesSettingsPage() {
           {accountSelect("receivable_account_id", "Receivable account", true)}
           {accountSelect("revenue_account_id", "Revenue account", true)}
           {accountSelect("vat_account_id", "VAT account (output VAT payable)", false)}
+          {accountSelect("receipt_account_id", "Bank / cash account for customer payments", false)}
+          {accountSelect("cogs_account_id", "Cost of goods sold account", false)}
+          {accountSelect("inventory_account_id", "Inventory account", false)}
           <Field label="VAT rate (%)">
             <Input inputMode="decimal" required value={form.vat_percent} onChange={(e) => setForm({ ...form, vat_percent: e.target.value })} />
           </Field>

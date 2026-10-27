@@ -17,8 +17,10 @@ from app.modules.sal.models import (
     SalesInvoiceLine,
     SalesOrder,
     SalesOrderLine,
+    SalesPayment,
     SalesSettings,
 )
+from app.modules.sal.models import PAYMENT_METHODS
 from app.utils.errors import APIError
 
 ZERO = Decimal("0")
@@ -46,10 +48,18 @@ def get_settings(tenant_id):
     return SalesSettings.query.filter_by(tenant_id=tenant_id).first()
 
 
-def save_settings(tenant_id, *, company_id, receivable_account_id, revenue_account_id, vat_account_id, vat_percent, payment_terms_days):
+def save_settings(
+    tenant_id, *, company_id, receivable_account_id, revenue_account_id, vat_account_id, vat_percent, payment_terms_days,
+    cogs_account_id=None, inventory_account_id=None, receipt_account_id=None,
+):
     if not Company.query.filter_by(id=company_id, tenant_id=tenant_id).first():
         raise APIError("Company not found", status=404)
-    for label, acc in (("Receivable", receivable_account_id), ("Revenue", revenue_account_id), ("VAT", vat_account_id)):
+    if bool(cogs_account_id) != bool(inventory_account_id):
+        raise APIError("Choose both the cost-of-goods and the inventory account, or neither", status=422)
+    for label, acc in (
+        ("Receivable", receivable_account_id), ("Revenue", revenue_account_id), ("VAT", vat_account_id),
+        ("Cost of goods", cogs_account_id), ("Inventory", inventory_account_id), ("Receipt", receipt_account_id),
+    ):
         if acc and not ChartOfAccounts.query.filter_by(id=acc, tenant_id=tenant_id).first():
             raise APIError(f"{label} account not found", status=404)
     vat_percent = Decimal(str(vat_percent))
@@ -60,6 +70,9 @@ def save_settings(tenant_id, *, company_id, receivable_account_id, revenue_accou
     row.receivable_account_id = receivable_account_id
     row.revenue_account_id = revenue_account_id
     row.vat_account_id = vat_account_id
+    row.cogs_account_id = cogs_account_id
+    row.inventory_account_id = inventory_account_id
+    row.receipt_account_id = receipt_account_id
     row.vat_percent = vat_percent
     row.payment_terms_days = payment_terms_days
     db.session.add(row)
@@ -200,6 +213,8 @@ def deliver(tenant_id, order: SalesOrder, *, lines, delivered_at=None, notes=Non
                              quantity=qty, valued_cost=issued["valued_cost"])
             )
         db.session.add(delivery)
+        db.session.flush()
+        _post_cogs(tenant_id, order, delivery, actor_id)
         fully = all(l.delivered_quantity >= l.quantity for l in order.lines)
         order.status = "delivered" if fully else "partially_delivered"
         db.session.commit()
@@ -207,6 +222,30 @@ def deliver(tenant_id, order: SalesOrder, *, lines, delivered_at=None, notes=Non
         db.session.rollback()
         raise
     return delivery
+
+
+def _post_cogs(tenant_id, order, delivery, actor_id):
+    """Dr cost of goods sold / Cr inventory for what just left stock,
+    inside the delivery's transaction. Skipped when the tenant has not
+    set both accounts, or the goods carry no cost."""
+    settings = get_settings(tenant_id)
+    cost = _money(sum((dl.valued_cost for dl in delivery.lines), ZERO))
+    if not settings or not settings.cogs_account_id or not settings.inventory_account_id or cost <= 0:
+        return
+    entry = fin_services.post_journal_entry(
+        tenant_id,
+        company_id=settings.company_id,
+        source_module="SAL",
+        source_reference=delivery.id,
+        description=f"Cost of goods sold {delivery.number} ({order.number})",
+        posted_by=actor_id,
+        commit=False,
+        lines=[
+            {"account_id": settings.cogs_account_id, "debit_amount": cost},
+            {"account_id": settings.inventory_account_id, "credit_amount": cost},
+        ],
+    )
+    delivery.journal_entry_id = entry.id
 
 
 # --- Invoicing ---------------------------------------------------------------------------
@@ -279,3 +318,62 @@ def delivered_cost(order: SalesOrder) -> Decimal:
 
 def delivered_value(order: SalesOrder) -> Decimal:
     return _money(sum((l.delivered_quantity * l.unit_price for l in order.lines), ZERO))
+
+
+# --- Customer payments ------------------------------------------------------------------
+
+def record_payment(tenant_id, invoice: SalesInvoice, *, amount, paid_at=None, method="transfer", reference=None,
+                   deposit_account_id=None, actor_id=None):
+    """Records money received against an invoice: Dr bank/cash, Cr
+    receivable. The invoice row is locked so two payments cannot together
+    exceed what is owed. A fully paid invoice marks its finance (AR)
+    invoice paid."""
+    from app.modules.fin.models import AccountsReceivableInvoice
+
+    if method not in PAYMENT_METHODS:
+        raise APIError("Unknown payment method", status=422)
+    amount = _money(_dec(amount, "amount"))
+    if amount <= 0:
+        raise APIError("amount must be greater than zero", status=422)
+
+    settings = get_settings(tenant_id)
+    if not settings:
+        raise APIError("Sales accounting is not set up", status=409, detail="Set the sales accounting settings first.")
+    deposit_account_id = deposit_account_id or settings.receipt_account_id
+    if not deposit_account_id:
+        raise APIError("Choose the account the money was paid into", status=422,
+                       detail="Pick a bank or cash account, or set a default receipt account in the sales settings.")
+
+    try:
+        locked = SalesInvoice.query.filter_by(id=invoice.id, tenant_id=tenant_id).with_for_update().one()
+        if amount > locked.balance:
+            raise APIError("Payment is more than the balance owed", status=409, detail=f"Balance due is {locked.balance}.")
+
+        entry = fin_services.post_journal_entry(
+            tenant_id,
+            company_id=settings.company_id,
+            source_module="SAL",
+            source_reference=locked.id,
+            description=f"Payment received for {locked.number}",
+            posted_by=actor_id,
+            commit=False,
+            lines=[
+                {"account_id": deposit_account_id, "debit_amount": amount},
+                {"account_id": settings.receivable_account_id, "credit_amount": amount},
+            ],
+        )
+        payment = SalesPayment(
+            tenant_id=tenant_id, invoice_id=locked.id, amount=amount, paid_at=paid_at or date.today(), method=method,
+            reference=reference, deposit_account_id=deposit_account_id, journal_entry_id=entry.id, created_by=actor_id,
+        )
+        db.session.add(payment)
+        locked.amount_paid += amount
+        if locked.amount_paid >= locked.amount:
+            ar = AccountsReceivableInvoice.query.filter_by(id=locked.ar_invoice_id, tenant_id=tenant_id).first()
+            if ar:
+                ar.status = "paid"
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    return payment
